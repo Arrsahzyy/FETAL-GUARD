@@ -1,0 +1,522 @@
+.monitoring-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--color-bg-primary);
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Responsive container on larger screens */
+@media (min-width: 1024px) {
+    .monitoring-screen {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-bottom: 100px;
+    }
+}
+
+/* Header */
+.monitoring-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-3) var(--spacing-4);
+    padding-top: max(var(--spacing-3), env(safe-area-inset-top));
+    padding-left: max(var(--spacing-4), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-4), env(safe-area-inset-right));
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+@media (min-width: 640px) {
+    .monitoring-header {
+        padding: var(--spacing-4) var(--spacing-6);
+    }
+}
+
+.monitoring-header__left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+}
+
+.monitoring-header__left h1 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin: 0;
+}
+
+.monitoring-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.monitoring-back-btn:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.monitoring-back-btn svg {
+    width: 20px;
+    height: 20px;
+    color: var(--color-text-primary);
+}
+
+.monitoring-header__duration {
+    text-align: right;
+}
+
+.monitoring-header__duration-label {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+}
+
+.monitoring-header__duration-value {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary-pink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Status Bar */
+.monitoring-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-2) var(--spacing-4);
+    background: var(--color-bg-tertiary);
+}
+
+.monitoring-imu-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* Pregnancy Info Banner */
+.monitoring-pregnancy-info {
+    padding: var(--spacing-3) var(--spacing-4);
+    background: linear-gradient(135deg, rgba(255, 107, 154, 0.1) 0%, rgba(74, 163, 255, 0.1) 100%);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.monitoring-pregnancy-week {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.monitoring-pregnancy-week svg {
+    width: 18px;
+    height: 18px;
+    color: var(--color-primary-pink);
+}
+
+.monitoring-pregnancy-week strong {
+    color: var(--color-primary-pink);
+    font-weight: var(--font-weight-bold);
+}
+
+/* Warning */
+.monitoring-warning {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    background: var(--color-warning-bg);
+    margin: var(--spacing-4);
+    border-radius: var(--radius-lg);
+    border-left: 4px solid var(--color-warning);
+}
+
+.monitoring-warning svg {
+    width: 24px;
+    height: 24px;
+    color: var(--color-warning);
+    flex-shrink: 0;
+}
+
+.monitoring-warning p {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.monitoring-warning__btn {
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-warning);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* FHR Container */
+.monitoring-fhr-container {
+    padding: var(--spacing-4);
+    text-align: center;
+}
+
+.monitoring-fhr-avg {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.monitoring-fhr-avg strong {
+    color: var(--color-text-primary);
+}
+
+/* Waveform */
+.monitoring-waveform {
+    padding: 0 var(--spacing-4);
+    margin-bottom: var(--spacing-4);
+}
+
+/* Counters */
+.monitoring-counters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-2);
+    padding: var(--spacing-3) var(--spacing-4);
+    padding-left: max(var(--spacing-4), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-4), env(safe-area-inset-right));
+}
+
+@media (min-width: 640px) {
+    .monitoring-counters {
+        gap: var(--spacing-4);
+        padding: var(--spacing-4) var(--spacing-6);
+    }
+}
+
+/* Landscape mode: horizontal layout */
+@media (orientation: landscape) and (max-height: 500px) {
+    .monitoring-counters {
+        grid-template-columns: repeat(6, 1fr);
+        gap: var(--spacing-2);
+    }
+}
+
+.monitoring-counter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 640px) {
+    .monitoring-counter {
+        padding: var(--spacing-4);
+    }
+}
+
+.monitoring-counter__value {
+    font-size: var(--font-size-fluid-3xl);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    margin-bottom: var(--spacing-1);
+}
+
+.monitoring-counter__value--success {
+    color: var(--color-success);
+}
+
+.monitoring-counter__value--critical {
+    color: var(--color-critical);
+}
+
+.monitoring-counter__value--info {
+    color: var(--color-primary-blue);
+}
+
+.monitoring-counter__label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    text-align: center;
+}
+
+/* Risk Score */
+.monitoring-risk {
+    margin: var(--spacing-4);
+    padding: var(--spacing-4);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+}
+
+.monitoring-risk--success {
+    border-left: 4px solid var(--color-success);
+}
+
+.monitoring-risk--warning {
+    border-left: 4px solid var(--color-warning);
+}
+
+.monitoring-risk--critical {
+    border-left: 4px solid var(--color-critical);
+    animation: risk-pulse 2s infinite;
+}
+
+@keyframes risk-pulse {
+
+    0%,
+    100% {
+        box-shadow: var(--shadow-md);
+    }
+
+    50% {
+        box-shadow: var(--shadow-md), 0 0 20px rgba(255, 59, 48, 0.3);
+    }
+}
+
+.monitoring-risk__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-3);
+}
+
+.monitoring-risk__header h3 {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    margin: 0;
+}
+
+.monitoring-risk__score {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-4);
+}
+
+.monitoring-risk__value {
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-bold);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.monitoring-risk__bar {
+    flex: 1;
+    height: 8px;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.monitoring-risk__bar-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-full);
+    transition: width var(--transition-slow);
+}
+
+.monitoring-risk--critical .monitoring-risk__bar-fill {
+    background: var(--color-critical);
+}
+
+.monitoring-risk__confidence {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+}
+
+/* Explainability */
+.monitoring-explain {
+    margin-top: var(--spacing-4);
+    padding: var(--spacing-3);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-lg);
+}
+
+.monitoring-explain h4 {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    margin: 0 0 var(--spacing-1);
+}
+
+.monitoring-explain p {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+/* Mother's Vital Signs */
+.monitoring-vitals {
+    padding: 0 var(--spacing-4);
+    margin-bottom: var(--spacing-4);
+}
+
+.monitoring-vitals__title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 var(--spacing-3);
+}
+
+.monitoring-vitals__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+}
+
+@media (min-width: 480px) {
+    .monitoring-vitals__grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Vital Card */
+.monitoring-vital-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    padding: var(--spacing-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+}
+
+.monitoring-vital-card--success {
+    border-color: rgba(40, 199, 111, 0.3);
+    background: rgba(40, 199, 111, 0.05);
+}
+
+.monitoring-vital-card--warning {
+    border-color: rgba(255, 176, 32, 0.3);
+    background: rgba(255, 176, 32, 0.05);
+}
+
+.monitoring-vital-card--critical {
+    border-color: rgba(255, 59, 48, 0.3);
+    background: rgba(255, 59, 48, 0.05);
+    animation: vital-pulse 2s infinite;
+}
+
+@keyframes vital-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(255, 59, 48, 0);
+    }
+}
+
+.monitoring-vital-card__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+}
+
+.monitoring-vital-card--success .monitoring-vital-card__icon {
+    background: rgba(40, 199, 111, 0.15);
+    color: var(--color-success);
+}
+
+.monitoring-vital-card--warning .monitoring-vital-card__icon {
+    background: rgba(255, 176, 32, 0.15);
+    color: var(--color-warning);
+}
+
+.monitoring-vital-card--critical .monitoring-vital-card__icon {
+    background: rgba(255, 59, 48, 0.15);
+    color: var(--color-critical);
+}
+
+.monitoring-vital-card__icon--fetal {
+    background: rgba(255, 107, 154, 0.15);
+    color: var(--color-primary-pink);
+}
+
+.monitoring-vital-card--success .monitoring-vital-card__icon--fetal {
+    background: rgba(40, 199, 111, 0.15);
+    color: var(--color-success);
+}
+
+.monitoring-vital-card__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.monitoring-vital-card__content {
+    flex: 1;
+}
+
+.monitoring-vital-card__label {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--spacing-1);
+}
+
+.monitoring-vital-card__value {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.monitoring-vital-card__value small {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-tertiary);
+}
+
+/* Stop Button */
+.monitoring-stop-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    width: calc(100% - var(--spacing-8));
+    margin: var(--spacing-4) auto;
+    padding: var(--spacing-4);
+    background: var(--color-bg-secondary);
+    color: var(--color-critical);
+    border: 2px solid var(--color-critical);
+    border-radius: var(--radius-xl);
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.monitoring-stop-btn:hover {
+    background: var(--color-critical);
+    color: white;
+}
+
+.monitoring-stop-btn svg {
+    width: 20px;
+    height: 20px;
+}

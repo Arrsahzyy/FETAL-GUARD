@@ -1,0 +1,134 @@
+.fhr-display {
+    text-align: center;
+    padding: var(--spacing-4);
+    position: relative;
+}
+
+@media (min-width: 640px) {
+    .fhr-display {
+        padding: var(--spacing-6);
+    }
+}
+
+.fhr-display__label {
+    font-size: var(--font-size-fluid-sm);
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--spacing-2);
+}
+
+.fhr-display__value {
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: transform var(--transition-fast);
+}
+
+.fhr-display__value.animating {
+    transform: scale(1.05);
+}
+
+.fhr-display__unit {
+    font-size: var(--font-size-fluid-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin-top: var(--spacing-1);
+}
+
+/* Size variants with fluid typography */
+.fhr-display--small .fhr-display__value {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.fhr-display--medium .fhr-display__value {
+    font-size: clamp(2rem, 6vw, 3rem);
+}
+
+.fhr-display--large .fhr-display__value {
+    font-size: var(--font-size-fhr);
+}
+
+/* Landscape adjustment */
+@media (orientation: landscape) and (max-height: 500px) {
+    .fhr-display {
+        padding: var(--spacing-2);
+    }
+    
+    .fhr-display--large .fhr-display__value {
+        font-size: clamp(2rem, 10vh, 3rem);
+    }
+}
+
+/* Status variants */
+.fhr-display--normal .fhr-display__value {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.fhr-display--warning .fhr-display__value {
+    background: var(--color-warning);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.fhr-display--critical .fhr-display__value {
+    background: var(--color-critical);
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: pulse-value 1s infinite;
+}
+
+@keyframes pulse-value {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Pulse animation */
+.fhr-display__pulse {
+    margin-top: var(--spacing-4);
+    height: 40px;
+    overflow: hidden;
+}
+
+.fhr-display__pulse-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.fhr-display__pulse-path {
+    stroke: var(--color-primary-pink);
+    stroke-dasharray: 150;
+    stroke-dashoffset: 150;
+    animation: draw-pulse 1.5s ease-in-out infinite;
+}
+
+.fhr-display--critical .fhr-display__pulse-path {
+    stroke: var(--color-critical);
+    animation-duration: 0.8s;
+}
+
+@keyframes draw-pulse {
+    0% {
+        stroke-dashoffset: 150;
+    }
+
+    50% {
+        stroke-dashoffset: 0;
+    }
+
+    100% {
+        stroke-dashoffset: -150;
+    }
+}

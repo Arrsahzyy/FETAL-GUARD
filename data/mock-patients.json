@@ -1,0 +1,610 @@
+[
+    {
+        "id": "p001-uuid-1234-5678-abcd",
+        "patient_id": "PAT-2024-001",
+        "name": "Sarah Wijaya",
+        "email": "sarah.wijaya@email.com",
+        "phone": "+6281234567890",
+        "birth_date": "1992-05-15",
+        "age": 31,
+        "lmp_date": "2024-06-01",
+        "due_date": "2025-03-08",
+        "gestational_age_weeks": 32,
+        "gestational_age_days": 4,
+        "weight_kg": 65.5,
+        "height_cm": 160,
+        "bmi": 25.6,
+        "blood_type": "O+",
+        "gravida": 2,
+        "para": 1,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": false,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "other": ""
+        },
+        "medications_current": [],
+        "emergency_contact": {
+            "name": "Budi Wijaya",
+            "relation": "spouse",
+            "phone": "+6281234567891"
+        },
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "clinician_id": "dr-001",
+        "clinician_name": "Dr. Rina Susanti, SpOG",
+        "consent_timestamp": "2024-01-15T10:30:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 24,
+            "total_monitoring_hours": 18.5,
+            "last_session_date": "2024-02-08T14:00:00+07:00",
+            "current_risk_level": "low",
+            "active_alerts": 0
+        },
+        "created_at": "2024-01-15T10:30:00+07:00",
+        "updated_at": "2024-02-08T14:30:00+07:00"
+    },
+    {
+        "id": "p002-uuid-2345-6789-bcde",
+        "patient_id": "PAT-2024-002",
+        "name": "Dewi Lestari",
+        "email": "dewi.lestari@email.com",
+        "phone": "+6281345678901",
+        "birth_date": "1988-11-22",
+        "age": 35,
+        "lmp_date": "2024-05-15",
+        "due_date": "2025-02-20",
+        "gestational_age_weeks": 34,
+        "gestational_age_days": 2,
+        "weight_kg": 72.0,
+        "height_cm": 158,
+        "bmi": 28.8,
+        "blood_type": "A+",
+        "gravida": 3,
+        "para": 2,
+        "medical_history": {
+            "diabetes": false,
+            "gestational_diabetes": true,
+            "hypertension": true,
+            "heart_disease": false,
+            "preeclampsia_history": true,
+            "other": "Riwayat preeklamsia pada kehamilan sebelumnya"
+        },
+        "medications_current": [
+            {
+                "name": "Methyldopa",
+                "dosage": "250mg",
+                "frequency": "2x sehari"
+            },
+            {
+                "name": "Aspirin",
+                "dosage": "80mg",
+                "frequency": "1x sehari"
+            }
+        ],
+        "emergency_contact": {
+            "name": "Andi Lestari",
+            "relation": "spouse",
+            "phone": "+6281345678902"
+        },
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "clinician_id": "dr-001",
+        "clinician_name": "Dr. Rina Susanti, SpOG",
+        "consent_timestamp": "2024-01-20T09:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": false
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 38,
+            "total_monitoring_hours": 28.0,
+            "last_session_date": "2024-02-08T16:00:00+07:00",
+            "current_risk_level": "high",
+            "active_alerts": 2
+        },
+        "created_at": "2024-01-20T09:00:00+07:00",
+        "updated_at": "2024-02-08T16:30:00+07:00"
+    },
+    {
+        "id": "p003-uuid-3456-7890-cdef",
+        "patient_id": "PAT-2024-003",
+        "name": "Putri Handayani",
+        "email": "putri.handayani@email.com",
+        "phone": "+6281456789012",
+        "birth_date": "1995-03-10",
+        "age": 28,
+        "lmp_date": "2024-07-20",
+        "due_date": "2025-04-27",
+        "gestational_age_weeks": 28,
+        "gestational_age_days": 5,
+        "weight_kg": 58.0,
+        "height_cm": 165,
+        "bmi": 21.3,
+        "blood_type": "B+",
+        "gravida": 1,
+        "para": 0,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": false,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "other": ""
+        },
+        "medications_current": [
+            {
+                "name": "Asam Folat",
+                "dosage": "400mcg",
+                "frequency": "1x sehari"
+            }
+        ],
+        "emergency_contact": {
+            "name": "Ibu Siti",
+            "relation": "parent",
+            "phone": "+6281456789013"
+        },
+        "clinic_id": "clinic-002",
+        "clinic_name": "Klinik Ibu & Anak Harapan",
+        "clinician_id": "dr-002",
+        "clinician_name": "Dr. Hendra Pratama, SpOG",
+        "consent_timestamp": "2024-02-01T11:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": false,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "trial",
+        "stats": {
+            "total_sessions": 12,
+            "total_monitoring_hours": 9.0,
+            "last_session_date": "2024-02-07T10:00:00+07:00",
+            "current_risk_level": "low",
+            "active_alerts": 0
+        },
+        "created_at": "2024-02-01T11:00:00+07:00",
+        "updated_at": "2024-02-07T10:30:00+07:00"
+    },
+    {
+        "id": "p004-uuid-4567-8901-defg",
+        "patient_id": "PAT-2024-004",
+        "name": "Ratna Sari",
+        "email": "ratna.sari@email.com",
+        "phone": "+6281567890123",
+        "birth_date": "1990-08-05",
+        "age": 33,
+        "lmp_date": "2024-06-10",
+        "due_date": "2025-03-17",
+        "gestational_age_weeks": 31,
+        "gestational_age_days": 1,
+        "weight_kg": 70.0,
+        "height_cm": 162,
+        "bmi": 26.7,
+        "blood_type": "AB+",
+        "gravida": 2,
+        "para": 1,
+        "medical_history": {
+            "diabetes": true,
+            "hypertension": false,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "thyroid_disorder": true,
+            "other": "Diabetes Tipe 2, Hipotiroid"
+        },
+        "medications_current": [
+            {
+                "name": "Metformin",
+                "dosage": "500mg",
+                "frequency": "2x sehari"
+            },
+            {
+                "name": "Levothyroxine",
+                "dosage": "50mcg",
+                "frequency": "1x sehari"
+            }
+        ],
+        "emergency_contact": {
+            "name": "Dimas Sari",
+            "relation": "spouse",
+            "phone": "+6281567890124"
+        },
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "clinician_id": "dr-001",
+        "clinician_name": "Dr. Rina Susanti, SpOG",
+        "consent_timestamp": "2024-01-25T14:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 20,
+            "total_monitoring_hours": 15.0,
+            "last_session_date": "2024-02-08T09:00:00+07:00",
+            "current_risk_level": "medium",
+            "active_alerts": 1
+        },
+        "created_at": "2024-01-25T14:00:00+07:00",
+        "updated_at": "2024-02-08T09:30:00+07:00"
+    },
+    {
+        "id": "p005-uuid-5678-9012-efgh",
+        "patient_id": "PAT-2024-005",
+        "name": "Maya Anggraini",
+        "email": "maya.anggraini@email.com",
+        "phone": "+6281678901234",
+        "birth_date": "1993-12-18",
+        "age": 30,
+        "lmp_date": "2024-05-25",
+        "due_date": "2025-03-02",
+        "gestational_age_weeks": 33,
+        "gestational_age_days": 3,
+        "weight_kg": 62.0,
+        "height_cm": 157,
+        "bmi": 25.2,
+        "blood_type": "O-",
+        "gravida": 1,
+        "para": 0,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": false,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "other": ""
+        },
+        "medications_current": [],
+        "emergency_contact": {
+            "name": "Reza Anggraini",
+            "relation": "spouse",
+            "phone": "+6281678901235"
+        },
+        "clinic_id": "clinic-002",
+        "clinic_name": "Klinik Ibu & Anak Harapan",
+        "clinician_id": "dr-002",
+        "clinician_name": "Dr. Hendra Pratama, SpOG",
+        "consent_timestamp": "2024-01-28T16:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 18,
+            "total_monitoring_hours": 13.5,
+            "last_session_date": "2024-02-07T15:00:00+07:00",
+            "current_risk_level": "low",
+            "active_alerts": 0
+        },
+        "created_at": "2024-01-28T16:00:00+07:00",
+        "updated_at": "2024-02-07T15:30:00+07:00"
+    },
+    {
+        "id": "p006-uuid-6789-0123-fghi",
+        "patient_id": "PAT-2024-006",
+        "name": "Lia Permata",
+        "email": "lia.permata@email.com",
+        "phone": "+6281789012345",
+        "birth_date": "1987-06-30",
+        "age": 36,
+        "lmp_date": "2024-04-20",
+        "due_date": "2025-01-25",
+        "gestational_age_weeks": 37,
+        "gestational_age_days": 0,
+        "weight_kg": 78.0,
+        "height_cm": 155,
+        "bmi": 32.5,
+        "blood_type": "A-",
+        "gravida": 4,
+        "para": 3,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": true,
+            "heart_disease": false,
+            "preeclampsia": true,
+            "previous_cesarean": true,
+            "other": "Preeklamsia aktif, riwayat SC 2x"
+        },
+        "medications_current": [
+            {
+                "name": "Nifedipine",
+                "dosage": "30mg",
+                "frequency": "1x sehari"
+            },
+            {
+                "name": "Magnesium Sulfat",
+                "dosage": "sesuai protokol",
+                "frequency": "saat diperlukan"
+            }
+        ],
+        "emergency_contact": {
+            "name": "Agus Permata",
+            "relation": "spouse",
+            "phone": "+6281789012346"
+        },
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "clinician_id": "dr-001",
+        "clinician_name": "Dr. Rina Susanti, SpOG",
+        "consent_timestamp": "2024-01-10T08:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": false
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 52,
+            "total_monitoring_hours": 42.0,
+            "last_session_date": "2024-02-08T18:00:00+07:00",
+            "current_risk_level": "high",
+            "active_alerts": 3
+        },
+        "created_at": "2024-01-10T08:00:00+07:00",
+        "updated_at": "2024-02-08T18:30:00+07:00"
+    },
+    {
+        "id": "p007-uuid-7890-1234-ghij",
+        "patient_id": "PAT-2024-007",
+        "name": "Nadia Kusuma",
+        "email": "nadia.kusuma@email.com",
+        "phone": "+6281890123456",
+        "birth_date": "1994-09-12",
+        "age": 29,
+        "lmp_date": "2024-08-01",
+        "due_date": "2025-05-08",
+        "gestational_age_weeks": 27,
+        "gestational_age_days": 1,
+        "weight_kg": 55.0,
+        "height_cm": 163,
+        "bmi": 20.7,
+        "blood_type": "B-",
+        "gravida": 1,
+        "para": 0,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": false,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "other": ""
+        },
+        "medications_current": [],
+        "emergency_contact": {
+            "name": "Ayah Kusuma",
+            "relation": "parent",
+            "phone": "+6281890123457"
+        },
+        "clinic_id": "clinic-003",
+        "clinic_name": "RSUD Tangerang",
+        "clinician_id": "dr-003",
+        "clinician_name": "Dr. Wati Rahayu, SpOG",
+        "consent_timestamp": "2024-02-05T10:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": false,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "trial",
+        "stats": {
+            "total_sessions": 8,
+            "total_monitoring_hours": 6.0,
+            "last_session_date": "2024-02-06T11:00:00+07:00",
+            "current_risk_level": "low",
+            "active_alerts": 0
+        },
+        "created_at": "2024-02-05T10:00:00+07:00",
+        "updated_at": "2024-02-06T11:30:00+07:00"
+    },
+    {
+        "id": "p008-uuid-8901-2345-hijk",
+        "patient_id": "PAT-2024-008",
+        "name": "Fitri Rahmawati",
+        "email": "fitri.rahmawati@email.com",
+        "phone": "+6281901234567",
+        "birth_date": "1991-02-28",
+        "age": 32,
+        "lmp_date": "2024-06-20",
+        "due_date": "2025-03-27",
+        "gestational_age_weeks": 30,
+        "gestational_age_days": 4,
+        "weight_kg": 68.0,
+        "height_cm": 159,
+        "bmi": 26.9,
+        "blood_type": "O+",
+        "gravida": 2,
+        "para": 1,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": false,
+            "heart_disease": true,
+            "preeclampsia": false,
+            "other": "Mitral valve prolapse ringan"
+        },
+        "medications_current": [],
+        "emergency_contact": {
+            "name": "Rahmat Hidayat",
+            "relation": "spouse",
+            "phone": "+6281901234568"
+        },
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "clinician_id": "dr-001",
+        "clinician_name": "Dr. Rina Susanti, SpOG",
+        "consent_timestamp": "2024-01-30T13:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 16,
+            "total_monitoring_hours": 12.0,
+            "last_session_date": "2024-02-08T11:00:00+07:00",
+            "current_risk_level": "medium",
+            "active_alerts": 0
+        },
+        "created_at": "2024-01-30T13:00:00+07:00",
+        "updated_at": "2024-02-08T11:30:00+07:00"
+    },
+    {
+        "id": "p009-uuid-9012-3456-ijkl",
+        "patient_id": "PAT-2024-009",
+        "name": "Eka Putri",
+        "email": "eka.putri@email.com",
+        "phone": "+6282012345678",
+        "birth_date": "1996-07-08",
+        "age": 27,
+        "lmp_date": "2024-07-10",
+        "due_date": "2025-04-16",
+        "gestational_age_weeks": 29,
+        "gestational_age_days": 2,
+        "weight_kg": 60.0,
+        "height_cm": 168,
+        "bmi": 21.3,
+        "blood_type": "A+",
+        "gravida": 1,
+        "para": 0,
+        "medical_history": {
+            "diabetes": false,
+            "hypertension": false,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "other": ""
+        },
+        "medications_current": [],
+        "emergency_contact": {
+            "name": "Fajar Nugroho",
+            "relation": "spouse",
+            "phone": "+6282012345679"
+        },
+        "clinic_id": "clinic-002",
+        "clinic_name": "Klinik Ibu & Anak Harapan",
+        "clinician_id": "dr-002",
+        "clinician_name": "Dr. Hendra Pratama, SpOG",
+        "consent_timestamp": "2024-02-03T09:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": true
+        },
+        "language": "en",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "trial",
+        "stats": {
+            "total_sessions": 10,
+            "total_monitoring_hours": 7.5,
+            "last_session_date": "2024-02-07T14:00:00+07:00",
+            "current_risk_level": "low",
+            "active_alerts": 0
+        },
+        "created_at": "2024-02-03T09:00:00+07:00",
+        "updated_at": "2024-02-07T14:30:00+07:00"
+    },
+    {
+        "id": "p010-uuid-0123-4567-jklm",
+        "patient_id": "PAT-2024-010",
+        "name": "Wulan Maharani",
+        "email": "wulan.maharani@email.com",
+        "phone": "+6282123456789",
+        "birth_date": "1989-04-25",
+        "age": 34,
+        "lmp_date": "2024-05-05",
+        "due_date": "2025-02-10",
+        "gestational_age_weeks": 35,
+        "gestational_age_days": 5,
+        "weight_kg": 75.0,
+        "height_cm": 160,
+        "bmi": 29.3,
+        "blood_type": "AB-",
+        "gravida": 3,
+        "para": 2,
+        "medical_history": {
+            "diabetes": false,
+            "gestational_diabetes": true,
+            "hypertension": true,
+            "heart_disease": false,
+            "preeclampsia": false,
+            "other": "GDM, hipertensi gestasional"
+        },
+        "medications_current": [
+            {
+                "name": "Insulin",
+                "dosage": "sesuai protokol",
+                "frequency": "sesuai jadwal makan"
+            },
+            {
+                "name": "Labetalol",
+                "dosage": "100mg",
+                "frequency": "2x sehari"
+            }
+        ],
+        "emergency_contact": {
+            "name": "Yudha Maharani",
+            "relation": "spouse",
+            "phone": "+6282123456790"
+        },
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "clinician_id": "dr-001",
+        "clinician_name": "Dr. Rina Susanti, SpOG",
+        "consent_timestamp": "2024-01-18T15:00:00+07:00",
+        "consent_version": "1.2.0",
+        "privacy_flags": {
+            "location_share_allowed": true,
+            "upload_allowed_wifi_only": false
+        },
+        "language": "id",
+        "timezone": "Asia/Jakarta",
+        "regulatory_mode": "pilot",
+        "stats": {
+            "total_sessions": 32,
+            "total_monitoring_hours": 24.0,
+            "last_session_date": "2024-02-08T13:00:00+07:00",
+            "current_risk_level": "medium",
+            "active_alerts": 1
+        },
+        "created_at": "2024-01-18T15:00:00+07:00",
+        "updated_at": "2024-02-08T13:30:00+07:00"
+    },
+    {
+        "id": "clinician-001-uuid",
+        "type": "clinician",
+        "name": "Dr. Rina Susanti, SpOG",
+        "email": "dr.rina@rsbunda.id",
+        "phone": "+6281111222333",
+        "role": "clinician",
+        "clinic_id": "clinic-001",
+        "clinic_name": "RS Bunda Jakarta",
+        "specialization": "Obstetrics & Gynecology",
+        "license_number": "STR-12345678",
+        "created_at": "2023-06-01T08:00:00+07:00",
+        "is_test_account": true
+    }
+]

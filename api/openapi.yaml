@@ -1,0 +1,1107 @@
+openapi: 3.0.3
+info:
+  title: FETAL-GUARD API
+  description: |
+    Backend API for FETAL-GUARD: Wearable Early Warning System for fetal monitoring.
+    Provides endpoints for patient management, device pairing, monitoring sessions,
+    alerts, and clinician dashboard.
+  version: 1.0.0
+  contact:
+    name: FETAL-GUARD Team
+    email: support@fetal-guard.id
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.fetal-guard.id/v1
+    description: Production server
+  - url: https://staging-api.fetal-guard.id/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Authentication and authorization
+  - name: Patients
+    description: Patient profile management
+  - name: Devices
+    description: Device pairing and management
+  - name: Sessions
+    description: Monitoring session management
+  - name: Notifications
+    description: Alerts and notifications
+  - name: Clinician
+    description: Clinician dashboard endpoints
+  - name: Audit
+    description: Audit logging
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ============ AUTH ============
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: User logout
+      responses:
+        '204':
+          description: Logged out successfully
+
+  # ============ PATIENTS ============
+  /patients:
+    get:
+      tags: [Patients]
+      summary: List all patients (clinician only)
+      parameters:
+        - name: risk_level
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientSummary'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /patients/{patient_id}:
+    get:
+      tags: [Patients]
+      summary: Get patient details
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Patient details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    patch:
+      tags: [Patients]
+      summary: Update patient profile
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientUpdate'
+      responses:
+        '200':
+          description: Patient updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  /patients/me:
+    get:
+      tags: [Patients]
+      summary: Get current patient profile
+      responses:
+        '200':
+          description: Current patient profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  # ============ DEVICES ============
+  /devices/pair:
+    post:
+      tags: [Devices]
+      summary: Pair a new device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_serial, device_model]
+              properties:
+                device_serial:
+                  type: string
+                device_model:
+                  type: string
+                device_firmware_version:
+                  type: string
+      responses:
+        '201':
+          description: Device paired successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+
+  /devices/{device_id}:
+    get:
+      tags: [Devices]
+      summary: Get device details
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+
+    delete:
+      tags: [Devices]
+      summary: Unpair device
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Device unpaired
+
+  /devices/{device_id}/status:
+    put:
+      tags: [Devices]
+      summary: Update device status
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                battery_level:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                firmware_version:
+                  type: string
+      responses:
+        '200':
+          description: Status updated
+
+  # ============ SESSIONS ============
+  /sessions:
+    get:
+      tags: [Sessions]
+      summary: List monitoring sessions
+      parameters:
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionSummary'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Sessions]
+      summary: Start a new monitoring session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id]
+              properties:
+                device_id:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /sessions/{session_id}:
+    get:
+      tags: [Sessions]
+      summary: Get session details
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+    patch:
+      tags: [Sessions]
+      summary: Update session (stop, add notes)
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [stopped, completed]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /sessions/{session_id}/data:
+    post:
+      tags: [Sessions]
+      summary: Upload chunked raw channel data
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionDataChunk'
+      responses:
+        '202':
+          description: Data chunk accepted
+
+  /sessions/{session_id}/export:
+    get:
+      tags: [Sessions]
+      summary: Export session as PDF
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  # ============ NOTIFICATIONS ============
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, critical]
+        - name: acknowledged
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+
+    post:
+      tags: [Notifications]
+      summary: Create notification (system use)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationCreate'
+      responses:
+        '201':
+          description: Notification created
+
+  /notifications/{notification_id}/acknowledge:
+    post:
+      tags: [Notifications]
+      summary: Acknowledge notification
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action_taken:
+                  type: string
+      responses:
+        '200':
+          description: Notification acknowledged
+
+  # ============ CLINICIAN ============
+  /clinician/patients:
+    get:
+      tags: [Clinician]
+      summary: Get clinician's patient list
+      parameters:
+        - name: risk_filter
+          in: query
+          schema:
+            type: string
+            enum: [all, high, active_alert]
+      responses:
+        '200':
+          description: Patient list for clinician
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClinicianPatientView'
+
+  /clinician/alerts:
+    get:
+      tags: [Clinician]
+      summary: Get active alerts queue
+      responses:
+        '200':
+          description: Active alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClinicianAlert'
+
+  /clinician/patients/{patient_id}/sessions/{session_id}/events:
+    post:
+      tags: [Clinician]
+      summary: Tag session event
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_type, timestamp]
+              properties:
+                event_type:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Event tagged
+
+  # ============ AUDIT ============
+  /audit/logs:
+    get:
+      tags: [Audit]
+      summary: Get audit logs
+      parameters:
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+            enum: [viewed, shared, exported, acknowledged]
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLog'
+
+  # ============ DATA MANAGEMENT ============
+  /data/retention:
+    get:
+      tags: [Patients]
+      summary: Get data retention settings
+      responses:
+        '200':
+          description: Retention settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  retention_days:
+                    type: integer
+                  auto_delete:
+                    type: boolean
+
+  /data/delete-request:
+    post:
+      tags: [Patients]
+      summary: Request data deletion (GDPR)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmation:
+                  type: boolean
+                reason:
+                  type: string
+      responses:
+        '202':
+          description: Deletion request accepted
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PatientId:
+      name: patient_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            role:
+              type: string
+              enum: [patient, clinician, admin]
+
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        patient_id:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        birth_date:
+          type: string
+          format: date
+        lmp_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: integer
+        gestational_age_days:
+          type: integer
+        weight_kg:
+          type: number
+        height_cm:
+          type: number
+        bmi:
+          type: number
+        medical_history:
+          type: object
+          properties:
+            diabetes:
+              type: boolean
+            hypertension:
+              type: boolean
+            heart_disease:
+              type: boolean
+            preeclampsia:
+              type: boolean
+            other:
+              type: string
+        medications_current:
+          type: array
+          items:
+            type: string
+        emergency_contact:
+          type: object
+          properties:
+            name:
+              type: string
+            relation:
+              type: string
+            phone:
+              type: string
+        clinic_id:
+          type: string
+        clinician_id:
+          type: string
+        consent_timestamp:
+          type: string
+          format: date-time
+        consent_version:
+          type: string
+        privacy_flags:
+          type: object
+          properties:
+            location_share_allowed:
+              type: boolean
+            upload_allowed_wifi_only:
+              type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PatientSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        gestational_age_weeks:
+          type: integer
+        last_session_date:
+          type: string
+          format: date-time
+        current_risk_level:
+          type: string
+          enum: [low, medium, high]
+        active_alerts:
+          type: integer
+
+    PatientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        weight_kg:
+          type: number
+        medications_current:
+          type: array
+          items:
+            type: string
+        emergency_contact:
+          type: object
+        privacy_flags:
+          type: object
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        device_serial:
+          type: string
+        device_model:
+          type: string
+        device_firmware_version:
+          type: string
+        patient_id:
+          type: string
+        paired_at:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        battery_level:
+          type: integer
+        status:
+          type: string
+          enum: [active, disconnected, low_battery]
+
+    Session:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        device_id:
+          type: string
+        device_serial:
+          type: string
+        device_model:
+          type: string
+        device_firmware_version:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: integer
+        time_zone:
+          type: string
+          example: "Asia/Jakarta"
+        sampling_rate_hz:
+          type: integer
+          example: 250
+        channel_count:
+          type: integer
+          example: 4
+        status:
+          type: string
+          enum: [active, stopped, completed, error]
+        fhr_summary:
+          type: object
+          properties:
+            baseline_bpm:
+              type: number
+            min_bpm:
+              type: number
+            max_bpm:
+              type: number
+            mean_bpm:
+              type: number
+            variability:
+              type: number
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionEvent'
+        risk_assessment:
+          $ref: '#/components/schemas/RiskAssessment'
+        signal_quality:
+          type: object
+          properties:
+            overall_percentage:
+              type: number
+            snr:
+              type: number
+            motion_ratio:
+              type: number
+            maternal_overlap_flag:
+              type: boolean
+        encryption_metadata:
+          type: object
+          properties:
+            algorithm:
+              type: string
+              example: "AES-256-GCM"
+            key_id:
+              type: string
+        notes:
+          type: string
+        clinician_notes:
+          type: string
+
+    SessionSummary:
+      type: object
+      properties:
+        session_id:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        duration_seconds:
+          type: integer
+        mean_fhr:
+          type: number
+        risk_level:
+          type: string
+          enum: [low, medium, high]
+        event_count:
+          type: integer
+
+    SessionDataChunk:
+      type: object
+      required: [chunk_index, timestamp, raw_channels]
+      properties:
+        chunk_index:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        raw_channels:
+          type: array
+          items:
+            type: object
+            properties:
+              channel_id:
+                type: integer
+              samples:
+                type: array
+                items:
+                  type: number
+
+    SessionEvent:
+      type: object
+      properties:
+        event_id:
+          type: string
+        type:
+          type: string
+          enum: [acceleration, deceleration, movement, maternal_signal, artifact]
+        timestamp:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+        severity:
+          type: string
+          enum: [mild, moderate, severe]
+        details:
+          type: object
+
+    RiskAssessment:
+      type: object
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+        level:
+          type: string
+          enum: [low, medium, high]
+        confidence:
+          type: number
+        confidence_interval:
+          type: object
+          properties:
+            lower:
+              type: number
+            upper:
+              type: number
+        model_version:
+          type: string
+        explainability:
+          type: string
+        contributing_factors:
+          type: array
+          items:
+            type: object
+            properties:
+              factor:
+                type: string
+              impact:
+                type: number
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [info, warning, critical]
+        title:
+          type: string
+        message:
+          type: string
+        recommendation:
+          type: string
+        session_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        acknowledged:
+          type: boolean
+        acknowledged_at:
+          type: string
+          format: date-time
+        escalation_state:
+          type: string
+          enum: [none, pending, acknowledged, escalated]
+
+    NotificationCreate:
+      type: object
+      required: [type, title, message]
+      properties:
+        type:
+          type: string
+          enum: [info, warning, critical]
+        title:
+          type: string
+        message:
+          type: string
+        recommendation:
+          type: string
+        patient_id:
+          type: string
+        session_id:
+          type: string
+
+    ClinicianPatientView:
+      type: object
+      properties:
+        patient_id:
+          type: string
+        name:
+          type: string
+        gestational_age_weeks:
+          type: integer
+        last_session:
+          type: string
+          format: date-time
+        current_risk:
+          type: string
+        active_alerts:
+          type: integer
+        last_fhr:
+          type: number
+
+    ClinicianAlert:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        patient_id:
+          type: string
+        patient_name:
+          type: string
+        type:
+          type: string
+        message:
+          type: string
+        session_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        escalation_state:
+          type: string
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        user_email:
+          type: string
+        action:
+          type: string
+          enum: [viewed, shared, exported, acknowledged, modified]
+        resource_type:
+          type: string
+          enum: [patient, session, notification]
+        resource_id:
+          type: string
+        patient_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        details:
+          type: object

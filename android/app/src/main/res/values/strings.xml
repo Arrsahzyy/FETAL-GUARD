@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FETAL-GUARD</string>
+    <string name="title_activity_main">FETAL-GUARD</string>
+    <string name="package_name">com.fetalguard.app</string>
+    <string name="custom_url_scheme">com.fetalguard.app</string>
+</resources>

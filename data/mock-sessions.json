@@ -1,0 +1,785 @@
+[
+    {
+        "session_id": "ses-001-uuid",
+        "patient_id": "p001-uuid-1234-5678-abcd",
+        "patient_name": "Sarah Wijaya",
+        "device_serial": "FG-2024-001234",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-08T14:00:00+07:00",
+        "end_time": "2024-02-08T14:45:00+07:00",
+        "duration_seconds": 2700,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-15T10:30:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 138,
+            "min_bpm": 125,
+            "max_bpm": 155,
+            "mean_bpm": 136,
+            "variability": 12.5,
+            "variability_classification": "moderate"
+        },
+        "events": [
+            {
+                "event_id": "evt-001",
+                "type": "acceleration",
+                "timestamp": "2024-02-08T14:12:00+07:00",
+                "duration_ms": 18000,
+                "fhr_peak": 155,
+                "confidence": 0.95
+            },
+            {
+                "event_id": "evt-002",
+                "type": "fetal_movement",
+                "timestamp": "2024-02-08T14:20:00+07:00",
+                "duration_ms": 5000,
+                "confidence": 0.88
+            },
+            {
+                "event_id": "evt-003",
+                "type": "acceleration",
+                "timestamp": "2024-02-08T14:35:00+07:00",
+                "duration_ms": 22000,
+                "fhr_peak": 152,
+                "confidence": 0.92
+            }
+        ],
+        "risk_assessment": {
+            "score": 8,
+            "level": "low",
+            "confidence": 0.94,
+            "confidence_interval": {
+                "lower": 5,
+                "upper": 12
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "Pola detak jantung normal dengan variabilitas baik dan akselerasi reaktif"
+        },
+        "signal_quality": {
+            "overall_percentage": 95,
+            "classification": "excellent",
+            "components": {
+                "snr": 28.5,
+                "motion_ratio": 0.05,
+                "maternal_overlap_flag": false,
+                "contact_quality": 98
+            }
+        }
+    },
+    {
+        "session_id": "ses-002-uuid",
+        "patient_id": "p002-uuid-2345-6789-bcde",
+        "patient_name": "Dewi Lestari",
+        "device_serial": "FG-2024-002345",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-08T16:00:00+07:00",
+        "end_time": "2024-02-08T17:00:00+07:00",
+        "duration_seconds": 3600,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-20T09:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 165,
+            "min_bpm": 98,
+            "max_bpm": 175,
+            "mean_bpm": 158,
+            "variability": 5.2,
+            "variability_classification": "minimal"
+        },
+        "events": [
+            {
+                "event_id": "evt-101",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-08T16:22:00+07:00",
+                "duration_ms": 45000,
+                "severity": "moderate",
+                "fhr_nadir": 102,
+                "confidence": 0.89
+            },
+            {
+                "event_id": "evt-102",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-08T16:38:00+07:00",
+                "duration_ms": 52000,
+                "severity": "severe",
+                "fhr_nadir": 98,
+                "confidence": 0.92
+            },
+            {
+                "event_id": "evt-103",
+                "type": "variable_deceleration",
+                "timestamp": "2024-02-08T16:50:00+07:00",
+                "duration_ms": 35000,
+                "severity": "moderate",
+                "fhr_nadir": 105,
+                "confidence": 0.85
+            }
+        ],
+        "risk_assessment": {
+            "score": 78,
+            "level": "high",
+            "confidence": 0.88,
+            "confidence_interval": {
+                "lower": 72,
+                "upper": 84
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_cloud",
+            "explainability": "Terdeteksi deselerasi lambat berulang dengan variabilitas minimal - kemungkinan hipoksia janin",
+            "contributing_factors": [
+                {
+                    "factor": "late_decelerations",
+                    "impact": 0.45,
+                    "description": "Deselerasi lambat berulang"
+                },
+                {
+                    "factor": "minimal_variability",
+                    "impact": 0.25,
+                    "description": "Variabilitas minimal"
+                },
+                {
+                    "factor": "tachycardia",
+                    "impact": 0.15,
+                    "description": "Baseline takikardi"
+                }
+            ]
+        },
+        "signal_quality": {
+            "overall_percentage": 88,
+            "classification": "good",
+            "components": {
+                "snr": 22.1,
+                "motion_ratio": 0.12,
+                "maternal_overlap_flag": false,
+                "contact_quality": 90
+            }
+        },
+        "escalation_state": "pending"
+    },
+    {
+        "session_id": "ses-003-uuid",
+        "patient_id": "p003-uuid-3456-7890-cdef",
+        "patient_name": "Putri Handayani",
+        "device_serial": "FG-2024-003456",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-07T10:00:00+07:00",
+        "end_time": "2024-02-07T10:30:00+07:00",
+        "duration_seconds": 1800,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-02-01T11:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 142,
+            "min_bpm": 135,
+            "max_bpm": 160,
+            "mean_bpm": 144,
+            "variability": 15.8,
+            "variability_classification": "moderate"
+        },
+        "events": [
+            {
+                "event_id": "evt-201",
+                "type": "acceleration",
+                "timestamp": "2024-02-07T10:08:00+07:00",
+                "duration_ms": 20000,
+                "fhr_peak": 158,
+                "confidence": 0.94
+            },
+            {
+                "event_id": "evt-202",
+                "type": "fetal_movement",
+                "timestamp": "2024-02-07T10:15:00+07:00",
+                "duration_ms": 8000,
+                "confidence": 0.91
+            },
+            {
+                "event_id": "evt-203",
+                "type": "acceleration",
+                "timestamp": "2024-02-07T10:22:00+07:00",
+                "duration_ms": 16000,
+                "fhr_peak": 160,
+                "confidence": 0.93
+            }
+        ],
+        "risk_assessment": {
+            "score": 5,
+            "level": "low",
+            "confidence": 0.96,
+            "confidence_interval": {
+                "lower": 3,
+                "upper": 8
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "Pola sangat baik dengan variabilitas sehat dan akselerasi reaktif"
+        },
+        "signal_quality": {
+            "overall_percentage": 97,
+            "classification": "excellent",
+            "components": {
+                "snr": 32.0,
+                "motion_ratio": 0.03,
+                "maternal_overlap_flag": false,
+                "contact_quality": 99
+            }
+        }
+    },
+    {
+        "session_id": "ses-004-uuid",
+        "patient_id": "p004-uuid-4567-8901-defg",
+        "patient_name": "Ratna Sari",
+        "device_serial": "FG-2024-004567",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-08T09:00:00+07:00",
+        "end_time": "2024-02-08T09:50:00+07:00",
+        "duration_seconds": 3000,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-25T14:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 152,
+            "min_bpm": 118,
+            "max_bpm": 165,
+            "mean_bpm": 148,
+            "variability": 8.5,
+            "variability_classification": "minimal"
+        },
+        "events": [
+            {
+                "event_id": "evt-301",
+                "type": "early_deceleration",
+                "timestamp": "2024-02-08T09:15:00+07:00",
+                "duration_ms": 25000,
+                "severity": "mild",
+                "fhr_nadir": 125,
+                "confidence": 0.87
+            },
+            {
+                "event_id": "evt-302",
+                "type": "acceleration",
+                "timestamp": "2024-02-08T09:28:00+07:00",
+                "duration_ms": 15000,
+                "fhr_peak": 165,
+                "confidence": 0.90
+            },
+            {
+                "event_id": "evt-303",
+                "type": "variable_deceleration",
+                "timestamp": "2024-02-08T09:40:00+07:00",
+                "duration_ms": 30000,
+                "severity": "moderate",
+                "fhr_nadir": 118,
+                "confidence": 0.84
+            }
+        ],
+        "risk_assessment": {
+            "score": 38,
+            "level": "medium",
+            "confidence": 0.82,
+            "confidence_interval": {
+                "lower": 30,
+                "upper": 46
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "Terdeteksi beberapa deselerasi - perlu pemantauan lebih lanjut"
+        },
+        "signal_quality": {
+            "overall_percentage": 85,
+            "classification": "good",
+            "components": {
+                "snr": 20.5,
+                "motion_ratio": 0.15,
+                "maternal_overlap_flag": false,
+                "contact_quality": 88
+            }
+        }
+    },
+    {
+        "session_id": "ses-005-uuid",
+        "patient_id": "p006-uuid-6789-0123-fghi",
+        "patient_name": "Lia Permata",
+        "device_serial": "FG-2024-006789",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-08T18:00:00+07:00",
+        "end_time": "2024-02-08T19:15:00+07:00",
+        "duration_seconds": 4500,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-10T08:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 172,
+            "min_bpm": 85,
+            "max_bpm": 182,
+            "mean_bpm": 165,
+            "variability": 3.2,
+            "variability_classification": "absent"
+        },
+        "events": [
+            {
+                "event_id": "evt-501",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-08T18:12:00+07:00",
+                "duration_ms": 65000,
+                "severity": "severe",
+                "fhr_nadir": 88,
+                "confidence": 0.95
+            },
+            {
+                "event_id": "evt-502",
+                "type": "prolonged_deceleration",
+                "timestamp": "2024-02-08T18:28:00+07:00",
+                "duration_ms": 180000,
+                "severity": "severe",
+                "fhr_nadir": 85,
+                "confidence": 0.97
+            },
+            {
+                "event_id": "evt-503",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-08T18:45:00+07:00",
+                "duration_ms": 55000,
+                "severity": "severe",
+                "fhr_nadir": 92,
+                "confidence": 0.94
+            },
+            {
+                "event_id": "evt-504",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-08T19:02:00+07:00",
+                "duration_ms": 48000,
+                "severity": "severe",
+                "fhr_nadir": 90,
+                "confidence": 0.93
+            }
+        ],
+        "risk_assessment": {
+            "score": 92,
+            "level": "high",
+            "confidence": 0.96,
+            "confidence_interval": {
+                "lower": 88,
+                "upper": 96
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_cloud",
+            "explainability": "KRITIS: Deselerasi lambat berulang berat, deselerasi berkepanjangan, variabilitas tidak ada, takikardi - kemungkinan gawat janin akut",
+            "contributing_factors": [
+                {
+                    "factor": "prolonged_deceleration",
+                    "impact": 0.35,
+                    "description": "Deselerasi berkepanjangan > 2 menit"
+                },
+                {
+                    "factor": "absent_variability",
+                    "impact": 0.30,
+                    "description": "Variabilitas tidak ada"
+                },
+                {
+                    "factor": "recurrent_late_decels",
+                    "impact": 0.25,
+                    "description": "Deselerasi lambat berulang berat"
+                },
+                {
+                    "factor": "tachycardia",
+                    "impact": 0.10,
+                    "description": "Takikardi persisten"
+                }
+            ]
+        },
+        "signal_quality": {
+            "overall_percentage": 92,
+            "classification": "good",
+            "components": {
+                "snr": 24.8,
+                "motion_ratio": 0.08,
+                "maternal_overlap_flag": false,
+                "contact_quality": 94
+            }
+        },
+        "escalation_state": "escalated",
+        "clinician_notes": "Pasien sudah dihubungi. Diminta segera ke IGD untuk evaluasi. Rencana SC emergency jika kondisi tidak membaik."
+    },
+    {
+        "session_id": "ses-006-uuid",
+        "patient_id": "p005-uuid-5678-9012-efgh",
+        "patient_name": "Maya Anggraini",
+        "device_serial": "FG-2024-005678",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-07T15:00:00+07:00",
+        "end_time": "2024-02-07T15:40:00+07:00",
+        "duration_seconds": 2400,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-28T16:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 135,
+            "min_bpm": 128,
+            "max_bpm": 152,
+            "mean_bpm": 137,
+            "variability": 14.2,
+            "variability_classification": "moderate"
+        },
+        "events": [
+            {
+                "event_id": "evt-601",
+                "type": "acceleration",
+                "timestamp": "2024-02-07T15:10:00+07:00",
+                "duration_ms": 18000,
+                "fhr_peak": 150,
+                "confidence": 0.93
+            },
+            {
+                "event_id": "evt-602",
+                "type": "fetal_movement",
+                "timestamp": "2024-02-07T15:18:00+07:00",
+                "duration_ms": 6000,
+                "confidence": 0.89
+            },
+            {
+                "event_id": "evt-603",
+                "type": "acceleration",
+                "timestamp": "2024-02-07T15:30:00+07:00",
+                "duration_ms": 20000,
+                "fhr_peak": 152,
+                "confidence": 0.94
+            }
+        ],
+        "risk_assessment": {
+            "score": 6,
+            "level": "low",
+            "confidence": 0.95,
+            "confidence_interval": {
+                "lower": 4,
+                "upper": 9
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "Pola reaktif normal dengan variabilitas baik"
+        },
+        "signal_quality": {
+            "overall_percentage": 96,
+            "classification": "excellent",
+            "components": {
+                "snr": 30.2,
+                "motion_ratio": 0.04,
+                "maternal_overlap_flag": false,
+                "contact_quality": 97
+            }
+        }
+    },
+    {
+        "session_id": "ses-007-uuid",
+        "patient_id": "p008-uuid-8901-2345-hijk",
+        "patient_name": "Fitri Rahmawati",
+        "device_serial": "FG-2024-008901",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-08T11:00:00+07:00",
+        "end_time": "2024-02-08T11:45:00+07:00",
+        "duration_seconds": 2700,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-30T13:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 145,
+            "min_bpm": 122,
+            "max_bpm": 158,
+            "mean_bpm": 143,
+            "variability": 10.5,
+            "variability_classification": "moderate"
+        },
+        "events": [
+            {
+                "event_id": "evt-701",
+                "type": "acceleration",
+                "timestamp": "2024-02-08T11:08:00+07:00",
+                "duration_ms": 16000,
+                "fhr_peak": 155,
+                "confidence": 0.91
+            },
+            {
+                "event_id": "evt-702",
+                "type": "early_deceleration",
+                "timestamp": "2024-02-08T11:22:00+07:00",
+                "duration_ms": 20000,
+                "severity": "mild",
+                "fhr_nadir": 128,
+                "confidence": 0.85
+            },
+            {
+                "event_id": "evt-703",
+                "type": "fetal_movement",
+                "timestamp": "2024-02-08T11:35:00+07:00",
+                "duration_ms": 7000,
+                "confidence": 0.88
+            }
+        ],
+        "risk_assessment": {
+            "score": 22,
+            "level": "low",
+            "confidence": 0.88,
+            "confidence_interval": {
+                "lower": 18,
+                "upper": 28
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "Deselerasi dini ringan (fisiologis), pola keseluruhan baik"
+        },
+        "signal_quality": {
+            "overall_percentage": 90,
+            "classification": "good",
+            "components": {
+                "snr": 25.5,
+                "motion_ratio": 0.10,
+                "maternal_overlap_flag": false,
+                "contact_quality": 92
+            }
+        }
+    },
+    {
+        "session_id": "ses-008-uuid",
+        "patient_id": "p010-uuid-0123-4567-jklm",
+        "patient_name": "Wulan Maharani",
+        "device_serial": "FG-2024-010123",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-08T13:00:00+07:00",
+        "end_time": "2024-02-08T14:00:00+07:00",
+        "duration_seconds": 3600,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-18T15:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 155,
+            "min_bpm": 112,
+            "max_bpm": 168,
+            "mean_bpm": 150,
+            "variability": 7.8,
+            "variability_classification": "minimal"
+        },
+        "events": [
+            {
+                "event_id": "evt-801",
+                "type": "variable_deceleration",
+                "timestamp": "2024-02-08T13:15:00+07:00",
+                "duration_ms": 35000,
+                "severity": "moderate",
+                "fhr_nadir": 115,
+                "confidence": 0.86
+            },
+            {
+                "event_id": "evt-802",
+                "type": "acceleration",
+                "timestamp": "2024-02-08T13:30:00+07:00",
+                "duration_ms": 14000,
+                "fhr_peak": 168,
+                "confidence": 0.89
+            },
+            {
+                "event_id": "evt-803",
+                "type": "variable_deceleration",
+                "timestamp": "2024-02-08T13:48:00+07:00",
+                "duration_ms": 28000,
+                "severity": "mild",
+                "fhr_nadir": 120,
+                "confidence": 0.83
+            }
+        ],
+        "risk_assessment": {
+            "score": 45,
+            "level": "medium",
+            "confidence": 0.84,
+            "confidence_interval": {
+                "lower": 38,
+                "upper": 52
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "Deselerasi variabel, variabilitas berkurang - perlu observasi ketat"
+        },
+        "signal_quality": {
+            "overall_percentage": 87,
+            "classification": "good",
+            "components": {
+                "snr": 21.8,
+                "motion_ratio": 0.13,
+                "maternal_overlap_flag": false,
+                "contact_quality": 89
+            }
+        },
+        "escalation_state": "acknowledged"
+    },
+    {
+        "session_id": "ses-009-uuid",
+        "patient_id": "p001-uuid-1234-5678-abcd",
+        "patient_name": "Sarah Wijaya",
+        "device_serial": "FG-2024-001234",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-07T09:00:00+07:00",
+        "end_time": "2024-02-07T09:35:00+07:00",
+        "duration_seconds": 2100,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-15T10:30:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 140,
+            "min_bpm": 132,
+            "max_bpm": 158,
+            "mean_bpm": 142,
+            "variability": 13.5,
+            "variability_classification": "moderate"
+        },
+        "events": [
+            {
+                "event_id": "evt-901",
+                "type": "acceleration",
+                "timestamp": "2024-02-07T09:10:00+07:00",
+                "duration_ms": 19000,
+                "fhr_peak": 156,
+                "confidence": 0.94
+            },
+            {
+                "event_id": "evt-902",
+                "type": "fetal_movement",
+                "timestamp": "2024-02-07T09:20:00+07:00",
+                "duration_ms": 5500,
+                "confidence": 0.90
+            }
+        ],
+        "risk_assessment": {
+            "score": 7,
+            "level": "low",
+            "confidence": 0.95,
+            "confidence_interval": {
+                "lower": 4,
+                "upper": 10
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_on_device",
+            "explainability": "CTG reaktif normal"
+        },
+        "signal_quality": {
+            "overall_percentage": 94,
+            "classification": "excellent",
+            "components": {
+                "snr": 27.5,
+                "motion_ratio": 0.06,
+                "maternal_overlap_flag": false,
+                "contact_quality": 96
+            }
+        }
+    },
+    {
+        "session_id": "ses-010-uuid",
+        "patient_id": "p002-uuid-2345-6789-bcde",
+        "patient_name": "Dewi Lestari",
+        "device_serial": "FG-2024-002345",
+        "device_model": "FETAL-GUARD-V2",
+        "device_firmware_version": "2.1.3",
+        "start_time": "2024-02-07T14:00:00+07:00",
+        "end_time": "2024-02-07T15:00:00+07:00",
+        "duration_seconds": 3600,
+        "time_zone": "Asia/Jakarta",
+        "sampling_rate_hz": 250,
+        "channel_count": 4,
+        "status": "completed",
+        "consent_timestamp": "2024-01-20T09:00:00+07:00",
+        "consent_version": "1.2.0",
+        "fhr_summary": {
+            "baseline_bpm": 160,
+            "min_bpm": 105,
+            "max_bpm": 172,
+            "mean_bpm": 155,
+            "variability": 6.5,
+            "variability_classification": "minimal"
+        },
+        "events": [
+            {
+                "event_id": "evt-1001",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-07T14:18:00+07:00",
+                "duration_ms": 40000,
+                "severity": "moderate",
+                "fhr_nadir": 108,
+                "confidence": 0.88
+            },
+            {
+                "event_id": "evt-1002",
+                "type": "acceleration",
+                "timestamp": "2024-02-07T14:35:00+07:00",
+                "duration_ms": 12000,
+                "fhr_peak": 172,
+                "confidence": 0.85
+            },
+            {
+                "event_id": "evt-1003",
+                "type": "late_deceleration",
+                "timestamp": "2024-02-07T14:48:00+07:00",
+                "duration_ms": 38000,
+                "severity": "moderate",
+                "fhr_nadir": 110,
+                "confidence": 0.87
+            }
+        ],
+        "risk_assessment": {
+            "score": 65,
+            "level": "high",
+            "confidence": 0.86,
+            "confidence_interval": {
+                "lower": 58,
+                "upper": 72
+            },
+            "model_version": "1.2.0",
+            "model_type": "ml_cloud",
+            "explainability": "Deselerasi lambat berulang dengan variabilitas minimal - observasi ketat"
+        },
+        "signal_quality": {
+            "overall_percentage": 86,
+            "classification": "good",
+            "components": {
+                "snr": 21.2,
+                "motion_ratio": 0.14,
+                "maternal_overlap_flag": false,
+                "contact_quality": 88
+            }
+        },
+        "escalation_state": "acknowledged"
+    }
+]

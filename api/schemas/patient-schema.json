@@ -1,0 +1,439 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "FETAL-GUARD Patient",
+    "description": "Complete schema for patient profile",
+    "type": "object",
+    "required": [
+        "id",
+        "name",
+        "lmp_date",
+        "consent_timestamp",
+        "consent_version"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique patient identifier"
+        },
+        "patient_id": {
+            "type": "string",
+            "description": "External patient ID (hospital/clinic reference)"
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Patient full name"
+        },
+        "email": {
+            "type": "string",
+            "format": "email"
+        },
+        "phone": {
+            "type": "string",
+            "pattern": "^\\+?[0-9]{10,15}$"
+        },
+        "birth_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Mother's date of birth"
+        },
+        "age": {
+            "type": "integer",
+            "minimum": 14,
+            "maximum": 60,
+            "description": "Calculated age in years"
+        },
+        "lmp_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Last menstrual period date"
+        },
+        "due_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Estimated due date (calculated from LMP)"
+        },
+        "gestational_age_weeks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 45,
+            "description": "Current gestational age in weeks"
+        },
+        "gestational_age_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "Additional days beyond weeks"
+        },
+        "weight_kg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 200,
+            "description": "Current weight in kilograms"
+        },
+        "height_cm": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 250,
+            "description": "Height in centimeters"
+        },
+        "bmi": {
+            "type": "number",
+            "minimum": 10,
+            "maximum": 60,
+            "description": "Body Mass Index (calculated)"
+        },
+        "blood_type": {
+            "type": "string",
+            "enum": [
+                "A+",
+                "A-",
+                "B+",
+                "B-",
+                "AB+",
+                "AB-",
+                "O+",
+                "O-",
+                "unknown"
+            ]
+        },
+        "gravida": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of pregnancies including current"
+        },
+        "para": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of births"
+        },
+        "medical_history": {
+            "type": "object",
+            "properties": {
+                "diabetes": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "gestational_diabetes": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "hypertension": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "chronic_hypertension": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "heart_disease": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "preeclampsia": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "preeclampsia_history": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "History of preeclampsia in previous pregnancies"
+                },
+                "thyroid_disorder": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "autoimmune_disease": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "previous_cesarean": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "other": {
+                    "type": "string",
+                    "description": "Other conditions not listed"
+                }
+            }
+        },
+        "medications_current": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "dosage": {
+                        "type": "string"
+                    },
+                    "frequency": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "allergies": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "emergency_contact": {
+            "type": "object",
+            "required": [
+                "name",
+                "phone"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "relation": {
+                    "type": "string",
+                    "enum": [
+                        "spouse",
+                        "parent",
+                        "sibling",
+                        "friend",
+                        "other"
+                    ]
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "format": "email"
+                }
+            }
+        },
+        "secondary_emergency_contact": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "relation": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "clinic_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Associated clinic"
+        },
+        "clinic_name": {
+            "type": "string"
+        },
+        "clinician_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Assigned primary clinician"
+        },
+        "clinician_name": {
+            "type": "string"
+        },
+        "devices": {
+            "type": "array",
+            "description": "Paired devices",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "device_serial": {
+                        "type": "string"
+                    },
+                    "device_model": {
+                        "type": "string"
+                    },
+                    "paired_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "disconnected",
+                            "unpaired"
+                        ]
+                    }
+                }
+            }
+        },
+        "consent_timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When consent was given"
+        },
+        "consent_version": {
+            "type": "string",
+            "description": "Version of consent document"
+        },
+        "consent_scope": {
+            "type": "object",
+            "properties": {
+                "data_collection": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "cloud_storage": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "clinic_sharing": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "research_use": {
+                    "type": "boolean",
+                    "default": false
+                }
+            }
+        },
+        "privacy_flags": {
+            "type": "object",
+            "properties": {
+                "location_share_allowed": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Allow location sharing in emergencies"
+                },
+                "upload_allowed_wifi_only": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Only upload data when on WiFi"
+                },
+                "auto_escalation_allowed": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Allow automatic escalation to emergency contacts"
+                }
+            }
+        },
+        "notification_preferences": {
+            "type": "object",
+            "properties": {
+                "push_enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "sms_enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "email_enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "low_battery_threshold": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 5,
+                    "maximum": 50
+                },
+                "alert_sound_enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "haptic_enabled": {
+                    "type": "boolean",
+                    "default": true
+                }
+            }
+        },
+        "processing_preferences": {
+            "type": "object",
+            "properties": {
+                "on_device_inference": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable on-device ML inference"
+                },
+                "cloud_inference": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable cloud ML inference"
+                }
+            }
+        },
+        "language": {
+            "type": "string",
+            "enum": [
+                "id",
+                "en"
+            ],
+            "default": "id",
+            "description": "Preferred language"
+        },
+        "timezone": {
+            "type": "string",
+            "default": "Asia/Jakarta",
+            "description": "User's timezone"
+        },
+        "regulatory_mode": {
+            "type": "string",
+            "enum": [
+                "trial",
+                "pilot",
+                "medical_device"
+            ],
+            "default": "trial",
+            "description": "Regulatory classification mode"
+        },
+        "stats": {
+            "type": "object",
+            "description": "Aggregated statistics",
+            "properties": {
+                "total_sessions": {
+                    "type": "integer"
+                },
+                "total_monitoring_hours": {
+                    "type": "number"
+                },
+                "last_session_date": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "current_risk_level": {
+                    "type": "string",
+                    "enum": [
+                        "low",
+                        "medium",
+                        "high"
+                    ]
+                },
+                "active_alerts": {
+                    "type": "integer"
+                }
+            }
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "deleted_at": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "format": "date-time",
+            "description": "Soft delete for GDPR compliance"
+        }
+    }
+}

@@ -1,0 +1,228 @@
+.alert-card {
+    display: flex;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    border-left: 4px solid var(--color-primary-blue);
+    transition: all var(--transition-base);
+}
+
+@media (min-width: 640px) {
+    .alert-card {
+        gap: var(--spacing-4);
+        padding: var(--spacing-4);
+    }
+}
+
+@media (hover: hover) {
+    .alert-card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateX(4px);
+    }
+}
+
+.alert-card:active {
+    transform: scale(0.99);
+}
+
+/* Type variants */
+.alert-card--info {
+    border-left-color: var(--color-primary-blue);
+}
+
+.alert-card--warning {
+    border-left-color: var(--color-warning);
+    background: linear-gradient(135deg, rgba(255, 176, 32, 0.05), transparent);
+}
+
+.alert-card--critical {
+    border-left-color: var(--color-critical);
+    background: linear-gradient(135deg, rgba(255, 59, 48, 0.08), transparent);
+    animation: alert-shake 0.5s ease-in-out;
+}
+
+@keyframes alert-shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20%,
+    60% {
+        transform: translateX(-5px);
+    }
+
+    40%,
+    80% {
+        transform: translateX(5px);
+    }
+}
+
+.alert-card--acknowledged {
+    opacity: 0.7;
+    border-left-color: var(--color-success);
+}
+
+/* Icon */
+.alert-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.alert-card__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.alert-card__icon--info {
+    background: rgba(74, 163, 255, 0.1);
+    color: var(--color-primary-blue);
+}
+
+.alert-card__icon--warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+}
+
+.alert-card__icon--critical {
+    background: var(--color-critical-bg);
+    color: var(--color-critical);
+    animation: icon-pulse 1s infinite;
+}
+
+@keyframes icon-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Content */
+.alert-card__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.alert-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-1);
+}
+
+.alert-card__title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.alert-card--critical .alert-card__title {
+    color: var(--color-critical);
+}
+
+.alert-card__time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+}
+
+.alert-card__message {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-2);
+    line-height: var(--line-height-relaxed);
+}
+
+.alert-card__recommendation {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    margin: var(--spacing-2) 0;
+}
+
+/* Actions */
+.alert-card__actions {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-3);
+    flex-wrap: wrap;
+}
+
+.alert-card__btn {
+    padding: var(--spacing-2) var(--spacing-4);
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-height: 36px;
+}
+
+.alert-card__btn--secondary {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.alert-card__btn--secondary:hover {
+    background: var(--color-border);
+}
+
+.alert-card__btn--info {
+    background: var(--color-primary-blue);
+    color: white;
+}
+
+.alert-card__btn--warning {
+    background: var(--color-warning);
+    color: white;
+}
+
+.alert-card__btn--critical {
+    background: var(--color-critical);
+    color: white;
+    animation: btn-pulse 2s infinite;
+}
+
+@keyframes btn-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(255, 59, 48, 0);
+    }
+}
+
+/* Acknowledged badge */
+.alert-card__acknowledged-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    margin-top: var(--spacing-2);
+    padding: var(--spacing-1) var(--spacing-2);
+    background: var(--color-success-bg);
+    color: var(--color-success);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-full);
+}

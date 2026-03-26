@@ -1,0 +1,134 @@
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-full);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-fast);
+}
+
+@media (min-width: 480px) {
+    .status-badge {
+        gap: var(--spacing-2);
+        padding: var(--spacing-2) var(--spacing-3);
+    }
+}
+
+/* Size variants */
+.status-badge--small {
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-xs);
+}
+
+.status-badge--small .status-badge__icon {
+    width: 10px;
+    height: 10px;
+}
+
+@media (min-width: 480px) {
+    .status-badge--small .status-badge__icon {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+.status-badge--medium {
+    font-size: var(--font-size-xs);
+}
+
+@media (min-width: 480px) {
+    .status-badge--medium {
+        font-size: var(--font-size-sm);
+    }
+}
+
+.status-badge--medium .status-badge__icon {
+    width: 14px;
+    height: 14px;
+}
+
+@media (min-width: 480px) {
+    .status-badge--medium .status-badge__icon {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+.status-badge--large {
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--font-size-sm);
+}
+
+@media (min-width: 480px) {
+    .status-badge--large {
+        padding: var(--spacing-3) var(--spacing-4);
+        font-size: var(--font-size-base);
+    }
+}
+
+.status-badge--large .status-badge__icon {
+    width: 16px;
+    height: 16px;
+}
+
+@media (min-width: 480px) {
+    .status-badge--large .status-badge__icon {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* Status variants */
+.status-badge--success {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.status-badge--warning {
+    background: var(--color-warning-bg);
+    color: #B57A00;
+}
+
+.status-badge--critical {
+    background: var(--color-critical-bg);
+    color: var(--color-critical);
+    animation: badge-pulse 2s infinite;
+}
+
+.status-badge--info {
+    background: rgba(74, 163, 255, 0.1);
+    color: var(--color-primary-blue);
+}
+
+@keyframes badge-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(255, 59, 48, 0);
+    }
+}
+
+.status-badge__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.status-badge__icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.status-badge__label {
+    white-space: nowrap;
+}
+
+.status-badge__value {
+    font-weight: var(--font-weight-bold);
+}
