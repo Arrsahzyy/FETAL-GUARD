@@ -175,7 +175,7 @@ function App() {
 
       {/* Bottom Navigation */}
       <BottomNav
-        activeTab={currentScreen === 'home' ? 'home' : currentScreen}
+        activeTab={currentScreen === 'home' || currentScreen === 'profile' ? 'home' : currentScreen}
         onTabChange={handleTabChange}
         notificationCount={2}
       />
