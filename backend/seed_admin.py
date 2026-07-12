@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from core.security import get_password_hash
 from db.database import Base, SessionLocal, engine
+from models.device import Device  # noqa: F401
 from models.notification import Notification  # noqa: F401
 from models.patient import Patient  # noqa: F401
 from models.sensor_data import SensorDataChunk  # noqa: F401
