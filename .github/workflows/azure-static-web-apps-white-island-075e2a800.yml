@@ -45,6 +45,9 @@ jobs:
           output_location: "dist" # Built app content directory - optional
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
+        env:
+          VITE_API_BASE_URL: https://app-fetalguard-api-staging-cxg7h2ced2gpgbej.indonesiacentral-01.azurewebsites.net
+
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
