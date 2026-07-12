@@ -15,9 +15,14 @@ def upgrade() -> None:
             sa.Column("status", sa.String(length=32), nullable=False, server_default="open")
         )
 
+    bind = op.get_bind()
+    acknowledged_condition = "is_acknowledged = 1"
+    if bind.dialect.name == "postgresql":
+        acknowledged_condition = "is_acknowledged IS TRUE"
+
     op.execute(
         "UPDATE notifications "
-        "SET status = CASE WHEN is_acknowledged = 1 THEN 'acknowledged' ELSE 'open' END"
+        f"SET status = CASE WHEN {acknowledged_condition} THEN 'acknowledged' ELSE 'open' END"
     )
 
     with op.batch_alter_table("notifications") as batch_op:
