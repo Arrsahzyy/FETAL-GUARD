@@ -1,59 +1,29 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React from 'react';
 import './FHRDisplay.css';
 
 const FHRDisplay = ({
-    value = 0,
+    value = null,
     unit = 'bpm',
     label = 'Detak Jantung Janin',
     showAnimation = true,
     size = 'large' // 'small', 'medium', 'large'
 }) => {
-    const [displayValue, setDisplayValue] = useState(value);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const prevValue = useRef(value);
-
-    useEffect(() => {
-        if (showAnimation && value !== prevValue.current) {
-            setIsAnimating(true);
-
-            // Animate value change
-            const diff = value - prevValue.current;
-            const steps = 10;
-            const stepValue = diff / steps;
-            let current = prevValue.current;
-            let step = 0;
-
-            const animate = () => {
-                if (step < steps) {
-                    current += stepValue;
-                    setDisplayValue(Math.round(current));
-                    step++;
-                    requestAnimationFrame(animate);
-                } else {
-                    setDisplayValue(value);
-                    setIsAnimating(false);
-                }
-            };
-
-            requestAnimationFrame(animate);
-            prevValue.current = value;
-        } else {
-            setDisplayValue(value);
-        }
-    }, [value, showAnimation]);
+    const normalizedValue = Number.isFinite(Number(value)) && Number(value) > 0
+        ? Math.round(Number(value))
+        : null;
+    const isAnimating = showAnimation && normalizedValue !== null;
 
     const getStatusClass = () => {
-        if (value >= 110 && value <= 160) return 'normal';
-        if (value >= 100 && value < 110) return 'warning';
-        if (value > 160 && value <= 180) return 'warning';
-        return 'critical';
+        if (normalizedValue === null) return 'unavailable';
+        if (normalizedValue >= 110 && normalizedValue <= 160) return 'normal';
+        return 'warning';
     };
 
     return (
         <div className={`fhr-display fhr-display--${size} fhr-display--${getStatusClass()}`}>
             <div className="fhr-display__label">{label}</div>
             <div className={`fhr-display__value ${isAnimating ? 'animating' : ''}`}>
-                {displayValue}
+                {normalizedValue ?? '--'}
             </div>
             <div className="fhr-display__unit">{unit}</div>
             <div className="fhr-display__pulse">

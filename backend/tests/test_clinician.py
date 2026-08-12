@@ -277,7 +277,7 @@ def test_clinician_can_acknowledge_alert_with_actor_and_note(client, auth_header
 
     response = client.post(
         f"/clinician/alerts/{alert.id}/acknowledge",
-        json={"note": "Dihubungi untuk tindak lanjut terjadwal."},
+        json={"note": "Dihubungi untuk tindak lanjut terjadwal.", "expected_version": 1},
         headers=clinician_headers,
     )
 
@@ -311,12 +311,20 @@ def test_clinician_can_update_alert_lifecycle_status(client, auth_headers, db_se
 
     review_response = client.patch(
         f"/clinician/alerts/{alert.id}/status",
-        json={"status": "in_review", "note": "Sedang ditinjau bersama bidan penanggung jawab."},
+        json={
+            "status": "in_review",
+            "note": "Sedang ditinjau bersama bidan penanggung jawab.",
+            "expected_version": 1,
+        },
         headers=clinician_headers,
     )
     resolved_response = client.patch(
         f"/clinician/alerts/{alert.id}/status",
-        json={"status": "resolved", "note": "Tindak lanjut selesai, tetap pantau rutin."},
+        json={
+            "status": "resolved",
+            "note": "Tindak lanjut selesai, tetap pantau rutin.",
+            "expected_version": 2,
+        },
         headers=clinician_headers,
     )
     resolved_filter_response = client.get(
@@ -353,12 +361,16 @@ def test_clinician_cannot_acknowledge_unassigned_alert(client, auth_headers, db_
 
     response = client.post(
         f"/clinician/alerts/{alert.id}/acknowledge",
-        json={"note": "Mencoba akses alert tidak ditugaskan."},
+        json={"note": "Mencoba akses alert tidak ditugaskan.", "expected_version": 1},
         headers=clinician_headers,
     )
     status_response = client.patch(
         f"/clinician/alerts/{alert.id}/status",
-        json={"status": "resolved", "note": "Mencoba menutup alert tidak ditugaskan."},
+        json={
+            "status": "resolved",
+            "note": "Mencoba menutup alert tidak ditugaskan.",
+            "expected_version": 1,
+        },
         headers=clinician_headers,
     )
 

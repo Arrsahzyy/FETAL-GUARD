@@ -63,6 +63,7 @@ def test_admin_can_provision_and_list_clinician(auth_headers, client, login_user
     assert data["user"]["role"] == "clinician"
     assert data["user"]["is_active"] is True
     assert data["user"]["must_reset_password"] is True
+    assert data["membership_id"]
 
     login_response = login_user(email="new-clinician@example.com", password="password123")
     assert login_response.status_code == 200
@@ -74,12 +75,61 @@ def test_admin_can_provision_and_list_clinician(auth_headers, client, login_user
     assert clinicians["limit"] == 25
     assert clinicians["offset"] == 0
     assert any(item["email"] == "new-clinician@example.com" for item in clinicians["items"])
+    listed_clinician = next(
+        item for item in clinicians["items"] if item["email"] == "new-clinician@example.com"
+    )
+    assert listed_clinician["membership_id"] == data["membership_id"]
+    assert listed_clinician["membership_role"] == "clinician"
 
     audit_response = client.get("/admin/audit-logs", headers=admin_headers)
     assert audit_response.status_code == 200
     audit_logs = audit_response.json()
     assert audit_logs[0]["action"] == "clinician.provisioned"
     assert audit_logs[0]["target_email"] == "new-clinician@example.com"
+
+
+def test_admin_can_provision_supervisor_but_cannot_assign_it_as_patient_clinician(
+    auth_headers,
+    client,
+):
+    admin_headers = auth_headers(email="admin-supervisor@example.com", role="admin")
+    patient_headers = auth_headers(email="supervisor-scope-patient@example.com", role="patient")
+    patient = create_patient_profile(client, patient_headers, name="Pasien Scope Supervisor")
+
+    provision_response = client.post(
+        "/admin/clinicians",
+        json={
+            "email": "facility-supervisor@example.com",
+            "temporary_password": "password123",
+            "membership_role": "supervisor",
+        },
+        headers=admin_headers,
+    )
+    assert provision_response.status_code == 201
+    supervisor_id = provision_response.json()["user"]["id"]
+
+    listed = client.get("/admin/clinicians", headers=admin_headers)
+    assert listed.status_code == 200
+    supervisor = next(item for item in listed.json()["items"] if item["id"] == supervisor_id)
+    assert supervisor["membership_role"] == "supervisor"
+
+    assignment = client.post(
+        "/admin/patient-assignments",
+        json={
+            "patient_id": patient["id"],
+            "clinician_id": supervisor_id,
+            "care_role": "primary",
+        },
+        headers=admin_headers,
+    )
+    assert assignment.status_code == 404
+
+    deactivate = client.post(
+        f"/admin/clinicians/{supervisor_id}/deactivate",
+        headers=admin_headers,
+    )
+    assert deactivate.status_code == 200
+    assert deactivate.json()["is_active"] is False
 
 
 def test_inactive_user_cannot_login_or_use_existing_token(client, create_user, login_user):
@@ -112,6 +162,10 @@ def test_admin_can_deactivate_and_reactivate_clinician(auth_headers, client, log
     )
     assert provision_response.status_code == 201
     clinician_id = provision_response.json()["user"]["id"]
+    initial_login = login_user(email="status-clinician@example.com", password="password123")
+    assert initial_login.status_code == 200
+    initial_tokens = initial_login.json()
+    initial_headers = {"Authorization": f"Bearer {initial_tokens['access_token']}"}
 
     deactivate_response = client.post(
         f"/admin/clinicians/{clinician_id}/deactivate",
@@ -119,6 +173,14 @@ def test_admin_can_deactivate_and_reactivate_clinician(auth_headers, client, log
     )
     assert deactivate_response.status_code == 200
     assert deactivate_response.json()["is_active"] is False
+
+    inactive_access = client.get("/auth/me", headers=initial_headers)
+    inactive_refresh = client.post(
+        "/auth/refresh",
+        json={"refresh_token": initial_tokens["refresh_token"]},
+    )
+    assert inactive_access.status_code == 403
+    assert inactive_refresh.status_code == 401
 
     blocked_login = login_user(email="status-clinician@example.com", password="password123")
     assert blocked_login.status_code == 403
@@ -129,6 +191,14 @@ def test_admin_can_deactivate_and_reactivate_clinician(auth_headers, client, log
     )
     assert activate_response.status_code == 200
     assert activate_response.json()["is_active"] is True
+
+    reactivated_old_access = client.get("/auth/me", headers=initial_headers)
+    reactivated_old_refresh = client.post(
+        "/auth/refresh",
+        json={"refresh_token": initial_tokens["refresh_token"]},
+    )
+    assert reactivated_old_access.status_code == 401
+    assert reactivated_old_refresh.status_code == 401
 
     login_response = login_user(email="status-clinician@example.com", password="password123")
     assert login_response.status_code == 200
@@ -148,6 +218,10 @@ def test_admin_can_reset_clinician_password(auth_headers, client, login_user):
     )
     assert provision_response.status_code == 201
     clinician_id = provision_response.json()["user"]["id"]
+    initial_login = login_user(email="reset-clinician@example.com", password="password123")
+    assert initial_login.status_code == 200
+    initial_tokens = initial_login.json()
+    initial_headers = {"Authorization": f"Bearer {initial_tokens['access_token']}"}
 
     reset_response = client.post(
         f"/admin/clinicians/{clinician_id}/reset-password",
@@ -158,6 +232,14 @@ def test_admin_can_reset_clinician_password(auth_headers, client, login_user):
     reset_data = reset_response.json()
     assert reset_data["temporary_password"] == "password456"
     assert reset_data["user"]["must_reset_password"] is True
+
+    old_access = client.get("/auth/me", headers=initial_headers)
+    old_refresh = client.post(
+        "/auth/refresh",
+        json={"refresh_token": initial_tokens["refresh_token"]},
+    )
+    assert old_access.status_code == 401
+    assert old_refresh.status_code == 401
 
     old_login = login_user(email="reset-clinician@example.com", password="password123")
     assert old_login.status_code == 401
@@ -337,7 +419,8 @@ def test_admin_can_assign_and_unassign_patient_to_clinician(auth_headers, client
         json={"patient_id": patient["id"], "clinician_id": clinician["id"]},
         headers=admin_headers,
     )
-    assert duplicate_response.status_code == 400
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json()["detail"]["code"] == "PRIMARY_CLINICIAN_ALREADY_ASSIGNED"
 
     list_response = client.get("/admin/patients?q=nur", headers=admin_headers)
     assert list_response.status_code == 200
@@ -381,6 +464,52 @@ def test_admin_assignment_rejects_inactive_clinician(auth_headers, client):
     )
 
     assert assign_response.status_code == 400
+
+
+def test_primary_assignment_conflict_does_not_block_supporting_clinician(auth_headers, client):
+    admin_headers = auth_headers(email="admin-care-role@example.com", role="admin")
+    patient_headers = auth_headers(email="care-role-patient@example.com", role="patient")
+    patient = create_patient_profile(client, patient_headers, name="Pasien Care Role")
+    primary = client.post(
+        "/admin/clinicians",
+        json={"email": "care-role-primary@example.com", "temporary_password": "password123"},
+        headers=admin_headers,
+    ).json()["user"]
+    supporting = client.post(
+        "/admin/clinicians",
+        json={"email": "care-role-supporting@example.com", "temporary_password": "password123"},
+        headers=admin_headers,
+    ).json()["user"]
+
+    first_primary = client.post(
+        "/admin/patient-assignments",
+        json={"patient_id": patient["id"], "clinician_id": primary["id"], "care_role": "primary"},
+        headers=admin_headers,
+    )
+    second_primary = client.post(
+        "/admin/patient-assignments",
+        json={
+            "patient_id": patient["id"],
+            "clinician_id": supporting["id"],
+            "care_role": "primary",
+        },
+        headers=admin_headers,
+    )
+    supporting_assignment = client.post(
+        "/admin/patient-assignments",
+        json={
+            "patient_id": patient["id"],
+            "clinician_id": supporting["id"],
+            "care_role": "supporting",
+        },
+        headers=admin_headers,
+    )
+
+    assert first_primary.status_code == 201
+    assert second_primary.status_code == 409
+    assert second_primary.json()["detail"]["code"] == "PRIMARY_CLINICIAN_ALREADY_ASSIGNED"
+    assert supporting_assignment.status_code == 201
+    assert supporting_assignment.json()["care_role"] == "supporting"
 
 
 def test_non_admin_cannot_manage_patient_assignments(auth_headers, client):

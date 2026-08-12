@@ -17,9 +17,19 @@
     box-shadow: var(--shadow-lg), 0 0 20px rgba(255, 59, 48, 0.4);
     z-index: 9999;
     transition: all var(--transition-base);
-    animation: emergency-pulse 2s infinite;
     min-height: 48px;
     min-width: 48px;
+}
+
+.emergency-button--compact {
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    justify-content: center;
+}
+
+.emergency-button--compact .emergency-button__label {
+    display: none;
 }
 
 /* Tablet: Adjust position */
@@ -27,6 +37,10 @@
     .emergency-button {
         bottom: calc(120px + env(safe-area-inset-bottom, 0px));
         padding: var(--spacing-3) var(--spacing-5);
+    }
+
+    .emergency-button--compact {
+        padding: 0;
     }
 }
 
@@ -38,6 +52,10 @@
         left: auto;
         padding: var(--spacing-4) var(--spacing-6);
         font-size: var(--font-size-base);
+    }
+
+    .emergency-button--compact {
+        padding: 0;
     }
 }
 
@@ -106,6 +124,19 @@
 .emergency-button__label {
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+@media (max-width: 639px) {
+    .emergency-button {
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        justify-content: center;
+    }
+
+    .emergency-button .emergency-button__label {
+        display: none;
+    }
 }
 
 /* Overlay */

@@ -23,8 +23,9 @@ transmission window defined in the Roadmap.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any
+import uuid
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -80,10 +81,10 @@ class SensorChannels(BaseModel):
     @model_validator(mode="after")
     def _require_at_least_one_channel(self) -> "SensorChannels":
         has_data = any([
-            self.p is not None,
-            self.fsr is not None,
-            self.hr_ir is not None,
-            self.hr_red is not None,
+            bool(self.p),
+            bool(self.fsr),
+            bool(self.hr_ir),
+            bool(self.hr_red),
         ])
         if not has_data:
             raise ValueError(
@@ -101,6 +102,12 @@ class SensorDataChunkCreate(BaseModel):
     """
 
     payload: SensorChannels
+    schema_version: int = Field(default=1, ge=1, le=10)
+    ingestion_id: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=8, max_length=80)
+    boot_id: str | None = Field(default=None, min_length=8, max_length=80)
+    sequence_number: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    captured_at: datetime | None = None
+    sample_rate_hz: float | None = Field(default=None, gt=0, le=10_000)
     device_uid: str | None = Field(default=None, min_length=3, max_length=80)
     source: str | None = Field(default=None, max_length=32)
     is_simulated: bool | None = None
@@ -123,22 +130,75 @@ class SensorDataChunkCreate(BaseModel):
             raise ValueError("Source must be one of: mock, device, ble, mqtt, manual")
         return normalized
 
+    @field_validator("ingestion_id", "boot_id")
+    @classmethod
+    def normalize_packet_identity(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized or not all(character.isalnum() or character in "-_" for character in normalized):
+            raise ValueError("Packet identifiers may only contain letters, numbers, hyphens, and underscores")
+        return normalized
+
+    @field_validator("captured_at")
+    @classmethod
+    def require_timezone_on_captured_at(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("captured_at must include a timezone offset")
+        return value.astimezone(timezone.utc)
+
     @model_validator(mode="after")
     def require_device_uid_for_device_sources(self) -> "SensorDataChunkCreate":
-        if self.source in {"device", "ble", "mqtt"} and not self.device_uid:
+        is_device_source = self.source in {"device", "ble", "mqtt"}
+        if is_device_source and not self.device_uid:
             raise ValueError("device_uid is required for device, BLE, or MQTT sensor uploads")
+        if is_device_source:
+            required_fields = {
+                "ingestion_id": "ingestion_id",
+                "boot_id": self.boot_id,
+                "sequence_number": self.sequence_number,
+                "captured_at": self.captured_at,
+                "sample_rate_hz": self.sample_rate_hz,
+            }
+            missing = [
+                name for name, value in required_fields.items()
+                if (name == "ingestion_id" and name not in self.model_fields_set) or value is None
+            ]
+            if missing:
+                raise ValueError(f"Device uploads require packet metadata: {', '.join(missing)}")
+
+        if self.source == "mock" and self.is_simulated is not True:
+            raise ValueError("Mock sensor uploads must set is_simulated=true")
+        if is_device_source and self.is_simulated is True:
+            raise ValueError("Device, BLE, and MQTT uploads cannot be marked as simulated")
+        if self.is_simulated is True and self.source != "mock":
+            raise ValueError("Simulated uploads must use source=mock")
+        if self.summary is not None and self.source != "mock":
+            raise ValueError(
+                "Derived sensor summaries are not accepted from untrusted device or manual uploads"
+            )
         return self
 
     def to_stored_payload(self) -> dict[str, Any]:
         """Serialise the chunk to the format stored in the database."""
         channels = self.payload.model_dump(exclude_none=True)
-        if self.source is None and self.is_simulated is None and self.device_uid is None:
-            return channels
         stored_payload = {
+            "schema_version": self.schema_version,
+            "ingestion_id": self.ingestion_id,
             "source": self.source or "manual",
             "is_simulated": bool(self.is_simulated),
             "samples": channels,
         }
+        if self.boot_id:
+            stored_payload["boot_id"] = self.boot_id
+        if self.sequence_number is not None:
+            stored_payload["sequence_number"] = self.sequence_number
+        if self.captured_at:
+            stored_payload["captured_at"] = self.captured_at.isoformat()
+        if self.sample_rate_hz is not None:
+            stored_payload["sample_rate_hz"] = self.sample_rate_hz
         if self.device_uid:
             stored_payload["device_uid"] = self.device_uid
         return stored_payload
@@ -146,8 +206,15 @@ class SensorDataChunkCreate(BaseModel):
 
 class SensorDataChunkResponse(BaseModel):
     id: str
+    organization_id: str
     session_id: str
     timestamp: datetime
-    payload: Any
+    device_id: str | None = None
+    ingestion_id: str
+    boot_id: str | None = None
+    sequence_number: int | None = None
+    schema_version: int
+    captured_at: datetime | None = None
+    was_duplicate: bool = False
 
     model_config = {"from_attributes": True}

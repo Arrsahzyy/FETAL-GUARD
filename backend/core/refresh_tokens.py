@@ -91,8 +91,30 @@ def rotate_refresh_token(db: Session, raw_token: str, request: Request) -> tuple
 
     next_raw_token, next_token = _build_refresh_token(db, user, request, now)
     db.flush()
-    current_token.revoked_at = now
-    current_token.replaced_by_token_id = next_token.id
+
+    # Claim the current token with one conditional UPDATE. A read-then-write
+    # assignment allows two concurrent refresh requests to both mint a valid
+    # successor. The revoked predicate makes the database choose one winner;
+    # a loser rolls its uncommitted successor back and must authenticate again.
+    claimed = (
+        db.query(AuthRefreshToken)
+        .filter(
+            AuthRefreshToken.id == current_token.id,
+            AuthRefreshToken.revoked_at.is_(None),
+            AuthRefreshToken.expires_at > now,
+        )
+        .update(
+            {
+                AuthRefreshToken.revoked_at: now,
+                AuthRefreshToken.replaced_by_token_id: next_token.id,
+            },
+            synchronize_session=False,
+        )
+    )
+    if claimed != 1:
+        db.rollback()
+        raise _invalid_refresh_token_error()
+
     db.commit()
     db.refresh(user)
     return user, next_raw_token
@@ -112,3 +134,18 @@ def revoke_refresh_token(db: Session, raw_token: str | None) -> None:
 
     token.revoked_at = _now()
     db.commit()
+
+
+def revoke_all_refresh_tokens(db: Session, user_id: str, *, commit: bool = True) -> int:
+    now = _now()
+    updated = (
+        db.query(AuthRefreshToken)
+        .filter(
+            AuthRefreshToken.user_id == user_id,
+            AuthRefreshToken.revoked_at.is_(None),
+        )
+        .update({AuthRefreshToken.revoked_at: now}, synchronize_session=False)
+    )
+    if commit:
+        db.commit()
+    return updated

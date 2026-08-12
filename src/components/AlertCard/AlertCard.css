@@ -39,25 +39,6 @@
 .alert-card--critical {
     border-left-color: var(--color-critical);
     background: linear-gradient(135deg, rgba(255, 59, 48, 0.08), transparent);
-    animation: alert-shake 0.5s ease-in-out;
-}
-
-@keyframes alert-shake {
-
-    0%,
-    100% {
-        transform: translateX(0);
-    }
-
-    20%,
-    60% {
-        transform: translateX(-5px);
-    }
-
-    40%,
-    80% {
-        transform: translateX(5px);
-    }
 }
 
 .alert-card--acknowledged {
@@ -94,19 +75,6 @@
 .alert-card__icon--critical {
     background: var(--color-critical-bg);
     color: var(--color-critical);
-    animation: icon-pulse 1s infinite;
-}
-
-@keyframes icon-pulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.1);
-    }
 }
 
 /* Content */
@@ -198,19 +166,6 @@
 .alert-card__btn--critical {
     background: var(--color-critical);
     color: white;
-    animation: btn-pulse 2s infinite;
-}
-
-@keyframes btn-pulse {
-
-    0%,
-    100% {
-        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
-    }
-
-    50% {
-        box-shadow: 0 0 0 8px rgba(255, 59, 48, 0);
-    }
 }
 
 /* Acknowledged badge */

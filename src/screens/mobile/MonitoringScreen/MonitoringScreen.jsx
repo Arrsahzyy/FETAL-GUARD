@@ -1,349 +1,974 @@
-import React, { useState, useEffect } from 'react';
-import { FHRDisplay, StatusBadge, WaveformChart } from '../../../components';
-import { t } from '../../../i18n';
-import './MonitoringScreen.css';
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import AuthScreen from "../../../components/AuthScreen/AuthScreen";
+import FHRDisplay from "../../../components/FHRDisplay/FHRDisplay";
+import Icon from "../../../components/Icon/Icon";
+import StatusBadge from "../../../components/StatusBadge/StatusBadge";
+import WaveformChart from "../../../components/WaveformChart/WaveformChart";
+import { useAuth } from "../../../context/useAuth";
+import { usePatientDevice } from "../../../context/usePatientDevice";
+import { usePatientMonitoring } from "../../../context/usePatientMonitoring";
+import { t } from "../../../i18n";
+import { useI18n } from "../../../i18n/useI18n";
+import "./MonitoringScreen.css";
 
-const MonitoringScreen = ({ onBack, onStop, onNavigate, onStopSession, patientData }) => {
-    const [sessionDuration, setSessionDuration] = useState(0);
-    const [currentFHR, setCurrentFHR] = useState(138);
-    const [motherHeartRate, setMotherHeartRate] = useState(82);
-    const [bloodPressure, setBloodPressure] = useState({ systolic: 118, diastolic: 75 });
-    const [signalQuality, setSignalQuality] = useState('good');
-    const [riskScore, setRiskScore] = useState(12);
-    const [counters, setCounters] = useState({
-        accelerations: 3,
-        decelerations: 0,
-        movements: 8
-    });
-    
-    // Pregnancy data - can be passed from patient profile
-    const [pregnancyWeek, setPregnancyWeek] = useState(patientData?.pregnancyWeek || 32);
+const SIGNAL_VIEW_OPTIONS = ["all", "fhr", "contraction", "events"];
+const HISTORY_LIMIT = 180;
 
-    // Simulate real-time updates
-    useEffect(() => {
-        const interval = setInterval(() => {
-            // Update duration
-            setSessionDuration(prev => prev + 1);
+const getNumericValue = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
 
-            // Simulate FHR changes (Fetal Heart Rate: 110-160 bpm normal)
-            setCurrentFHR(prev => {
-                const change = (Math.random() - 0.5) * 4;
-                return Math.round(Math.max(110, Math.min(170, prev + change)));
-            });
-            
-            // Simulate Mother's Heart Rate changes (60-100 bpm normal)
-            setMotherHeartRate(prev => {
-                const change = (Math.random() - 0.5) * 2;
-                return Math.round(Math.max(60, Math.min(110, prev + change)));
-            });
-            
-            // Simulate Blood Pressure changes (Normal: 90-120/60-80)
-            setBloodPressure(prev => {
-                const sysChange = (Math.random() - 0.5) * 2;
-                const diaChange = (Math.random() - 0.5) * 1;
-                return {
-                    systolic: Math.round(Math.max(90, Math.min(140, prev.systolic + sysChange))),
-                    diastolic: Math.round(Math.max(60, Math.min(90, prev.diastolic + diaChange)))
-                };
-            });
+const appendHistoryValue = (history, value) => {
+  if (value === null) return history;
+  const next = [...history, value];
+  return next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
+};
 
-            // Randomly update counters
-            if (Math.random() < 0.1) {
-                setCounters(prev => ({
-                    ...prev,
-                    movements: prev.movements + 1
-                }));
-            }
-            if (Math.random() < 0.05) {
-                setCounters(prev => ({
-                    ...prev,
-                    accelerations: prev.accelerations + 1
-                }));
-            }
-        }, 1000);
+const getSignalLevelFromPercent = (value) => {
+  if (value === null) return "waiting";
+  if (value >= 85) return "excellent";
+  if (value >= 65) return "good";
+  if (value >= 45) return "fair";
+  return "poor";
+};
 
-        return () => clearInterval(interval);
-    }, []);
+const formatBpm = (value) => (
+  value === null ? "--" : Math.round(value)
+);
 
-    const formatDuration = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+const MonitoringScreen = ({ patientData }) => {
+  const navigate = useNavigate();
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
+
+  if (isAuthLoading) {
+    return (
+      <div className="monitoring-screen monitoring-screen--auth-loading">
+        <div className="monitoring-sync-panel">
+          <strong>{t("patient.monitoring.authChecking")}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthScreen />;
+  }
+
+  const profilePatientData = user?.patientProfile
+    ? {
+        ...patientData,
+        fullName: user.patientProfile.name,
+        pregnancyWeek: user.patientProfile.gestational_age_weeks,
+      }
+    : patientData;
+
+  return (
+    <MonitoringScreenContent
+      navigate={navigate}
+      patientData={profilePatientData}
+    />
+  );
+};
+
+const MonitoringScreenContent = ({ navigate, patientData }) => {
+  // ============================================
+  // Sensor data hook — easy swap point for the hardware data provider later.
+  // ============================================
+  const {
+    connectionState,
+    droppedPacketCount,
+    hasRegisteredDevice,
+    isConnecting,
+    isScanning,
+    isTelemetryFresh,
+    pairedDevice,
+    pairingError,
+    scanForDevice,
+    telemetry,
+  } = usePatientDevice();
+  const {
+    activeSession,
+    dataPersistenceState,
+    isSessionActive,
+    pendingUploadCount,
+    rejectedUploadCount,
+    sessionError,
+    sessionState,
+    startSession,
+    stopSession,
+  } = usePatientMonitoring();
+
+  // Session active state — toggled oleh stop/resume button
+  const [activeSignalView, setActiveSignalView] = useState("all");
+  const [sessionDuration, setSessionDuration] = useState(0);
+  const [fhrHistory, setFhrHistory] = useState([]);
+  const [contractionHistory, setContractionHistory] = useState([]);
+  const isMonitoringActive = Boolean(pairedDevice) && isSessionActive;
+  const isLiveTelemetry = isMonitoringActive && isTelemetryFresh;
+
+  // Reactive locale — memastikan re-render saat user ganti bahasa
+  // eslint-disable-next-line no-unused-vars
+  const { locale } = useI18n();
+
+  // Pregnancy data from patient profile
+  const pregnancyWeek =
+    patientData?.pregnancyWeek || patientData?.gestationalWeeks || null;
+
+  useEffect(() => {
+    if (!isMonitoringActive || !activeSession?.start_time) return undefined;
+    const sessionStartedAt = new Date(activeSession.start_time).getTime();
+    if (Number.isNaN(sessionStartedAt)) return undefined;
+
+    const timer = window.setInterval(() => {
+      setSessionDuration(Math.floor((Date.now() - sessionStartedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [activeSession?.start_time, isMonitoringActive]);
+
+  const currentFHR = getNumericValue(telemetry.fhr);
+  const motherHeartRate = getNumericValue(telemetry.maternalHeartRate);
+  const spo2 = getNumericValue(telemetry.spo2);
+  const signalPercent = getNumericValue(telemetry.signalQuality);
+  const contractionIntensity = getNumericValue(telemetry.contractionLevel);
+  const signalQuality = getSignalLevelFromPercent(signalPercent);
+  const contraction = useMemo(() => ({
+    intensity: contractionIntensity ?? 0,
+  }), [contractionIntensity]);
+
+  useEffect(() => {
+    if (!isLiveTelemetry) return undefined;
+
+    const historyUpdate = window.setTimeout(() => {
+      setFhrHistory((current) => appendHistoryValue(current, currentFHR));
+      setContractionHistory((current) => appendHistoryValue(current, contractionIntensity));
+    }, 0);
+
+    return () => window.clearTimeout(historyUpdate);
+  }, [contractionIntensity, currentFHR, isLiveTelemetry, telemetry.bootId, telemetry.sequenceNumber]);
+
+  const fhrAverage = useMemo(() => (
+    fhrHistory.length > 0
+      ? Math.round(fhrHistory.reduce((total, value) => total + value, 0) / fhrHistory.length)
+      : null
+  ), [fhrHistory]);
+  const counters = useMemo(() => ({
+    accelerations: null,
+    decelerations: null,
+    movements: null,
+    contractions: null,
+  }), []);
+  const hasLiveTelemetry = isLiveTelemetry;
+  const isAcceleration = false;
+  const isDeceleration = false;
+  const isStartingSession = sessionState === "starting";
+  const isStoppingSession = sessionState === "stopping";
+  const syncError = sessionError || pairingError;
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const getSignalQualityLabel = () => {
+    switch (signalQuality) {
+      case "waiting":
+        return t("patient.monitoring.waitingDeviceData");
+      case "excellent":
+        return t("monitoring.excellent");
+      case "good":
+        return t("monitoring.good");
+      case "fair":
+        return t("monitoring.fair");
+      case "poor":
+        return t("monitoring.poor");
+      default:
+        return signalQuality;
+    }
+  };
+
+  const getSignalStatus = () => {
+    switch (signalQuality) {
+      case "waiting":
+        return "info";
+      case "excellent":
+      case "good":
+        return "success";
+      case "fair":
+        return "warning";
+      case "poor":
+        return "warning";
+      default:
+        return "info";
+    }
+  };
+
+  const getObservationStatus = () => {
+    if (!hasLiveTelemetry) {
+      return {
+        label: t("patient.monitoring.waitingDeviceDataShort"),
+        status: "info",
+        recommendation: t("patient.monitoring.waitingDeviceDataDesc"),
+      };
+    }
+
+    if ((currentFHR !== null && (currentFHR < 110 || currentFHR > 160))
+        || (motherHeartRate !== null && (motherHeartRate < 60 || motherHeartRate > 100))) {
+      return {
+        label: t("patient.monitoring.reviewReading"),
+        status: "warning",
+        recommendation: t("patient.monitoring.recommendedRepeat"),
+      };
+    }
+    return {
+      label: t("patient.monitoring.readingAvailable"),
+      status: "success",
+      recommendation: t("patient.monitoring.recommendedStable"),
     };
+  };
 
-    const getSignalQualityLabel = () => {
-        switch (signalQuality) {
-            case 'excellent': return t('monitoring.excellent');
-            case 'good': return t('monitoring.good');
-            case 'fair': return t('monitoring.fair');
-            case 'poor': return t('monitoring.poor');
-            default: return signalQuality;
-        }
-    };
+  const getMotherHRStatus = () => {
+    if (motherHeartRate === null) return "info";
+    if (motherHeartRate >= 60 && motherHeartRate <= 100) return "success";
+    return "warning";
+  };
 
-    const getSignalStatus = () => {
-        switch (signalQuality) {
-            case 'excellent':
-            case 'good': return 'success';
-            case 'fair': return 'warning';
-            case 'poor': return 'critical';
-            default: return 'info';
-        }
-    };
+  const getSpO2Status = () => {
+    if (spo2 === null) return "info";
+    return "info";
+  };
 
-    const getRiskLevel = () => {
-        if (riskScore < 25) return { label: t('monitoring.lowRisk'), status: 'success' };
-        if (riskScore < 60) return { label: t('monitoring.mediumRisk'), status: 'warning' };
-        return { label: t('monitoring.highRisk'), status: 'critical' };
-    };
-    
-    const getMotherHRStatus = () => {
-        if (motherHeartRate >= 60 && motherHeartRate <= 100) return 'success';
-        if (motherHeartRate > 100 && motherHeartRate <= 110) return 'warning';
-        return 'critical';
-    };
-    
-    const getBPStatus = () => {
-        const { systolic, diastolic } = bloodPressure;
-        if (systolic <= 120 && diastolic <= 80) return 'success';
-        if (systolic <= 139 && diastolic <= 89) return 'warning';
-        return 'critical';
-    };
-    
-    const getFHRStatus = () => {
-        if (currentFHR >= 110 && currentFHR <= 160) return 'success';
-        if ((currentFHR >= 100 && currentFHR < 110) || (currentFHR > 160 && currentFHR <= 170)) return 'warning';
-        return 'critical';
-    };
+  const getFHRStatus = () => {
+    if (currentFHR === null) return "info";
+    if (currentFHR >= 110 && currentFHR <= 160) return "success";
+    return "warning";
+  };
 
-    const handleStop = () => {
-        // Support both prop naming conventions
-        if (onStop) {
-            onStop();
-        } else if (onStopSession) {
-            onStopSession();
-        }
-        if (onNavigate) {
-            onNavigate('home');
-        } else if (onBack) {
-            onBack();
-        }
-    };
+  const getStatusLabel = (status, warningLabel = t("patient.common.recheck")) => {
+    if (status === "success") return t("patient.common.inRange");
+    if (status === "warning") return warningLabel;
+    if (status === "info") return t("patient.monitoring.waitingDeviceDataShort");
+    return t("patient.common.consult");
+  };
+
+  const getRangePercent = (value, min, max) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.min(100, Math.max(0, ((numeric - min) / (max - min)) * 100));
+  };
+
+  const handleToggleSession = async () => {
+    if (isSessionActive) {
+      // STOP — tidak navigate, tetap di tab Pantau
+      await stopSession();
+    } else {
+      // RESUME
+      setFhrHistory([]);
+      setContractionHistory([]);
+      setSessionDuration(0);
+      await startSession();
+    }
+  };
+
+  const observationStatus = getObservationStatus();
+  const connectionLabel = connectionState === "reconnecting"
+    ? t("patient.monitoring.reconnecting")
+    : isTelemetryFresh
+      ? t("patient.monitoring.dataFresh")
+      : t("patient.monitoring.dataStale");
+  const persistenceLabels = {
+    waiting: t("patient.monitoring.persistenceWaiting"),
+    awaiting_raw_channels: t("patient.monitoring.persistenceNoRawChannels"),
+    pending: t("patient.monitoring.persistencePending"),
+    synced: t("patient.monitoring.persistenceSynced"),
+    retrying: t("patient.monitoring.persistenceRetrying"),
+    offline: t("patient.monitoring.persistenceOffline"),
+    rejected: t("patient.monitoring.persistenceRejected"),
+    queue_full: t("patient.monitoring.persistenceQueueFull"),
+  };
+  const persistenceLabel = persistenceLabels[dataPersistenceState]
+    || t("patient.monitoring.persistenceWaiting");
+  const showFhrSignal =
+    activeSignalView === "all" || activeSignalView === "fhr";
+  const showContractionSignal =
+    activeSignalView === "all" || activeSignalView === "contraction";
+  const showEventSignal =
+    activeSignalView === "all" || activeSignalView === "events";
+
+  if (!pairedDevice) {
+    const emptyTitle = hasRegisteredDevice
+      ? t("patient.monitoring.deviceNotConnectedTitle")
+      : t("patient.monitoring.deviceNotRegisteredTitle");
+    const emptyDesc = hasRegisteredDevice
+      ? t("patient.monitoring.deviceNotConnectedDesc")
+      : t("patient.monitoring.deviceNotRegisteredDesc");
 
     return (
-        <div className="monitoring-screen">
-            {/* Header */}
-            <header className="monitoring-header">
-                <div className="monitoring-header__left">
-                    <button className="monitoring-back-btn" onClick={handleStop}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="19" y1="12" x2="5" y2="12" />
-                            <polyline points="12 19 5 12 12 5" />
-                        </svg>
-                    </button>
-                    <h1>{t('monitoring.title')}</h1>
-                </div>
-                <div className="monitoring-header__duration">
-                    <span className="monitoring-header__duration-label">{t('monitoring.duration')}</span>
-                    <span className="monitoring-header__duration-value">{formatDuration(sessionDuration)}</span>
-                </div>
-            </header>
+      <div className="monitoring-screen">
+        <header className="monitoring-header">
+          <div className="monitoring-header__left">
+            <button
+              className="monitoring-back-btn"
+              onClick={() => navigate("/patient/home")}
+              type="button"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+            </button>
+            <h1>{t("monitoring.title")}</h1>
+          </div>
+          <div className="monitoring-header__duration">
+            <span className="monitoring-header__duration-label">
+              {t("monitoring.duration")}
+            </span>
+            <span className="monitoring-header__duration-value">00:00</span>
+          </div>
+        </header>
 
-            {/* Pregnancy Info Banner */}
-            <div className="monitoring-pregnancy-info">
-                <div className="monitoring-pregnancy-week">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 6v6l4 2" />
-                    </svg>
-                    <span>Usia Kehamilan: <strong>{pregnancyWeek} Minggu</strong></span>
-                </div>
+        {syncError && (
+          <div className="monitoring-sync-panel monitoring-sync-panel--error">
+            <strong>{t("patient.monitoring.syncFailed")}</strong>
+            <p>{syncError}</p>
+          </div>
+        )}
+
+        <section className="monitoring-device-empty" role="status">
+          <div className="monitoring-device-empty__visual" aria-hidden="true">
+            <Icon className="material-symbols-outlined" name="sensors_off" />
+            <i />
+            <i />
+          </div>
+          <div className="monitoring-device-empty__copy">
+            <span>{t("patient.monitoring.deviceConnectionRequired")}</span>
+            <h2>{emptyTitle}</h2>
+            <p>{emptyDesc}</p>
+          </div>
+          <div className="monitoring-device-empty__actions">
+            {hasRegisteredDevice ? (
+              <button
+                type="button"
+                className="monitoring-device-empty__primary"
+                disabled={isScanning || isConnecting}
+                onClick={() => {
+                  void scanForDevice();
+                }}
+              >
+                <Icon className="material-symbols-outlined" name="bluetooth_searching" />
+                {isScanning
+                  ? t("patient.home.scanLoading")
+                  : t("patient.monitoring.scanFromHome")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="monitoring-device-empty__primary"
+                onClick={() => navigate("/patient/settings")}
+              >
+                <Icon className="material-symbols-outlined" name="settings" />
+                {t("patient.monitoring.openDeviceSettings")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="monitoring-device-empty__secondary"
+              onClick={() => navigate("/patient/home")}
+            >
+              {t("patient.common.backHome")}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="monitoring-screen">
+      {/* Header */}
+      <header className="monitoring-header">
+        <div className="monitoring-header__left">
+          <button
+            className="monitoring-back-btn"
+            onClick={() => navigate("/patient/home")}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
+          <h1>{t("monitoring.title")}</h1>
+        </div>
+        <div className="monitoring-header__duration">
+          <span className="monitoring-header__duration-label">
+            {t("monitoring.duration")}
+          </span>
+          <span className="monitoring-header__duration-value">
+            {formatDuration(sessionDuration)}
+          </span>
+        </div>
+      </header>
+
+      {(isStartingSession || isStoppingSession || syncError) && (
+        <div
+          className={`monitoring-sync-panel ${syncError ? "monitoring-sync-panel--error" : ""}`}
+        >
+          <strong>
+            {syncError
+              ? t("patient.monitoring.syncFailed")
+              : isStoppingSession
+                ? t("patient.monitoring.closingSession")
+                : t("patient.monitoring.preparingSession")}
+          </strong>
+          {syncError && <p>{syncError}</p>}
+        </div>
+      )}
+
+      <section
+        className="monitoring-source-banner"
+        aria-label={t("patient.monitoring.dataSourceStatus")}
+      >
+        <div className="monitoring-source-banner__icon" aria-hidden="true">
+          <Icon className="material-symbols-outlined" name="sensors" />
+        </div>
+        <div>
+          <strong>{connectionLabel}</strong>
+          <p>{persistenceLabel}</p>
+        </div>
+      </section>
+
+      <section className={`monitoring-live-panel monitoring-live-panel--${observationStatus.status}`}>
+        <div className="monitoring-live-panel__header">
+          <div>
+            <span className="monitoring-live-panel__eyebrow">
+              {t("patient.monitoring.sessionOverview")}
+            </span>
+            <h2>
+              {isTelemetryFresh
+                ? t("patient.monitoring.liveNow")
+                : t("patient.monitoring.dataStale")}
+            </h2>
+          </div>
+          <StatusBadge
+            status={observationStatus.status}
+            label={observationStatus.label}
+            size="small"
+          />
+        </div>
+
+        <div className="monitoring-live-panel__body">
+          <div className="monitoring-fhr-container">
+            <div
+              className={`monitoring-fhr-radar${
+                isMonitoringActive ? " monitoring-fhr-radar--active" : ""
+              }`}
+            >
+              <div className="monitoring-fhr-radar__ring" />
+              <div className="monitoring-fhr-radar__ring" />
+              <div className="monitoring-fhr-radar__ring" />
+              <FHRDisplay
+                value={currentFHR}
+                label={t("home.fhr")}
+                size="large"
+                showAnimation={false}
+              />
+            </div>
+          </div>
+
+          <div className="monitoring-live-metrics" aria-label={t("patient.monitoring.sessionOverview")}>
+            <article className="monitoring-live-metric">
+              <Icon className="material-symbols-outlined" name="pregnant_woman" />
+              <div>
+                <small>{t("patient.monitoring.gestation")}</small>
+                <strong>
+                  {pregnancyWeek
+                    ? `${pregnancyWeek} ${t("patient.monitoring.weeks")}`
+                    : t("patient.common.unavailable")}
+                </strong>
+              </div>
+            </article>
+
+            <article className={`monitoring-live-metric monitoring-live-metric--${getSignalStatus()}`}>
+              <Icon className="material-symbols-outlined" name="signal_cellular_alt" />
+              <div>
+                <small>{t("patient.monitoring.signal")}</small>
+                <strong>{getSignalQualityLabel()}</strong>
+              </div>
+            </article>
+
+            <article className="monitoring-live-metric">
+              <Icon className="material-symbols-outlined" name="sensors" />
+              <div>
+                <small>{t("patient.monitoring.beltPosition")}</small>
+                <strong>
+                  {isTelemetryFresh
+                    ? t("patient.monitoring.deviceVerified")
+                    : t("patient.monitoring.deviceStandby")}
+                </strong>
+              </div>
+            </article>
+
+            <article className="monitoring-live-metric">
+              <Icon className="material-symbols-outlined" name="show_chart" />
+              <div>
+                <small>{t("patient.monitoring.fhrBaseline")}</small>
+                <strong>{formatBpm(fhrAverage)} bpm</strong>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        {signalQuality === "poor" && (
+          <div className="monitoring-warning monitoring-warning--inline">
+            <Icon className="material-symbols-outlined" name="warning" />
+            <div>
+              <strong>{t("patient.monitoring.signalAlertTitle")}</strong>
+              <p>{t("monitoring.signalPoorNotice")}</p>
+            </div>
+            <button
+              className="monitoring-warning__btn"
+              type="button"
+              onClick={() => navigate("/patient/settings")}
+            >
+              {t("patient.monitoring.signalAlertAction")}
+            </button>
+          </div>
+        )}
+      </section>
+
+      {isMonitoringActive && (
+        <>
+          <div
+            className={`monitoring-risk monitoring-risk--${observationStatus.status}`}
+          >
+            <div className="monitoring-risk__header">
+              <div className="monitoring-risk__title-group">
+                <span className="monitoring-risk__tag">
+                  {t("patient.monitoring.dataStatusTag")}
+                </span>
+                <h3>{t("patient.monitoring.readingStatusTitle")}</h3>
+                <p>{t("patient.monitoring.readingStatusDescription")}</p>
+              </div>
+              <StatusBadge
+                status={observationStatus.status}
+                label={observationStatus.label}
+              />
             </div>
 
-            {/* Live Status Bar */}
-            <div className="monitoring-status-bar">
-                <div className="monitoring-status-item">
-                    <StatusBadge
-                        status={getSignalStatus()}
-                        label={t('monitoring.signalQuality')}
-                        value={getSignalQualityLabel()}
-                        size="small"
-                    />
+            <div className="monitoring-risk__insights">
+              <article className="monitoring-risk__insight">
+                <Icon className="material-symbols-outlined" name="bluetooth_connected" />
+                <div>
+                  <strong>{t("patient.monitoring.connectionStatus")}</strong>
+                  <p>{connectionLabel}</p>
                 </div>
-                <div className="monitoring-status-item">
-                    <div className="monitoring-imu-status">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 8v4l3 3" />
-                        </svg>
-                        <span>{t('monitoring.imuStatus')}: Normal</span>
-                    </div>
+              </article>
+              <article className="monitoring-risk__insight">
+                <Icon className="material-symbols-outlined" name="cloud_sync" />
+                <div>
+                  <strong>{t("patient.monitoring.storageStatus")}</strong>
+                  <p>{persistenceLabel}</p>
                 </div>
+              </article>
             </div>
 
-            {/* Signal Poor Warning */}
-            {signalQuality === 'poor' && (
-                <div className="monitoring-warning">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                    <p>{t('monitoring.signalPoorNotice')}</p>
-                    <button className="monitoring-warning__btn">{t('monitoring.calibrate')}</button>
+            {(pendingUploadCount > 0 || droppedPacketCount > 0 || rejectedUploadCount > 0) && (
+              <details className="monitoring-delivery-details">
+                <summary>{t("patient.monitoring.deliveryDetailsTitle")}</summary>
+                <div className="monitoring-delivery-details__list" role="status">
+                  <span>{t("patient.monitoring.pendingPackets", { count: pendingUploadCount })}</span>
+                  <span>{t("patient.monitoring.detectedPacketGaps", { count: droppedPacketCount })}</span>
+                  <span>{t("patient.monitoring.rejectedPackets", { count: rejectedUploadCount })}</span>
                 </div>
+              </details>
             )}
 
-            {/* FHR Display */}
-            <div className="monitoring-fhr-container">
-                <FHRDisplay
-                    value={currentFHR}
-                    label={t('home.fhr')}
-                    size="large"
-                    showAnimation={true}
-                />
-                <div className="monitoring-fhr-avg">
-                    Rata-rata: <strong>136 bpm</strong>
-                </div>
+            <div className="monitoring-risk__recommendation">
+              <Icon className="material-symbols-outlined" name="clinical_notes" />
+              <div>
+                <strong>{t("patient.monitoring.recommendedAction")}</strong>
+                <p>{observationStatus.recommendation}</p>
+              </div>
             </div>
-            
-            {/* Mother's Vital Signs */}
-            <div className="monitoring-vitals">
-                <h3 className="monitoring-vitals__title">Tanda Vital Ibu</h3>
-                <div className="monitoring-vitals__grid">
-                    {/* Mother's Heart Rate */}
-                    <div className={`monitoring-vital-card monitoring-vital-card--${getMotherHRStatus()}`}>
-                        <div className="monitoring-vital-card__icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                            </svg>
-                        </div>
-                        <div className="monitoring-vital-card__content">
-                            <span className="monitoring-vital-card__label">Detak Jantung Ibu</span>
-                            <span className="monitoring-vital-card__value">{motherHeartRate} <small>bpm</small></span>
-                        </div>
-                        <StatusBadge 
-                            status={getMotherHRStatus()} 
-                            size="small"
-                            label={getMotherHRStatus() === 'success' ? 'Normal' : getMotherHRStatus() === 'warning' ? 'Tinggi' : 'Kritis'}
-                        />
-                    </div>
-                    
-                    {/* Blood Pressure */}
-                    <div className={`monitoring-vital-card monitoring-vital-card--${getBPStatus()}`}>
-                        <div className="monitoring-vital-card__icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                            </svg>
-                        </div>
-                        <div className="monitoring-vital-card__content">
-                            <span className="monitoring-vital-card__label">Tekanan Darah</span>
-                            <span className="monitoring-vital-card__value">{bloodPressure.systolic}/{bloodPressure.diastolic} <small>mmHg</small></span>
-                        </div>
-                        <StatusBadge 
-                            status={getBPStatus()} 
-                            size="small"
-                            label={getBPStatus() === 'success' ? 'Normal' : getBPStatus() === 'warning' ? 'Prehipertensi' : 'Hipertensi'}
-                        />
-                    </div>
-                    
-                    {/* Fetal Heart Rate Status Card */}
-                    <div className={`monitoring-vital-card monitoring-vital-card--${getFHRStatus()}`}>
-                        <div className="monitoring-vital-card__icon monitoring-vital-card__icon--fetal">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M12 6C12 6 8 10 8 14C8 16.21 9.79 18 12 18C14.21 18 16 16.21 16 14C16 10 12 6 12 6Z" />
-                            </svg>
-                        </div>
-                        <div className="monitoring-vital-card__content">
-                            <span className="monitoring-vital-card__label">Detak Jantung Janin</span>
-                            <span className="monitoring-vital-card__value">{currentFHR} <small>bpm</small></span>
-                        </div>
-                        <StatusBadge 
-                            status={getFHRStatus()} 
-                            size="small"
-                            label={getFHRStatus() === 'success' ? 'Normal' : getFHRStatus() === 'warning' ? 'Perhatian' : 'Kritis'}
-                        />
-                    </div>
+          </div>
+
+          {/* Mother's Vital Signs */}
+          <section className="monitoring-vitals">
+            <div className="monitoring-section-heading">
+              <div>
+                <span>{t("patient.monitoring.sessionOverview")}</span>
+                <h3>{t("patient.monitoring.maternalVitals")}</h3>
+              </div>
+              <p>{t("patient.monitoring.maternalVitalsSubtitle")}</p>
+            </div>
+            <div className="monitoring-vitals__grid">
+              {/* Mother's Heart Rate */}
+              <article
+                className={`monitoring-vital-card monitoring-vital-card--${getMotherHRStatus()}`}
+              >
+                <div className="monitoring-vital-card__top">
+                  <div className="monitoring-vital-card__icon">
+                    <Icon className="material-symbols-outlined" name="favorite" />
+                  </div>
+                  <StatusBadge
+                    status={getMotherHRStatus()}
+                    size="small"
+                    label={getStatusLabel(getMotherHRStatus())}
+                    showIcon={false}
+                  />
                 </div>
+                <div className="monitoring-vital-card__content">
+                  <span className="monitoring-vital-card__label">
+                    {t("patient.monitoring.maternalHr")}
+                  </span>
+                  <span className="monitoring-vital-card__value">
+                    {formatBpm(motherHeartRate)} <small>bpm</small>
+                  </span>
+                </div>
+                <div className="monitoring-vital-card__range" aria-hidden="true">
+                  <span style={{ width: `${getRangePercent(motherHeartRate, 45, 125)}%` }} />
+                </div>
+                <small className="monitoring-vital-card__reference">
+                  {t("patient.monitoring.maternalHrReference")}
+                </small>
+              </article>
+
+              {/* SpO2 dari MAX30102 */}
+              <article
+                className={`monitoring-vital-card monitoring-vital-card--${getSpO2Status()}`}
+              >
+                <div className="monitoring-vital-card__top">
+                  <div className="monitoring-vital-card__icon">
+                    <Icon className="material-symbols-outlined" name="spo2" />
+                  </div>
+                  <StatusBadge
+                    status={getSpO2Status()}
+                    size="small"
+                    label={spo2 === null
+                      ? t("patient.monitoring.waitingDeviceDataShort")
+                      : t("patient.monitoring.readingAvailable")}
+                    showIcon={false}
+                  />
+                </div>
+                <div className="monitoring-vital-card__content">
+                  <span className="monitoring-vital-card__label">SpO2</span>
+                  <span className="monitoring-vital-card__value">
+                    {spo2 === null ? "--" : Math.round(spo2)} <small>%</small>
+                  </span>
+                </div>
+                <div className="monitoring-vital-card__range" aria-hidden="true">
+                  <span style={{ width: `${getRangePercent(spo2, 88, 100)}%` }} />
+                </div>
+                <small className="monitoring-vital-card__reference">
+                  {t("patient.monitoring.spo2Reference")}
+                </small>
+              </article>
+
+              {/* Fetal Heart Rate Status Card */}
+              <article
+                className={`monitoring-vital-card monitoring-vital-card--${getFHRStatus()}`}
+              >
+                <div className="monitoring-vital-card__top">
+                  <div className="monitoring-vital-card__icon monitoring-vital-card__icon--fetal">
+                    <Icon className="material-symbols-outlined" name="cardiology" />
+                  </div>
+                  <StatusBadge
+                    status={getFHRStatus()}
+                    size="small"
+                    label={getStatusLabel(getFHRStatus(), t("patient.common.monitorAgain"))}
+                    showIcon={false}
+                  />
+                </div>
+                <div className="monitoring-vital-card__content">
+                  <span className="monitoring-vital-card__label">
+                    {t("patient.monitoring.fetalHr")}
+                  </span>
+                  <span className="monitoring-vital-card__value">
+                    {formatBpm(currentFHR)} <small>bpm</small>
+                  </span>
+                </div>
+                <div className="monitoring-vital-card__range" aria-hidden="true">
+                  <span style={{ width: `${getRangePercent(currentFHR, 90, 180)}%` }} />
+                </div>
+                <small className="monitoring-vital-card__reference">
+                  {t("patient.monitoring.fhrReference")}
+                </small>
+              </article>
+            </div>
+          </section>
+
+          {/* Signal waveforms are optional details; patients do not need to interpret them. */}
+          <details className="monitoring-technical-details">
+            <summary>
+              <Icon className="material-symbols-outlined" name="monitoring" />
+              <span>
+                <strong>{t("patient.monitoring.technicalDetailsTitle")}</strong>
+                <small>{t("patient.monitoring.technicalDetailsDesc")}</small>
+              </span>
+              <Icon
+                className="material-symbols-outlined monitoring-technical-details__chevron"
+                name="expand_more"
+              />
+            </summary>
+          <section className="monitoring-waveform-group">
+            <div className="monitoring-section-heading monitoring-section-heading--signals">
+              <div>
+                <span>{t("patient.monitoring.signalPipeline")}</span>
+                <h3>{t("patient.monitoring.waveformSection")}</h3>
+              </div>
+              <p>{t("patient.monitoring.waveformHint")}</p>
             </div>
 
-            {/* Waveform */}
-            <div className="monitoring-waveform">
-                <WaveformChart
-                    isLive={true}
+            <div
+              className="monitoring-signal-tabs"
+              role="tablist"
+              aria-label={t("patient.monitoring.signalTabsLabel")}
+            >
+              {SIGNAL_VIEW_OPTIONS.map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSignalView === view}
+                  className={`monitoring-signal-tab${
+                    activeSignalView === view
+                      ? " monitoring-signal-tab--active"
+                      : ""
+                  }`}
+                  onClick={() => setActiveSignalView(view)}
+                >
+                  <Icon
+                    className="material-symbols-outlined"
+                    name={view === "all"
+                      ? "stacked_line_chart"
+                      : view === "fhr"
+                        ? "cardiology"
+                        : view === "contraction"
+                          ? "compress"
+                          : "analytics"}
+                  />
+                  {t(
+                    `patient.monitoring.signalView${
+                      view.charAt(0).toUpperCase() + view.slice(1)
+                    }`,
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="monitoring-waveform-stack">
+              {showFhrSignal && (
+                <div className="monitoring-waveform monitoring-waveform--fhr">
+                  <div className="monitoring-waveform__header">
+                    <h3 className="monitoring-waveform__label">
+                      {t("patient.monitoring.fhrWaveform")}
+                    </h3>
+                    <span className="monitoring-waveform__live-chip">
+                      {t("patient.common.running")}
+                    </span>
+                  </div>
+                  <WaveformChart
+                    data={fhrHistory}
+                    isLive={isLiveTelemetry}
                     height={180}
                     showGrid={true}
                     showMarkers={true}
                     signalQuality={signalQuality}
                     markers={[
-                        { position: 120, type: 'acceleration', label: 'A' },
-                        { position: 280, type: 'acceleration', label: 'A' },
-                        { position: 380, type: 'acceleration', label: 'A' }
+                      ...(isAcceleration
+                        ? [
+                            {
+                              position: fhrHistory.length - 5,
+                              type: "acceleration",
+                              label: "A",
+                            },
+                          ]
+                        : []),
+                      ...(isDeceleration
+                        ? [
+                            {
+                              position: fhrHistory.length - 5,
+                              type: "deceleration",
+                              label: "D",
+                            },
+                          ]
+                        : []),
                     ]}
-                />
-            </div>
+                  />
+                  <div className="monitoring-waveform__legend">
+                    <span>
+                      <i className="monitoring-waveform__legend-dot monitoring-waveform__legend-dot--fhr" />
+                      {t("patient.monitoring.fhrLegendReference")}
+                    </span>
+                    <span>
+                      <i className="monitoring-waveform__legend-dot monitoring-waveform__legend-dot--signal" />
+                      {t("patient.monitoring.signalQualityLegend", {
+                        quality: getSignalQualityLabel(),
+                      })}
+                    </span>
+                  </div>
+                </div>
+              )}
 
-            {/* Counters */}
-            <div className="monitoring-counters">
-                <div className="monitoring-counter">
+              {showContractionSignal && (
+                <div className="monitoring-waveform monitoring-waveform--tokogram">
+                  <div className="monitoring-waveform__header">
+                    <h3 className="monitoring-waveform__label">
+                      {t("patient.monitoring.contractionWaveform")}
+                    </h3>
+                    {contractionIntensity !== null && (
+                      <span className="monitoring-waveform__contraction-badge">
+                        {t("patient.monitoring.fsrReading")}{" "}
+                        {contraction.intensity}%
+                      </span>
+                    )}
+                  </div>
+                  <WaveformChart
+                    data={contractionHistory}
+                    isLive={isLiveTelemetry}
+                    height={120}
+                    showGrid={true}
+                    showMarkers={false}
+                    signalQuality={signalQuality}
+                  />
+                  <div className="monitoring-waveform__axis-label">
+                    <span>0%</span>
+                    <span>{t("patient.monitoring.fsrAxis")}</span>
+                    <span>100%</span>
+                  </div>
+                  <div className="monitoring-waveform__legend">
+                    <span>
+                      <i className="monitoring-waveform__legend-dot monitoring-waveform__legend-dot--contraction" />
+                      {t("patient.monitoring.contractionLegend")}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {showEventSignal && (
+                <section
+                  className="monitoring-counters monitoring-counters--in-waveform"
+                  aria-label={t("patient.monitoring.eventSummary")}
+                >
+                  <div className="monitoring-counter">
+                    <Icon className="material-symbols-outlined" name="trending_up" />
                     <span className="monitoring-counter__value monitoring-counter__value--success">
-                        {counters.accelerations}
+                      {counters.accelerations ?? "--"}
                     </span>
-                    <span className="monitoring-counter__label">{t('monitoring.accelerations')}</span>
-                </div>
-                <div className="monitoring-counter">
+                    <span className="monitoring-counter__label">
+                      {t("monitoring.accelerations")}
+                    </span>
+                  </div>
+                  <div className="monitoring-counter">
+                    <Icon className="material-symbols-outlined" name="trending_down" />
                     <span className="monitoring-counter__value monitoring-counter__value--critical">
-                        {counters.decelerations}
+                      {counters.decelerations ?? "--"}
                     </span>
-                    <span className="monitoring-counter__label">{t('monitoring.decelerations')}</span>
-                </div>
-                <div className="monitoring-counter">
+                    <span className="monitoring-counter__label">
+                      {t("monitoring.decelerations")}
+                    </span>
+                  </div>
+                  <div className="monitoring-counter">
+                    <Icon className="material-symbols-outlined" name="child_care" />
                     <span className="monitoring-counter__value monitoring-counter__value--info">
-                        {counters.movements}
+                      {counters.movements ?? "--"}
                     </span>
-                    <span className="monitoring-counter__label">{t('monitoring.movements')}</span>
-                </div>
-            </div>
-
-            {/* Risk Score */}
-            <div className={`monitoring-risk monitoring-risk--${getRiskLevel().status}`}>
-                <div className="monitoring-risk__header">
-                    <h3>{t('monitoring.riskScore')}</h3>
-                    <StatusBadge
-                        status={getRiskLevel().status}
-                        label={getRiskLevel().label}
-                    />
-                </div>
-                <div className="monitoring-risk__score">
-                    <span className="monitoring-risk__value">{riskScore}%</span>
-                    <div className="monitoring-risk__bar">
-                        <div
-                            className="monitoring-risk__bar-fill"
-                            style={{ width: `${riskScore}%` }}
-                        />
-                    </div>
-                    <span className="monitoring-risk__confidence">
-                        {t('monitoring.confidence')}: 94%
+                    <span className="monitoring-counter__label">
+                      {t("monitoring.movements")}
                     </span>
-                </div>
-
-                {/* Explainability Panel */}
-                <div className="monitoring-explain">
-                    <h4>{t('monitoring.explainability')}</h4>
-                    <p>{t('monitoring.explainabilityText')}</p>
-                </div>
+                  </div>
+                  <div className="monitoring-counter">
+                    <Icon className="material-symbols-outlined" name="compress" />
+                    <span className="monitoring-counter__value monitoring-counter__value--warning">
+                      {counters.contractions ?? "--"}
+                    </span>
+                    <span className="monitoring-counter__label">
+                      {t("patient.monitoring.contraction")}
+                    </span>
+                  </div>
+                  <p className="monitoring-counters__note">
+                    {t("patient.monitoring.eventLegend")}
+                  </p>
+                </section>
+              )}
             </div>
+          </section>
+          </details>
 
-            {/* Stop Button */}
-            <button className="monitoring-stop-btn" onClick={handleStop}>
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
-                {t('home.stopMonitoring')}
+          {/* Tombol Hentikan Pemantauan */}
+          <button
+            className="monitoring-stop-btn"
+            onClick={() => { void handleToggleSession(); }}
+            disabled={isStoppingSession}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="2" />
+            </svg>
+            {isStoppingSession
+              ? t("patient.monitoring.stopping")
+              : t("monitoring.stopMonitoring")}
+          </button>
+        </>
+      )}
+
+      {/* Panel Sesi Dihentikan */}
+      {!isMonitoringActive && (
+        <div className="monitoring-stopped-panel">
+          <div className="monitoring-stopped-panel__icon">
+            <Icon className="material-symbols-outlined" name="check_circle" />
+          </div>
+          <h2>
+            {sessionState === "completed"
+              ? t("monitoring.sessionStopped")
+              : t("patient.monitoring.sessionReady")}
+          </h2>
+          <p>
+            {sessionState === "completed"
+              ? t("monitoring.sessionStoppedDesc")
+              : t("patient.monitoring.sessionReadyDesc")}
+          </p>
+          <div className="monitoring-stopped-panel__actions">
+            <button
+              className="monitoring-stopped-panel__resume"
+              onClick={() => { void handleToggleSession(); }}
+              disabled={isStartingSession || !isTelemetryFresh}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                width="20"
+                height="20"
+              >
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              {isStartingSession
+                ? t("patient.monitoring.preparingSession")
+                : t("patient.monitoring.startSession")}
             </button>
+            <button
+              className="monitoring-stopped-panel__home"
+              onClick={() => navigate("/patient/home")}
+            >
+              {t("patient.common.backHome")}
+            </button>
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 };
 
 export default MonitoringScreen;

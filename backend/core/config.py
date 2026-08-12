@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 import secrets
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -39,6 +40,20 @@ class Settings(BaseSettings):
         "http://localhost",
         "capacitor://localhost",
     ]
+    TRUSTED_HOSTS: list[str] = ["localhost", "127.0.0.1", "testserver"]
+    TRUSTED_PROXY_IPS: list[str] = []
+    PATIENT_SELF_REGISTRATION_MODE: Literal["disabled", "single_facility"] = "single_facility"
+    PATIENT_REGISTRATION_ORGANIZATION_ID: str | None = None
+    REQUIRE_POSTGRES_RLS: bool = True
+    REALTIME_EVENT_RETENTION_HOURS: int = 72
+    AI_PIPELINE_MODE: Literal["disabled", "research", "shadow"] = "disabled"
+    AI_ACTIVE_MODEL_VERSION_ID: str | None = None
+    AI_WINDOW_SECONDS: int = 60
+    AI_WINDOW_STRIDE_SECONDS: int = 15
+    AI_LATE_ARRIVAL_GRACE_SECONDS: int = 10
+    AI_MIN_VALID_RATIO: float = 0.8
+    AI_MAX_JOB_ATTEMPTS: int = 3
+    AI_JOB_LEASE_SECONDS: int = 120
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
@@ -54,9 +69,65 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def require_secret_key_in_production(self) -> "Settings":
-        if self.ENVIRONMENT == "production" and not self.SECRET_KEY:
+    def require_safe_production_configuration(self) -> "Settings":
+        if not 1 <= self.REALTIME_EVENT_RETENTION_HOURS <= 720:
+            raise ValueError("REALTIME_EVENT_RETENTION_HOURS must be between 1 and 720")
+        if not 10 <= self.AI_WINDOW_SECONDS <= 600:
+            raise ValueError("AI_WINDOW_SECONDS must be between 10 and 600")
+        if not 1 <= self.AI_WINDOW_STRIDE_SECONDS <= self.AI_WINDOW_SECONDS:
+            raise ValueError("AI_WINDOW_STRIDE_SECONDS must be between 1 and AI_WINDOW_SECONDS")
+        if not 0 <= self.AI_LATE_ARRIVAL_GRACE_SECONDS <= 120:
+            raise ValueError("AI_LATE_ARRIVAL_GRACE_SECONDS must be between 0 and 120")
+        if not 0 < self.AI_MIN_VALID_RATIO <= 1:
+            raise ValueError("AI_MIN_VALID_RATIO must be in (0, 1]")
+        if not 1 <= self.AI_MAX_JOB_ATTEMPTS <= 10:
+            raise ValueError("AI_MAX_JOB_ATTEMPTS must be between 1 and 10")
+        if not 30 <= self.AI_JOB_LEASE_SECONDS <= 3600:
+            raise ValueError("AI_JOB_LEASE_SECONDS must be between 30 and 3600")
+        if self.AI_PIPELINE_MODE != "disabled" and not self.AI_ACTIVE_MODEL_VERSION_ID:
+            raise ValueError("AI_ACTIVE_MODEL_VERSION_ID is required when the AI pipeline is enabled")
+        if self.ENVIRONMENT != "production":
+            return self
+        if not self.SECRET_KEY:
             raise ValueError("SECRET_KEY is required when ENVIRONMENT=production")
+        if self.SQLALCHEMY_DATABASE_URI.startswith("sqlite"):
+            raise ValueError("SQLite is not supported when ENVIRONMENT=production")
+        if self.AUTO_CREATE_DB:
+            raise ValueError("AUTO_CREATE_DB must be false when ENVIRONMENT=production")
+        if not self.BACKEND_CORS_ORIGINS:
+            raise ValueError("Production CORS origins must use HTTPS and must be explicit")
+        for origin in self.BACKEND_CORS_ORIGINS:
+            normalized_origin = origin.strip()
+            parsed_origin = urlsplit(normalized_origin)
+            unsafe_origin = (
+                normalized_origin != origin
+                or normalized_origin.lower() in {"*", "null"}
+                or parsed_origin.scheme.lower() != "https"
+                or not parsed_origin.hostname
+                or parsed_origin.username is not None
+                or parsed_origin.password is not None
+                or bool(parsed_origin.path)
+                or bool(parsed_origin.query)
+                or bool(parsed_origin.fragment)
+                or "*" in parsed_origin.hostname
+            )
+            if unsafe_origin:
+                raise ValueError("Production CORS origins must use HTTPS and must be explicit")
+        if not self.TRUSTED_HOSTS or "*" in self.TRUSTED_HOSTS:
+            raise ValueError("Production TRUSTED_HOSTS must be explicit")
+        if self.ACCESS_TOKEN_EXPIRE_MINUTES > 60:
+            raise ValueError("Production access tokens may not exceed 60 minutes")
+        if self.REFRESH_TOKEN_EXPIRE_DAYS > 30:
+            raise ValueError("Production refresh tokens may not exceed 30 days")
+        if (
+            self.PATIENT_SELF_REGISTRATION_MODE == "single_facility"
+            and not self.PATIENT_REGISTRATION_ORGANIZATION_ID
+        ):
+            raise ValueError(
+                "PATIENT_REGISTRATION_ORGANIZATION_ID is required for production single-facility registration"
+            )
+        if not self.REQUIRE_POSTGRES_RLS:
+            raise ValueError("REQUIRE_POSTGRES_RLS must be true in production")
         return self
 
     @property

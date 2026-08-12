@@ -1,185 +1,253 @@
-import React, { useState } from 'react';
-import './styles/design-tokens.css';
-import './styles/components.css';
+import React, { lazy, Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import "./styles/design-tokens.css";
+import "./styles/components.css";
+import { useAuth } from "./context/useAuth";
 
-// Components
-import { BottomNav, EmergencyButton } from './components';
+// Layouts
+const PatientLayout = lazy(() => import("./layouts/PatientLayout"));
+const ClinicianLayout = lazy(() => import("./layouts/ClinicianLayout"));
 
-// Screens
-import {
-  HomeScreen,
-  MonitoringScreen,
-  OnboardingScreen,
-  HistoryScreen,
-  NotificationsScreen,
-  SettingsScreen,
-  LoginScreen,
-  ProfileScreen
-} from './screens/mobile';
+// Screens — Patient (Mobile)
+const HomeScreen = lazy(() => import("./screens/mobile/HomeScreen/HomeScreen"));
+const MonitoringScreen = lazy(() => import("./screens/mobile/MonitoringScreen/MonitoringScreen"));
+const HistoryScreen = lazy(() => import("./screens/mobile/HistoryScreen/HistoryScreen"));
+const NotificationsScreen = lazy(() => import("./screens/mobile/NotificationsScreen/NotificationsScreen"));
+const EducationScreen = lazy(() => import("./screens/mobile/EducationScreen/EducationScreen"));
+const SettingsScreen = lazy(() => import("./screens/mobile/SettingsScreen/SettingsScreen"));
+const ProfileScreen = lazy(() => import("./screens/mobile/ProfileScreen/ProfileScreen"));
 
-function App() {
-  const [currentScreen, setCurrentScreen] = useState('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [isOnboarded, setIsOnboarded] = useState(true); // Set to false for first-time users
-  const [isMonitoring, setIsMonitoring] = useState(false);
-  const [patientData, setPatientData] = useState({
-    fullName: '',
-    pregnancyWeek: 32,
-    // other patient data
-  });
+// Screens — Clinician (Web Dashboard)
+const ClinicianDashboard = lazy(() => import("./screens/clinician/ClinicianDashboard/ClinicianDashboard"));
+const AdminPortal = lazy(() => import("./screens/admin/AdminPortal/AdminPortal"));
 
-  const handleTabChange = (tab) => {
-    if (tab === 'notifications') {
-      setCurrentScreen('notifications');
-    } else if (tab === 'history') {
-      setCurrentScreen('history');
-    } else if (tab === 'settings') {
-      setCurrentScreen('settings');
-    } else if (tab === 'monitoring') {
-      setCurrentScreen('monitoring');
-    } else if (tab === 'profile') {
-      setCurrentScreen('profile');
-    } else {
-      setCurrentScreen('home');
-    }
-  };
+// Auth
+const AuthScreen = lazy(() => import("./components/AuthScreen/AuthScreen"));
+const PasswordResetScreen = lazy(() => import("./components/PasswordResetScreen/PasswordResetScreen"));
 
-  const handleStartMonitoring = () => {
-    setIsMonitoring(true);
-    setCurrentScreen('monitoring');
-  };
+// Public screens
+const LandingPage = lazy(() => import("./screens/public/LandingPage/LandingPage"));
+const PatientPortalPage = lazy(() => import("./screens/public/PortalPages/PortalPages").then(
+  (module) => ({ default: module.PatientPortalPage }),
+));
+const ClinicianPortalPage = lazy(() => import("./screens/public/PortalPages/PortalPages").then(
+  (module) => ({ default: module.ClinicianPortalPage }),
+));
 
-  const handleStopMonitoring = () => {
-    setIsMonitoring(false);
-    setCurrentScreen('home');
-  };
+// ============================================
+// PROTECTED ROUTE WRAPPERS
+// ============================================
 
-  const handleOnboardingComplete = (data) => {
-    console.log('Onboarding complete:', data);
-    setIsOnboarded(true);
-    setCurrentScreen('home');
-  };
+const ROLE_HOME_PATHS = {
+  admin: "/admin",
+  clinician: "/clinician/dashboard",
+  patient: "/patient/home",
+};
 
-  const handleLogin = (userData) => {
-    console.log('Login successful:', userData);
-    setIsLoggedIn(true);
-    setPatientData(prev => ({ ...prev, ...userData }));
-    setCurrentScreen('home');
-  };
+/**
+ * RequireAuth — Redirect ke login sesuai domain jika belum login
+ */
+function RequireAuth({
+  children,
+  loginPath = "/login/ibu-hamil",
+  allowPasswordResetRequired = false,
+}) {
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
 
-  const handleRegister = (userData) => {
-    console.log('Registration successful:', userData);
-    setIsLoggedIn(true);
-    setPatientData(prev => ({ ...prev, ...userData }));
-    setCurrentScreen('profile'); // Go to profile to complete data
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentScreen('login');
-  };
-
-  const handleSaveProfile = (profileData) => {
-    console.log('Profile saved:', profileData);
-    setPatientData(prev => ({ ...prev, ...profileData }));
-  };
-
-  const handleEmergency = (type) => {
-    console.log('Emergency action:', type);
-    alert(`Menghubungi ${type === 'clinic' ? 'Klinik' : 'Layanan Darurat'}...`);
-  };
-
-  const handleGoBack = () => {
-    setCurrentScreen('home');
-  };
-
-  // Show login screen for unauthenticated users
-  if (!isLoggedIn) {
+  if (isAuthLoading) {
     return (
-      <LoginScreen 
-        onLogin={handleLogin} 
-        onRegister={handleRegister}
-      />
+      <div
+        className="app font-display"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <p>Memeriksa sesi akun...</p>
+      </div>
     );
   }
 
-  // Show onboarding for first-time users
-  if (!isOnboarded) {
-    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+  if (!isAuthenticated) {
+    return <Navigate to={loginPath} replace />;
   }
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'monitoring':
-        return (
-          <MonitoringScreen
-            onBack={handleGoBack}
-            onStop={handleStopMonitoring}
-            patientData={patientData}
-          />
-        );
-      case 'history':
-        return (
-          <HistoryScreen
-            onBack={handleGoBack}
-            onSelectSession={(id) => console.log('Selected session:', id)}
-          />
-        );
-      case 'notifications':
-        return (
-          <NotificationsScreen
-            onBack={handleGoBack}
-          />
-        );
-      case 'settings':
-        return (
-          <SettingsScreen
-            onBack={handleGoBack}
-            onLogout={handleLogout}
-          />
-        );
-      case 'profile':
-        return (
-          <ProfileScreen
-            patientData={patientData}
-            onBack={handleGoBack}
-            onSave={handleSaveProfile}
-          />
-        );
-      case 'home':
-      default:
-        return (
-          <HomeScreen
-            onStartMonitoring={handleStartMonitoring}
-            onStopMonitoring={handleStopMonitoring}
-            isMonitoring={isMonitoring}
-            patientData={patientData}
-            onOpenProfile={() => setCurrentScreen('profile')}
-            onNavigate={handleTabChange}
-          />
-        );
-    }
-  };
+  if (user?.must_reset_password && !allowPasswordResetRequired) {
+    return <Navigate to="/ganti-password-awal" replace />;
+  }
+
+  return children;
+}
+
+/**
+ * RequireRole — Redirect jika role tidak cocok
+ */
+function RequireRole({ role, children }) {
+  const { user } = useAuth();
+
+  if (!user?.role || user.role !== role) {
+    return <Navigate to={ROLE_HOME_PATHS[user?.role] || "/"} replace />;
+  }
+
+  return children;
+}
+
+/**
+ * RoleRedirect — Root "/" handler: arahkan berdasarkan role
+ */
+function RoleRedirect() {
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
+
+  if (isAuthLoading) {
+    return (
+      <div
+        className="app font-display"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <p>Memeriksa sesi akun...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login/ibu-hamil" replace />;
+  }
+
+  if (user?.must_reset_password) {
+    return <Navigate to="/ganti-password-awal" replace />;
+  }
 
   return (
-    <div className="app font-display">
-      {renderScreen()}
+    <Navigate to={ROLE_HOME_PATHS[user?.role] || "/"} replace />
+  );
+}
 
-      {/* Emergency Button - always visible except during monitoring */}
-      {currentScreen !== 'monitoring' && (
-        <EmergencyButton
-          onEmergency={handleEmergency}
-          clinicPhone="+62211234567"
-        />
-      )}
+/**
+ * LoginGuard — Jika sudah login, redirect ke dashboard masing-masing role.
+ * Jika belum, tampilkan AuthScreen.
+ */
+function LoginGuard({ portal = "general" }) {
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
 
-      {/* Bottom Navigation */}
-      <BottomNav
-        activeTab={currentScreen === 'home' || currentScreen === 'profile' ? 'home' : currentScreen}
-        onTabChange={handleTabChange}
-        notificationCount={2}
+  if (isAuthLoading) {
+    return (
+      <div
+        className="app font-display"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <p>Memeriksa sesi akun...</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    if (user?.must_reset_password) {
+      return <Navigate to="/ganti-password-awal" replace />;
+    }
+
+    return (
+      <Navigate to={ROLE_HOME_PATHS[user?.role] || "/"} replace />
+    );
+  }
+
+  return <AuthScreen portal={portal} />;
+}
+
+// ============================================
+// APP — ROUTER CORE
+// ============================================
+
+function App() {
+  return (
+    <Suspense fallback={<div className="app font-display" aria-busy="true" />}>
+    <Routes>
+      {/* === PUBLIC === */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/portal-ibu-hamil" element={<PatientPortalPage />} />
+      <Route path="/portal-nakes" element={<ClinicianPortalPage />} />
+      <Route
+        path="/login"
+        element={<Navigate to="/login/ibu-hamil" replace />}
       />
-    </div>
+      <Route
+        path="/login/ibu-hamil"
+        element={<LoginGuard portal="patient" />}
+      />
+      <Route path="/login/nakes" element={<LoginGuard portal="clinician" />} />
+      <Route path="/login/admin" element={<LoginGuard portal="admin" />} />
+      <Route
+        path="/ganti-password-awal"
+        element={
+          <RequireAuth loginPath="/login/nakes" allowPasswordResetRequired>
+            <PasswordResetScreen />
+          </RequireAuth>
+        }
+      />
+
+      {/* === ADMIN === */}
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth loginPath="/login/admin">
+            <RequireRole role="admin">
+              <AdminPortal />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/* === PATIENT (MOBILE) === */}
+      <Route
+        path="/patient"
+        element={
+          <RequireAuth loginPath="/login/ibu-hamil">
+            <RequireRole role="patient">
+              <PatientLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="home" replace />} />
+        <Route path="home" element={<HomeScreen />} />
+        <Route path="monitoring" element={<MonitoringScreen />} />
+        <Route path="history" element={<HistoryScreen />} />
+        <Route path="notifications" element={<NotificationsScreen />} />
+        <Route path="education" element={<EducationScreen />} />
+        <Route path="settings" element={<SettingsScreen />} />
+        <Route path="profile" element={<ProfileScreen />} />
+      </Route>
+
+      {/* === CLINICIAN (WEB DASHBOARD) === */}
+      <Route
+        path="/clinician"
+        element={
+          <RequireAuth loginPath="/login/nakes">
+            <RequireRole role="clinician">
+              <ClinicianLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<ClinicianDashboard />} />
+      </Route>
+
+      {/* === CATCH-ALL 404 === */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+    </Suspense>
   );
 }
 

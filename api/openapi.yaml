@@ -1,3 +1,7 @@
+# WARNING: This file is a roadmap/aspirational API draft and is not fully
+# synchronized with the implemented FastAPI routes in backend/main.py.
+# Verify implemented endpoints in backend/api/routes before using this as a
+# source of truth for frontend or client work.
 openapi: 3.0.3
 info:
   title: FETAL-GUARD API

@@ -1,0 +1,13 @@
+# Local dataset and model artifacts are intentionally not committed.
+data/raw/*
+data/processed/*
+runs/*
+checkpoints/*
+!.gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!runs/.gitkeep
+!checkpoints/.gitkeep
+.ipynb_checkpoints/
+__pycache__/
+*.pyc

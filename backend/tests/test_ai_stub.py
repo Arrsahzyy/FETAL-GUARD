@@ -1,10 +1,4 @@
-FORBIDDEN_MEDICAL_TERMS = ("abnormal", "gawat janin", "penyakit", "diagnosis")
-SAFE_CLASSIFICATIONS = {
-    "Dalam Batas Normal",
-    "Waspada",
-    "Perlu Observasi",
-    "Rujuk ke Faskes",
-}
+from datetime import datetime, timezone
 
 
 def create_sensor_chunk(client, headers):
@@ -35,7 +29,7 @@ def create_sensor_chunk(client, headers):
     return chunk_response.json()
 
 
-def test_ai_predict_returns_safe_screening_stub_response(client, auth_headers):
+def test_ai_predict_is_disabled_until_model_is_validated(client, auth_headers):
     headers = auth_headers(email="ai-patient@example.com", role="patient")
     chunk = create_sensor_chunk(client, headers)
 
@@ -45,17 +39,68 @@ def test_ai_predict_returns_safe_screening_stub_response(client, auth_headers):
         json={"sensor_data_chunk_id": chunk["id"]},
     )
 
-    assert response.status_code == 200
-    data = response.json()
-    assert 0.0 <= data["risk_score"] <= 1.0
-    assert data["classification"] in SAFE_CLASSIFICATIONS
-    assert "skrining awal" in data["message"].lower()
-
-    serialized = str(data).lower()
-    assert all(term not in serialized for term in FORBIDDEN_MEDICAL_TERMS)
+    assert response.status_code == 503
+    assert "not available" in response.json()["detail"].lower()
 
 
 def test_ai_predict_requires_valid_jwt(client):
     response = client.post("/ai/predict", json={"sensor_data_chunk_id": "missing"})
 
     assert response.status_code == 401
+
+
+def test_ai_predict_scopes_clinician_chunk_access_by_assignment(client, auth_headers, db_session):
+    patient_headers = auth_headers(email="ai-scope-patient@example.com", role="patient")
+    chunk = create_sensor_chunk(client, patient_headers)
+    clinician_headers = auth_headers(email="ai-scope-clinician@example.com", role="clinician")
+
+    unassigned_response = client.post(
+        "/ai/predict",
+        headers=clinician_headers,
+        json={"sensor_data_chunk_id": chunk["id"]},
+    )
+    assert unassigned_response.status_code == 404
+
+    clinician_me = client.get("/auth/me", headers=clinician_headers)
+    patient_sessions = client.get("/sessions", headers=patient_headers)
+    assert clinician_me.status_code == 200
+    assert patient_sessions.status_code == 200
+
+    from models.organization_membership import OrganizationMembership
+    from models.patient import Patient
+    from models.patient_clinician_assignment import PatientClinicianAssignment
+
+    patient = db_session.query(Patient).filter(
+        Patient.id == patient_sessions.json()[0]["patient_id"]
+    ).one()
+    membership = db_session.query(OrganizationMembership).filter(
+        OrganizationMembership.organization_id == patient.organization_id,
+        OrganizationMembership.user_id == clinician_me.json()["id"],
+        OrganizationMembership.ended_at.is_(None),
+    ).one()
+    assignment = PatientClinicianAssignment(
+        organization_id=patient.organization_id,
+        patient_id=patient.id,
+        clinician_membership_id=membership.id,
+        clinician_user_id=clinician_me.json()["id"],
+        assigned_by_user_id=None,
+    )
+    db_session.add(assignment)
+    db_session.commit()
+
+    assigned_response = client.post(
+        "/ai/predict",
+        headers=clinician_headers,
+        json={"sensor_data_chunk_id": chunk["id"]},
+    )
+    assert assigned_response.status_code == 503
+    assert "not available" in assigned_response.json()["detail"].lower()
+
+    assignment.ends_at = datetime.now(timezone.utc)
+    db_session.commit()
+    ended_assignment_response = client.post(
+        "/ai/predict",
+        headers=clinician_headers,
+        json={"sensor_data_chunk_id": chunk["id"]},
+    )
+    assert ended_assignment_response.status_code == 404

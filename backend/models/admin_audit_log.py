@@ -10,6 +10,12 @@ class AdminAuditLog(Base):
     __tablename__ = "admin_audit_logs"
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    organization_id = Column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     actor_user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     action = Column(String(80), nullable=False, index=True)
     target_user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)

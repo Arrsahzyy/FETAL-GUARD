@@ -8,7 +8,7 @@ YYYY-MM-DD
 
 ## Konteks
 - [Jelaskan situasi atau masalah yang memerlukan keputusan arsitektur]
-- [Referensi ke section di `fetal_guard_context_ai.md` jika relevan]
+- [Referensi ke `AGENTS.md` atau `FETAL_GUARD_ROADMAP.md` jika relevan]
 
 ## Opsi yang Dipertimbangkan
 

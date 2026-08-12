@@ -53,7 +53,7 @@ class ConnectionManager {
      * Mode koneksi aktif — default MQTT karena paling umum untuk IoT
      * Nanti user bisa ganti di Settings
      */
-    this.activeMode = CONNECTION_MODES.MQTT;
+    this.activeMode = CONNECTION_MODES.BLUETOOTH;
 
     /**
      * Status koneksi saat ini
@@ -81,14 +81,14 @@ class ConnectionManager {
         characteristicUUID: '0000ffe1-0000-1000-8000-00805f9b34fb',  // UUID bluetooth characteristic
       },
       mqtt: {
-        brokerUrl: 'wss://broker.hivemq.com:8884/mqtt',  // MQTT broker (bisa ganti sesuai server kamu)
-        topic: 'fetalguard/sensor/data',                   // Topic yang di-subscribe
+        brokerUrl: '',                                    // Wajib diisi oleh konfigurasi deployment
+        topic: '',                                        // Wajib berupa topic scoped per perangkat/pasien
         clientId: `fetalguard-app-${Date.now()}`,          // ID unik untuk client
         username: '',
         password: '',
       },
       wifi: {
-        apiUrl: 'https://api.fetalguard.com',  // Base URL API server
+        apiUrl: '',                           // Wajib diisi oleh konfigurasi deployment
         pollingInterval: 1000,                  // Ambil data setiap 1 detik
       },
     };
@@ -141,6 +141,9 @@ class ConnectionManager {
     this._updateStatus(CONNECTION_STATUS.CONNECTING);
 
     try {
+      if (!import.meta.env.DEV) {
+        throw new Error('ConnectionManager legacy dinonaktifkan pada build production.');
+      }
       switch (this.activeMode) {
         case CONNECTION_MODES.BLUETOOTH:
           await this._connectBluetooth();
@@ -432,6 +435,14 @@ class ConnectionManager {
       const mqtt = await import('mqtt/dist/mqtt.min');
       
       const { brokerUrl, topic, clientId, username, password } = this.config.mqtt;
+      const allowInsecureLocal = import.meta.env.DEV
+        && /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(brokerUrl);
+      if (!brokerUrl || !topic) {
+        throw new Error('MQTT belum dikonfigurasi untuk deployment ini.');
+      }
+      if (!brokerUrl.startsWith('wss://') && !allowInsecureLocal) {
+        throw new Error('MQTT production wajib menggunakan WebSocket TLS (wss://).');
+      }
 
       // Connect ke MQTT broker
       this._mqttClient = mqtt.connect(brokerUrl, {
@@ -510,6 +521,12 @@ class ConnectionManager {
      * Less realtime dari MQTT/BLE, tapi paling simple untuk diimplement
      */
     const { apiUrl, pollingInterval } = this.config.wifi;
+    if (!apiUrl) {
+      throw new Error('Endpoint WiFi/HTTP belum dikonfigurasi untuk deployment ini.');
+    }
+    if (!apiUrl.startsWith('https://') && !import.meta.env.DEV) {
+      throw new Error('Endpoint WiFi/HTTP production wajib menggunakan HTTPS.');
+    }
 
     // Test koneksi dulu
     try {

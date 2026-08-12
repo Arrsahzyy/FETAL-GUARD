@@ -1,48 +1,79 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { t } from '../../i18n';
+import { useI18n } from '../../i18n/useI18n';
+import Icon from '../Icon/Icon';
+import './BottomNav.css';
 
-const BottomNav = ({ activeTab = 'home', onTabChange, notificationCount = 0 }) => {
+/**
+ * BottomNav — Navigasi bawah untuk domain Pasien (Mobile).
+ *
+ * Sebelumnya: Menggunakan `onTabChange` callback + `activeTab` prop.
+ * Sekarang: Menggunakan React Router `useNavigate` + `useLocation`.
+ *
+ * Props:
+ * - notificationCount: jumlah notifikasi unread (badge)
+ * - activeTab (opsional fallback, deprecated — prioritas ke URL)
+ * - onNavigate (opsional fallback untuk non-router usage)
+ */
+const BottomNav = ({ notificationCount = 0 }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    useI18n();
+
     const tabs = [
-        { id: 'home', label: 'Home', icon: 'home' },
-        { id: 'monitoring', label: 'Monitoring', icon: 'monitor_heart' },
-        { id: 'history', label: 'History', icon: 'history' },
-        { id: 'notifications', label: 'Alerts', icon: 'notifications', badge: notificationCount },
-        { id: 'settings', label: 'Settings', icon: 'settings' },
+        { id: 'home', labelKey: 'patient.nav.home', icon: 'home' },
+        { id: 'monitoring', labelKey: 'patient.nav.monitoring', icon: 'monitor_heart' },
+        { id: 'history', labelKey: 'patient.nav.history', icon: 'history' },
+        { id: 'notifications', labelKey: 'patient.nav.notifications', icon: 'notifications', badge: notificationCount },
+        { id: 'education', labelKey: 'patient.nav.education', icon: 'menu_book' },
+        { id: 'settings', labelKey: 'patient.nav.settings', icon: 'settings' },
     ];
 
+    // Derive active tab from URL pathname (primary), fallback ke prop
+    const pathSegment = location.pathname.split('/').filter(Boolean)[1] || 'home';
+    const currentActiveTab = pathSegment === 'profile' ? 'settings' : pathSegment;
+
+    const handleTabClick = (tabId) => {
+        const targetPath = `/patient/${tabId}`;
+
+        // Prevent re-navigating to the same path
+        if (location.pathname === targetPath) return;
+
+        navigate(targetPath);
+    };
+
     return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-background-dark/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 z-50">
-            <div className="flex justify-around items-center px-4 max-w-lg mx-auto">
-                {tabs.map((tab) => {
-                    const isActive = activeTab === tab.id;
-                    const badgeCount = Number.isFinite(tab.badge) ? tab.badge : 0;
-                    const badgeLabel = badgeCount > 99 ? '99+' : `${badgeCount}`;
-                    return (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            className={`flex flex-col items-center gap-1 relative transition-colors ${
-                                isActive
-                                    ? 'text-primary'
-                                    : 'text-slate-400 dark:text-slate-500'
-                            }`}
-                            onClick={() => onTabChange?.(tab.id)}
-                            aria-current={isActive ? 'page' : undefined}
-                        >
-                            <span className={`material-symbols-outlined ${isActive ? 'fill-1' : ''}`} style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}>
-                                {tab.icon}
-                            </span>
+        <nav className="bottom-nav" aria-label={t('patient.nav.label')}>
+            {tabs.map((tab) => {
+                const isActive = currentActiveTab === tab.id;
+                const badgeCount = Number.isFinite(tab.badge) ? tab.badge : 0;
+                const badgeLabel = badgeCount > 99 ? '99+' : `${badgeCount}`;
+                const label = t(tab.labelKey);
+
+                return (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        className={`bottom-nav__item ${isActive ? 'bottom-nav__item--active' : ''}`}
+                        onClick={() => handleTabClick(tab.id)}
+                        aria-label={label}
+                        aria-current={isActive ? 'page' : undefined}
+                    >
+                        <span className="bottom-nav__icon" aria-hidden="true">
+                            <Icon className="material-symbols-outlined" name={tab.icon} />
                             {badgeCount > 0 && (
-                                <span className="absolute -top-1 -right-1 size-4 bg-critical text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                                <span className="bottom-nav__badge">
                                     {badgeLabel}
                                 </span>
                             )}
-                            <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>
-                                {tab.label}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
+                        </span>
+                        <span className="bottom-nav__label">
+                            {label}
+                        </span>
+                    </button>
+                );
+            })}
         </nav>
     );
 };

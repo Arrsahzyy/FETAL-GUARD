@@ -1,463 +1,498 @@
-import React, { useState } from 'react';
-import { t, setLocale, getLocale } from '../../../i18n';
-import connectionManager, { CONNECTION_MODES, CONNECTION_STATUS } from '../../../services/ConnectionManager';
-import './SettingsScreen.css';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { t } from "../../../i18n";
+import { useI18n } from "../../../i18n/useI18n";
+import { useAuth } from "../../../context/useAuth";
+import { useTheme } from "../../../context/useTheme";
+import { usePatientDevice } from "../../../context/usePatientDevice";
+import FeedbackModal from "../../../components/FeedbackModal/FeedbackModal";
+import Icon from "../../../components/Icon/Icon";
+import "./SettingsScreen.css";
 
-const SettingsScreen = ({ onBack, onLogout }) => {
-    const [settings, setSettings] = useState({
-        language: getLocale(),
-        pushNotifications: true,
-        criticalAlerts: true,
-        soundAlerts: true,
-        hapticFeedback: true,
-        lowBatteryThreshold: 20,
-        uploadWifiOnly: true,
-        shareLocation: false,
-        autoEscalation: true,
-        darkMode: false,
-        onDeviceInference: true,
-        cloudInference: false
+const INITIAL_SETTINGS = {
+  pushNotifications: false,
+  importantAlerts: false,
+  soundAlerts: false,
+  hapticFeedback: false,
+  uploadWifiOnly: false,
+  shareLocation: false,
+};
+
+const ToggleButton = ({ active, label, disabled = false, onClick }) => (
+  <button
+    type="button"
+    className={`toggle ${active ? "active" : ""}`}
+    aria-pressed={active}
+    aria-label={label}
+    disabled={disabled}
+    onClick={onClick}
+  />
+);
+
+const formatBattery = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${Math.round(parsed)}%` : t("patient.common.unavailable");
+};
+
+const formatLastSync = (value, locale) => {
+  if (!value) return t("patient.home.syncEmpty");
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return t("patient.home.syncEmpty");
+  return date.toLocaleString(locale === "en" ? "en-US" : "id-ID", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const SettingsScreen = () => {
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
+  const {
+    deviceRegistryError,
+    hasRegisteredDevice,
+    isDeviceRegistryLoading,
+    pairedDevice,
+    refreshRegisteredDevices,
+    registeredDevices,
+    telemetry,
+    disconnectDevice,
+  } = usePatientDevice();
+  const { locale: currentLocale, changeLocale } = useI18n();
+
+  const [settings, setSettings] = useState(() => ({
+    ...INITIAL_SETTINGS,
+    language: currentLocale,
+  }));
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ isOpen: false });
+
+  const patientProfile = user?.patientProfile;
+  const patientName =
+    patientProfile?.name || user?.email?.split("@")[0] || t("patient.settings.profileFallback");
+  const patientInitial = patientName.trim().charAt(0).toUpperCase() || "P";
+  const patientId = patientProfile?.id
+    ? t("patient.settings.profileId", { id: String(patientProfile.id).slice(0, 8) })
+    : t("patient.settings.profileIncomplete");
+  const pregnancyWeek = patientProfile?.gestational_age_weeks
+    ? `${patientProfile.gestational_age_weeks} ${t("home.weeks")}`
+    : t("patient.common.unavailable");
+  const primaryRegisteredDevice = registeredDevices.find((device) => device.status === "active")
+    || registeredDevices[0]
+    || null;
+  const visibleDeviceName =
+    pairedDevice?.name ||
+    primaryRegisteredDevice?.display_name ||
+    t("patient.settings.deviceDisconnected");
+  const visibleDeviceStatus = pairedDevice
+    ? t("patient.settings.connected")
+    : primaryRegisteredDevice
+      ? t(`patient.home.deviceStatus.${primaryRegisteredDevice.status}`)
+      : t("patient.settings.offline");
+  const visibleDeviceCopy = pairedDevice
+    ? t("patient.settings.deviceReady")
+    : primaryRegisteredDevice
+      ? t("patient.settings.registeredDevicePairHint")
+      : t("patient.settings.deviceRegisterHint");
+  const openModal = (config) => setModalConfig({ ...config, isOpen: true });
+  const closeModal = () =>
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+
+  const handleLanguageChange = (lang) => {
+    setSettings((prev) => ({ ...prev, language: lang }));
+    changeLocale(lang); // Reactive: memicu re-render seluruh app
+  };
+
+  const handleFeatureInDev = (featureName) => {
+    openModal({
+      title: t("patient.common.featureUnavailable"),
+      message: t("patient.settings.featureMessage", { feature: featureName }),
+      type: "info",
+      confirmText: t("patient.common.gotIt"),
     });
+  };
 
-    // State untuk mode koneksi IoT (Bluetooth/MQTT/WiFi)
-    const [connectionMode, setConnectionMode] = useState(CONNECTION_MODES.MQTT);
-    const [connectionStatus, setConnectionStatus] = useState(CONNECTION_STATUS.DISCONNECTED);
-    const [mqttBrokerUrl, setMqttBrokerUrl] = useState('wss://broker.hivemq.com:8884/mqtt');
-    const [mqttTopic, setMqttTopic] = useState('fetalguard/sensor/data');
+  const handleDeviceAction = async () => {
+    if (pairedDevice) {
+      await disconnectDevice();
+      return;
+    }
 
-    const handleConnectionModeChange = async (mode) => {
-        setConnectionMode(mode);
-        await connectionManager.setMode(mode);
-        if (mode === CONNECTION_MODES.MQTT) {
-            connectionManager.updateConfig('mqtt', { brokerUrl: mqttBrokerUrl, topic: mqttTopic });
-        }
-    };
+    navigate("/patient/home");
+  };
 
-    const handleTestConnection = async () => {
-        try {
-            setConnectionStatus(CONNECTION_STATUS.CONNECTING);
-            if (connectionMode === CONNECTION_MODES.MQTT) {
-                connectionManager.updateConfig('mqtt', { brokerUrl: mqttBrokerUrl, topic: mqttTopic });
-            }
-            await connectionManager.connect();
-            setConnectionStatus(CONNECTION_STATUS.CONNECTED);
-            // Auto disconnect after 3 seconds (just testing)
-            setTimeout(async () => {
-                await connectionManager.disconnect();
-                setConnectionStatus(CONNECTION_STATUS.DISCONNECTED);
-            }, 3000);
-        } catch (err) {
-            setConnectionStatus(CONNECTION_STATUS.ERROR);
-            console.error('Connection test failed:', err);
-        }
-    };
+  return (
+    <div className="settings-screen">
+      <header className="settings-header">
+        <button
+          type="button"
+          className="settings-header__back"
+          onClick={() => navigate("/patient/home")}
+          aria-label={t("patient.common.backHome")}
+        >
+          <Icon className="material-symbols-outlined" name="arrow_back" />
+        </button>
+        <h1>{t("settings.title")}</h1>
+      </header>
 
-    const [deviceInfo] = useState({
-        serial: 'FG-2024-001234',
-        model: 'FETAL-GUARD-V2',
-        firmware: '2.1.3',
-        battery: 85,
-        lastSync: '5 menit lalu'
-    });
-
-    const [userInfo] = useState({
-        name: 'Sarah Wijaya',
-        patientId: 'PAT-2024-001',
-        clinic: 'RS Bunda Jakarta',
-        clinician: 'Dr. Rina Susanti, SpOG'
-    });
-
-    const handleToggle = (key) => {
-        setSettings(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    const handleLanguageChange = (lang) => {
-        setSettings(prev => ({ ...prev, language: lang }));
-        setLocale(lang);
-    };
-
-    return (
-        <div className="settings-screen">
-            {/* Header */}
-            <header className="settings-header">
-                <button className="settings-header__back" onClick={onBack}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <h1>{t('settings.title')}</h1>
-            </header>
-
-            <div className="settings-content">
-                {/* Profile Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">{t('settings.profile')}</h2>
-                    <div className="settings-profile">
-                        <div className="settings-profile__avatar">
-                            {userInfo.name.charAt(0)}
-                        </div>
-                        <div className="settings-profile__info">
-                            <h3>{userInfo.name}</h3>
-                            <p>{userInfo.patientId}</p>
-                        </div>
-                        <button className="settings-profile__edit">Edit</button>
-                    </div>
-                    <div className="settings-item settings-item--info">
-                        <span className="settings-item__label">Klinik</span>
-                        <span className="settings-item__value">{userInfo.clinic}</span>
-                    </div>
-                    <div className="settings-item settings-item--info">
-                        <span className="settings-item__label">Dokter</span>
-                        <span className="settings-item__value">{userInfo.clinician}</span>
-                    </div>
-                </section>
-
-                {/* Device Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">{t('settings.device.title')}</h2>
-                    <div className="settings-device">
-                        <div className="settings-device__icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-                                <line x1="12" y1="18" x2="12" y2="18" />
-                            </svg>
-                        </div>
-                        <div className="settings-device__info">
-                            <h4>{deviceInfo.model}</h4>
-                            <p>SN: {deviceInfo.serial}</p>
-                        </div>
-                        <div className="settings-device__status">
-                            <div className="settings-device__battery">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <rect x="1" y="6" width="18" height="12" rx="2" ry="2" />
-                                    <line x1="23" y1="13" x2="23" y2="11" />
-                                </svg>
-                                <span>{deviceInfo.battery}%</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="settings-item settings-item--info">
-                        <span className="settings-item__label">{t('settings.device.firmware')}</span>
-                        <span className="settings-item__value">v{deviceInfo.firmware}</span>
-                    </div>
-                    <div className="settings-item settings-item--info">
-                        <span className="settings-item__label">{t('settings.device.lastSync')}</span>
-                        <span className="settings-item__value">{deviceInfo.lastSync}</span>
-                    </div>
-                    <button className="settings-btn settings-btn--outline">
-                        {t('settings.device.unpair')}
-                    </button>
-                </section>
-
-                {/* IoT Connection Mode Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20" style={{display:'inline', verticalAlign:'text-bottom', marginRight:'6px'}}>
-                            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                            <line x1="12" y1="20" x2="12.01" y2="20" />
-                        </svg>
-                        Koneksi Perangkat IoT
-                    </h2>
-                    <p className="settings-section__desc">Pilih cara perangkat sensor terhubung ke aplikasi</p>
-
-                    {/* Mode Bluetooth */}
-                    <div
-                        className={`settings-connection-card ${connectionMode === CONNECTION_MODES.BLUETOOTH ? 'active' : ''}`}
-                        onClick={() => handleConnectionModeChange(CONNECTION_MODES.BLUETOOTH)}
-                    >
-                        <div className="settings-connection-card__radio">
-                            <div className={`radio-dot ${connectionMode === CONNECTION_MODES.BLUETOOTH ? 'active' : ''}`} />
-                        </div>
-                        <div className="settings-connection-card__icon settings-connection-card__icon--ble">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5" />
-                            </svg>
-                        </div>
-                        <div className="settings-connection-card__content">
-                            <h4>Bluetooth LE</h4>
-                            <p>Langsung ke HP — seperti Mi Band</p>
-                        </div>
-                    </div>
-
-                    {/* Mode MQTT */}
-                    <div
-                        className={`settings-connection-card ${connectionMode === CONNECTION_MODES.MQTT ? 'active' : ''}`}
-                        onClick={() => handleConnectionModeChange(CONNECTION_MODES.MQTT)}
-                    >
-                        <div className="settings-connection-card__radio">
-                            <div className={`radio-dot ${connectionMode === CONNECTION_MODES.MQTT ? 'active' : ''}`} />
-                        </div>
-                        <div className="settings-connection-card__icon settings-connection-card__icon--mqtt">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="2" y1="12" x2="22" y2="12" />
-                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                            </svg>
-                        </div>
-                        <div className="settings-connection-card__content">
-                            <h4>MQTT (via Internet)</h4>
-                            <p>Device kirim data via WiFi ke server</p>
-                        </div>
-                    </div>
-
-                    {/* Mode WiFi/HTTP */}
-                    <div
-                        className={`settings-connection-card ${connectionMode === CONNECTION_MODES.WIFI ? 'active' : ''}`}
-                        onClick={() => handleConnectionModeChange(CONNECTION_MODES.WIFI)}
-                    >
-                        <div className="settings-connection-card__radio">
-                            <div className={`radio-dot ${connectionMode === CONNECTION_MODES.WIFI ? 'active' : ''}`} />
-                        </div>
-                        <div className="settings-connection-card__icon settings-connection-card__icon--wifi">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                                <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                                <line x1="12" y1="20" x2="12.01" y2="20" />
-                            </svg>
-                        </div>
-                        <div className="settings-connection-card__content">
-                            <h4>WiFi / REST API</h4>
-                            <p>Koneksi langsung via jaringan lokal</p>
-                        </div>
-                    </div>
-
-                    {/* MQTT Config (hanya tampil saat mode MQTT) */}
-                    {connectionMode === CONNECTION_MODES.MQTT && (
-                        <div className="settings-mqtt-config">
-                            <div className="settings-mqtt-config__field">
-                                <label>MQTT Broker URL</label>
-                                <input
-                                    type="text"
-                                    value={mqttBrokerUrl}
-                                    onChange={(e) => setMqttBrokerUrl(e.target.value)}
-                                    placeholder="wss://broker.hivemq.com:8884/mqtt"
-                                />
-                            </div>
-                            <div className="settings-mqtt-config__field">
-                                <label>Topic</label>
-                                <input
-                                    type="text"
-                                    value={mqttTopic}
-                                    onChange={(e) => setMqttTopic(e.target.value)}
-                                    placeholder="fetalguard/sensor/data"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Test Connection Button */}
-                    <button
-                        className={`settings-btn settings-btn--test ${
-                            connectionStatus === CONNECTION_STATUS.CONNECTED ? 'settings-btn--success' :
-                            connectionStatus === CONNECTION_STATUS.ERROR ? 'settings-btn--error' :
-                            connectionStatus === CONNECTION_STATUS.CONNECTING ? 'settings-btn--loading' : ''
-                        }`}
-                        onClick={handleTestConnection}
-                        disabled={connectionStatus === CONNECTION_STATUS.CONNECTING}
-                    >
-                        {connectionStatus === CONNECTION_STATUS.CONNECTING ? (
-                            <><span className="spinner" /> Menghubungkan...</>
-                        ) : connectionStatus === CONNECTION_STATUS.CONNECTED ? (
-                            <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg> Terhubung!</>
-                        ) : connectionStatus === CONNECTION_STATUS.ERROR ? (
-                            'Gagal — Coba Lagi'
-                        ) : (
-                            'Tes Koneksi'
-                        )}
-                    </button>
-                </section>
-
-                {/* Notifications Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">{t('settings.notifications.title')}</h2>
-                    <div className="settings-item">
-                        <span className="settings-item__label">{t('settings.notifications.push')}</span>
-                        <div
-                            className={`toggle ${settings.pushNotifications ? 'active' : ''}`}
-                            onClick={() => handleToggle('pushNotifications')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <span className="settings-item__label">{t('settings.notifications.critical')}</span>
-                        <div
-                            className={`toggle ${settings.criticalAlerts ? 'active' : ''}`}
-                            onClick={() => handleToggle('criticalAlerts')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <span className="settings-item__label">{t('settings.notifications.sound')}</span>
-                        <div
-                            className={`toggle ${settings.soundAlerts ? 'active' : ''}`}
-                            onClick={() => handleToggle('soundAlerts')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <span className="settings-item__label">Umpan Balik Getar</span>
-                        <div
-                            className={`toggle ${settings.hapticFeedback ? 'active' : ''}`}
-                            onClick={() => handleToggle('hapticFeedback')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <span className="settings-item__label">{t('settings.notifications.batteryThreshold')}</span>
-                        <select
-                            className="settings-select"
-                            value={settings.lowBatteryThreshold}
-                            onChange={(e) => setSettings(prev => ({ ...prev, lowBatteryThreshold: parseInt(e.target.value) }))}
-                        >
-                            <option value="10">10%</option>
-                            <option value="15">15%</option>
-                            <option value="20">20%</option>
-                            <option value="30">30%</option>
-                        </select>
-                    </div>
-                </section>
-
-                {/* Privacy Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">{t('settings.privacy.title')}</h2>
-                    <div className="settings-item">
-                        <div className="settings-item__content">
-                            <span className="settings-item__label">{t('settings.privacy.wifiOnly')}</span>
-                            <span className="settings-item__desc">Hanya unggah data saat tersambung WiFi</span>
-                        </div>
-                        <div
-                            className={`toggle ${settings.uploadWifiOnly ? 'active' : ''}`}
-                            onClick={() => handleToggle('uploadWifiOnly')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <div className="settings-item__content">
-                            <span className="settings-item__label">{t('settings.privacy.locationShare')}</span>
-                            <span className="settings-item__desc">Izinkan berbagi lokasi saat darurat</span>
-                        </div>
-                        <div
-                            className={`toggle ${settings.shareLocation ? 'active' : ''}`}
-                            onClick={() => handleToggle('shareLocation')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <div className="settings-item__content">
-                            <span className="settings-item__label">{t('settings.privacy.autoEscalation')}</span>
-                            <span className="settings-item__desc">Eskalasi otomatis ke kontak darurat</span>
-                        </div>
-                        <div
-                            className={`toggle ${settings.autoEscalation ? 'active' : ''}`}
-                            onClick={() => handleToggle('autoEscalation')}
-                        />
-                    </div>
-                    <button className="settings-btn settings-btn--link">
-                        {t('settings.privacy.dataRetention')}
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                    <button className="settings-btn settings-btn--link settings-btn--danger">
-                        {t('settings.privacy.deleteData')}
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                </section>
-
-                {/* Language Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">{t('settings.language')}</h2>
-                    <div className="settings-language">
-                        <button
-                            className={`settings-language__btn ${settings.language === 'id' ? 'active' : ''}`}
-                            onClick={() => handleLanguageChange('id')}
-                        >
-                            🇮🇩 Bahasa Indonesia
-                        </button>
-                        <button
-                            className={`settings-language__btn ${settings.language === 'en' ? 'active' : ''}`}
-                            onClick={() => handleLanguageChange('en')}
-                        >
-                            🇺🇸 English
-                        </button>
-                    </div>
-                </section>
-
-                {/* Advanced Section */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">Lanjutan</h2>
-                    <div className="settings-item">
-                        <div className="settings-item__content">
-                            <span className="settings-item__label">Mode Gelap</span>
-                        </div>
-                        <div
-                            className={`toggle ${settings.darkMode ? 'active' : ''}`}
-                            onClick={() => handleToggle('darkMode')}
-                        />
-                    </div>
-                    <div className="settings-item">
-                        <div className="settings-item__content">
-                            <span className="settings-item__label">Inferensi On-Device</span>
-                            <span className="settings-item__desc">Proses AI di perangkat (lebih privat)</span>
-                        </div>
-                        <div
-                            className={`toggle ${settings.onDeviceInference ? 'active' : ''}`}
-                            onClick={() => handleToggle('onDeviceInference')}
-                        />
-                    </div>
-                </section>
-
-                {/* About & Support */}
-                <section className="settings-section">
-                    <h2 className="settings-section__title">{t('settings.about')}</h2>
-                    <button className="settings-btn settings-btn--link">
-                        Panduan Pengguna
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                    <button className="settings-btn settings-btn--link">
-                        FAQ
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                    <button className="settings-btn settings-btn--link">
-                        Hubungi Dukungan
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                    <button className="settings-btn settings-btn--link">
-                        Kebijakan Privasi
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                    <button className="settings-btn settings-btn--link">
-                        Syarat & Ketentuan
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                            <path d="M9 18l6-6-6-6" />
-                        </svg>
-                    </button>
-                </section>
-
-                {/* Version */}
-                <div className="settings-version">
-                    <p>FETAL-GUARD v1.0.0</p>
-                    <p>© 2024 FETAL-GUARD Team</p>
-                </div>
-
-                {/* Logout */}
-                <button className="settings-logout" onClick={onLogout}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    {t('settings.logout')}
-                </button>
+      <div className="settings-content">
+        <section className="settings-section">
+          <h2 className="settings-section__title">{t("settings.profile")}</h2>
+          <div className="settings-profile">
+            <div className="settings-profile__avatar">{patientInitial}</div>
+            <div className="settings-profile__info">
+              <h3>{patientName}</h3>
+              <p>{patientId}</p>
             </div>
+            <button
+              type="button"
+              className="settings-profile__edit"
+              onClick={() => navigate("/patient/profile")}
+            >
+              {t("settings.editProfile")}
+            </button>
+          </div>
+          <div className="settings-item settings-item--info">
+            <span className="settings-item__label">{t("patient.settings.pregnancyAge")}</span>
+            <span className="settings-item__value">{pregnancyWeek}</span>
+          </div>
+          <div className="settings-item settings-item--info">
+            <span className="settings-item__label">{t("patient.settings.connectedClinic")}</span>
+            <span className="settings-item__value">{t("patient.settings.notConnected")}</span>
+          </div>
+          <div className="settings-item settings-item--info">
+            <span className="settings-item__label">{t("patient.settings.clinician")}</span>
+            <span className="settings-item__value">{t("patient.settings.notAssigned")}</span>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">
+            {t("settings.device.title")}
+          </h2>
+          <div className="settings-device">
+            <div className="settings-device__icon">
+              <Icon className="material-symbols-outlined" name="sensors" />
+            </div>
+            <div className="settings-device__info">
+              <h4>{visibleDeviceName}</h4>
+              <p>{visibleDeviceCopy}</p>
+            </div>
+            <div className="settings-device__status">
+              <span
+                className={`settings-device__status-label ${
+                  pairedDevice
+                    ? "settings-device__status-label--online"
+                    : hasRegisteredDevice
+                      ? "settings-device__status-label--registered"
+                      : ""
+                }`}
+              >
+                {visibleDeviceStatus}
+              </span>
+            </div>
+          </div>
+          <div className="settings-device-registry">
+            <Icon className="material-symbols-outlined" name="inventory_2" />
+            <div>
+              <strong>{t("patient.settings.deviceRegistry")}</strong>
+              <p>
+                {isDeviceRegistryLoading
+                  ? t("patient.home.deviceRegistryLoading")
+                  : deviceRegistryError
+                    ? t("patient.home.deviceRegistryUnavailable")
+                    : hasRegisteredDevice
+                      ? t("patient.settings.registeredDeviceCount", {
+                          count: registeredDevices.length,
+                        })
+                      : t("patient.home.noRegisteredDevice")}
+              </p>
+            </div>
+          </div>
+          <div className="settings-item settings-item--info">
+            <span className="settings-item__label">{t("patient.settings.deviceBattery")}</span>
+            <span className="settings-item__value">
+              {formatBattery(telemetry.battery)}
+            </span>
+          </div>
+          <div className="settings-item settings-item--info">
+            <span className="settings-item__label">
+              {t("settings.device.lastSync")}
+            </span>
+            <span className="settings-item__value">
+              {formatLastSync(telemetry.lastSync, currentLocale)}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="settings-btn settings-btn--outline"
+            onClick={() => {
+              void handleDeviceAction();
+            }}
+          >
+            {pairedDevice ? t("settings.device.unpair") : t("patient.settings.openPairing")}
+          </button>
+          <button
+            type="button"
+            className="settings-btn settings-btn--link"
+            disabled={isDeviceRegistryLoading}
+            onClick={() => {
+              void refreshRegisteredDevices();
+            }}
+          >
+            {t("patient.settings.refreshDeviceRegistry")}
+          </button>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">{t("patient.settings.deviceConnection")}</h2>
+          <p className="settings-section__desc">
+            {t("patient.settings.connectionDesc")}
+          </p>
+
+          <button
+            type="button"
+            className="settings-connection-card settings-connection-card--disabled"
+            disabled
+          >
+            <div className="settings-connection-card__icon settings-connection-card__icon--ble">
+              <Icon className="material-symbols-outlined" name="bluetooth" />
+            </div>
+            <div className="settings-connection-card__content">
+              <h4>{t("patient.settings.bleTitle")}</h4>
+              <p>{t("patient.settings.bleDesc")}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className="settings-connection-card settings-connection-card--disabled"
+            disabled
+          >
+            <div className="settings-connection-card__icon settings-connection-card__icon--mqtt">
+              <Icon className="material-symbols-outlined" name="cloud" />
+            </div>
+            <div className="settings-connection-card__content">
+              <h4>{t("patient.settings.internetTitle")}</h4>
+              <p>{t("patient.settings.internetDesc")}</p>
+            </div>
+          </button>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">
+            {t("settings.notifications.title")}
+          </h2>
+          <p className="settings-section__desc">{t("patient.settings.nativeFeaturesUnavailable")}</p>
+          <div className="settings-item">
+            <span className="settings-item__label">
+              {t("settings.notifications.push")}
+            </span>
+            <ToggleButton
+              active={settings.pushNotifications}
+              label={t("settings.notifications.push")}
+              disabled
+            />
+          </div>
+          <div className="settings-item">
+            <span className="settings-item__label">{t("patient.settings.importantAlerts")}</span>
+            <ToggleButton
+              active={settings.importantAlerts}
+              label={t("patient.settings.importantAlerts")}
+              disabled
+            />
+          </div>
+          <div className="settings-item">
+            <span className="settings-item__label">
+              {t("settings.notifications.sound")}
+            </span>
+            <ToggleButton
+              active={settings.soundAlerts}
+              label={t("settings.notifications.sound")}
+              disabled
+            />
+          </div>
+          <div className="settings-item">
+            <span className="settings-item__label">{t("patient.settings.haptic")}</span>
+            <ToggleButton
+              active={settings.hapticFeedback}
+              label={t("patient.settings.haptic")}
+              disabled
+            />
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">
+            {t("settings.privacy.title")}
+          </h2>
+          <p className="settings-section__desc">{t("patient.settings.uploadPolicyUnavailable")}</p>
+          <div className="settings-item">
+            <div className="settings-item__content">
+              <span className="settings-item__label">
+                {t("settings.privacy.wifiOnly")}
+              </span>
+              <span className="settings-item__desc">
+                {t("patient.settings.wifiDesc")}
+              </span>
+            </div>
+            <ToggleButton
+              active={settings.uploadWifiOnly}
+              label={t("settings.privacy.wifiOnly")}
+              disabled
+            />
+          </div>
+          <div className="settings-item">
+            <div className="settings-item__content">
+              <span className="settings-item__label">
+                {t("settings.privacy.locationShare")}
+              </span>
+              <span className="settings-item__desc">
+                {t("patient.settings.locationDesc")}
+              </span>
+            </div>
+            <ToggleButton
+              active={settings.shareLocation}
+              label={t("settings.privacy.locationShare")}
+              disabled
+            />
+          </div>
+          <button
+            type="button"
+            className="settings-btn settings-btn--link"
+            onClick={() => handleFeatureInDev(t("patient.settings.features.retention"))}
+          >
+            {t("settings.privacy.dataRetention")}
+          </button>
+          <button
+            type="button"
+            className="settings-btn settings-btn--link settings-btn--danger"
+            onClick={() => handleFeatureInDev(t("patient.settings.features.delete"))}
+          >
+            {t("settings.privacy.deleteData")}
+          </button>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">{t("settings.language")}</h2>
+          <div className="settings-language">
+            <button
+              type="button"
+              className={`settings-language__btn ${settings.language === "id" ? "active" : ""}`}
+              onClick={() => handleLanguageChange("id")}
+            >
+              {t("settings.indonesian")}
+            </button>
+            <button
+              type="button"
+              className={`settings-language__btn ${settings.language === "en" ? "active" : ""}`}
+              onClick={() => handleLanguageChange("en")}
+            >
+              {t("settings.english")}
+            </button>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">{t("patient.settings.appearance")}</h2>
+          <div className="settings-item">
+            <div className="settings-item__content">
+              <span className="settings-item__label">{t("patient.settings.darkMode")}</span>
+            </div>
+            <ToggleButton
+              active={isDarkMode}
+              onClick={toggleTheme}
+              label={t("patient.settings.darkMode")}
+            />
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="settings-section__title">{t("settings.about")}</h2>
+          <button
+            type="button"
+            className="settings-btn settings-btn--link"
+            onClick={() => navigate("/patient/education")}
+          >
+            {t("patient.settings.userGuide")}
+          </button>
+          <button
+            type="button"
+            className="settings-btn settings-btn--link"
+            onClick={() => setFaqOpen((prev) => !prev)}
+          >
+            FAQ
+            <Icon
+              className="material-symbols-outlined"
+              name="chevron_right"
+              style={{
+                transform: faqOpen ? "rotate(90deg)" : "none",
+                transition: "transform 0.2s",
+                marginLeft: "auto",
+              }}
+            />
+          </button>
+          {faqOpen && (
+            <div className="settings-faq-panel">
+              <div className="settings-faq-item">
+                <h4>{t("patient.settings.faqWhatTitle")}</h4>
+                <p>{t("patient.settings.faqWhatDesc")}</p>
+              </div>
+              <div className="settings-faq-item">
+                <h4>{t("patient.settings.faqReplaceTitle")}</h4>
+                <p>{t("patient.settings.faqReplaceDesc")}</p>
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            className="settings-btn settings-btn--link"
+            onClick={() => handleFeatureInDev(t("patient.settings.features.support"))}
+          >
+            {t("patient.settings.support")}
+          </button>
+          <button
+            type="button"
+            className="settings-btn settings-btn--link"
+            onClick={() => handleFeatureInDev(t("patient.settings.features.privacy"))}
+          >
+            {t("settings.privacyPolicy")}
+          </button>
+        </section>
+
+        <div className="settings-version">
+          <p>FETAL-GUARD v1.0.0</p>
+          <p>
+            {t("patient.settings.versionNote")}
+          </p>
         </div>
-    );
+
+        <button
+          type="button"
+          className="settings-logout"
+          onClick={() =>
+            openModal({
+              title: t("patient.settings.logoutTitle"),
+              message: t("patient.settings.logoutMessage"),
+              type: "info",
+              confirmText: t("settings.logout"),
+              onConfirm: () => {
+                logout();
+                navigate("/login");
+              },
+            })
+          }
+        >
+          <Icon className="material-symbols-outlined" name="logout" />
+          {t("settings.logout")}
+        </button>
+      </div>
+
+      <FeedbackModal {...modalConfig} onClose={closeModal} />
+    </div>
+  );
 };
 
 export default SettingsScreen;

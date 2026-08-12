@@ -8,12 +8,15 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.security import get_password_hash
+from core.tenancy import ensure_default_organization
 from db.database import Base, SessionLocal, engine
 from models.admin_audit_log import AdminAuditLog  # noqa: F401
 from models.auth_login_attempt import AuthLoginAttempt  # noqa: F401
 from models.auth_refresh_token import AuthRefreshToken  # noqa: F401
 from models.device import Device  # noqa: F401
 from models.notification import Notification  # noqa: F401
+from models.organization import Organization  # noqa: F401
+from models.organization_membership import OrganizationMembership
 from models.patient import Patient  # noqa: F401
 from models.patient_clinician_assignment import PatientClinicianAssignment  # noqa: F401
 from models.sensor_data import SensorDataChunk  # noqa: F401
@@ -22,27 +25,64 @@ from models.session_sensor_summary import SessionSensorSummary  # noqa: F401
 from models.user import User
 
 
+def _required_environment_value(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name} wajib disetel untuk menjalankan bootstrap admin.")
+    return value
+
+
+def _load_seed_credentials() -> tuple[str, str]:
+    if settings.ENVIRONMENT == "production":
+        allow_bootstrap = os.getenv("FG_ALLOW_ADMIN_BOOTSTRAP", "").strip().lower()
+        if allow_bootstrap != "true":
+            raise RuntimeError(
+                "Bootstrap admin production dinonaktifkan. Set FG_ALLOW_ADMIN_BOOTSTRAP=true hanya untuk bootstrap terkontrol."
+            )
+
+    email = _required_environment_value("FG_ADMIN_EMAIL").lower()
+    password = _required_environment_value("FG_ADMIN_PASSWORD")
+    if "@" not in email:
+        raise RuntimeError("FG_ADMIN_EMAIL harus berupa alamat email yang valid.")
+    if len(password) < 8:
+        raise RuntimeError("FG_ADMIN_PASSWORD minimal 8 karakter.")
+    return email, password
+
+
 def seed_admin() -> None:
-    Base.metadata.create_all(bind=engine)
-
-    email = os.getenv("FG_ADMIN_EMAIL", "admin@fetalguard.com").strip().lower()
-    uses_default_password = "FG_ADMIN_PASSWORD" not in os.environ
-    if settings.ENVIRONMENT == "production" and uses_default_password:
-        raise RuntimeError("FG_ADMIN_PASSWORD wajib disetel saat ENVIRONMENT=production.")
-
-    password = os.getenv("FG_ADMIN_PASSWORD", "admin12345")
+    email, password = _load_seed_credentials()
+    if settings.ENVIRONMENT != "production":
+        Base.metadata.create_all(bind=engine)
 
     db: Session = SessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
         if user:
-            user.hashed_password = get_password_hash(password)
-            user.role = "admin"
-            user.must_reset_password = True
-            db.commit()
-            print(f"Akun admin diperbarui: {email}")
-            print(f"Password sementara: {password}")
-            print("Admin wajib mengganti password setelah login pertama.")
+            if user.role != "admin":
+                raise RuntimeError("Email bootstrap sudah digunakan oleh akun dengan role berbeda.")
+            organization = ensure_default_organization(db)
+            membership = (
+                db.query(OrganizationMembership)
+                .filter(
+                    OrganizationMembership.organization_id == organization.id,
+                    OrganizationMembership.user_id == user.id,
+                    OrganizationMembership.ended_at.is_(None),
+                )
+                .first()
+            )
+            if membership is not None and membership.role != "org_admin":
+                raise RuntimeError("Akun admin memiliki membership aktif dengan role yang tidak sesuai.")
+            if membership is None:
+                db.add(
+                    OrganizationMembership(
+                        organization_id=organization.id,
+                        user_id=user.id,
+                        role="org_admin",
+                        granted_by_user_id=user.id,
+                    )
+                )
+                db.commit()
+            print("Akun admin dan membership sudah tersedia; bootstrap tidak mengubah credential yang ada.")
             return
 
         admin_user = User(
@@ -52,11 +92,18 @@ def seed_admin() -> None:
             must_reset_password=True,
         )
         db.add(admin_user)
+        db.flush()
+        organization = ensure_default_organization(db)
+        db.add(
+            OrganizationMembership(
+                organization_id=organization.id,
+                user_id=admin_user.id,
+                role="org_admin",
+                granted_by_user_id=admin_user.id,
+            )
+        )
         db.commit()
-        print("Berhasil membuat akun admin.")
-        print(f"Email: {email}")
-        print(f"Password sementara: {password}")
-        print("Admin wajib mengganti password setelah login pertama.")
+        print("Akun admin dibuat dan wajib mengganti password saat login pertama.")
     except IntegrityError as exc:
         db.rollback()
         raise RuntimeError("Gagal membuat akun admin karena constraint database. Jalankan migration terbaru terlebih dahulu.") from exc

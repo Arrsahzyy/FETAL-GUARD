@@ -4,6 +4,7 @@ from enum import Enum
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from core.security import BCRYPT_MAX_PASSWORD_BYTES
+from schemas.patient import PatientCreate
 
 
 class UserRole(str, Enum):
@@ -33,10 +34,16 @@ class UserCreate(UserBase):
         return value
 
 
+class PatientRegistration(UserCreate):
+    role: UserRole = UserRole.patient
+    profile: PatientCreate
+
+
 class UserResponse(UserBase):
     id: str
     is_active: bool = True
     must_reset_password: bool = False
+    auth_version: int = 0
     password_changed_at: datetime | None = None
     created_at: datetime
 

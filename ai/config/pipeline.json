@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "target": "screening_support_not_diagnosis",
+  "windowing": {
+    "window_seconds": 60,
+    "stride_seconds": 15,
+    "min_valid_ratio": 0.8
+  },
+  "ctg": {
+    "sampling_hz": 4,
+    "channels": ["fhr", "uterine_contraction"],
+    "normalization": "per_record_robust_zscore"
+  },
+  "labels": {
+    "default_task": "regression",
+    "regression_target": "umbilical_artery_ph",
+    "screening_classification": {
+      "enabled": false,
+      "requires_clinical_review": true,
+      "observation_cutoff": null
+    }
+  },
+  "model": {
+    "architecture": "cnn_lstm_fusion",
+    "inputs": [
+      {
+        "name": "ctg",
+        "channels": ["fhr", "uterine_contraction"]
+      },
+      {
+        "name": "fetal_guard_future",
+        "channels": ["piezo_1", "piezo_2", "piezo_3", "piezo_4", "fsr", "maternal_hr", "spo2"],
+        "status": "reserved_until_hardware_data_exists"
+      }
+    ],
+    "output_labels": ["routine_monitoring", "needs_observation", "review_with_clinician"],
+    "output_language_policy": "screening_only"
+  }
+}

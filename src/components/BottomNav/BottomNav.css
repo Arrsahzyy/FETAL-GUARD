@@ -3,10 +3,10 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--color-bg-secondary);
+    background: rgba(255, 255, 255, 0.96);
     border-top: 1px solid var(--color-border);
     padding: var(--spacing-2) var(--spacing-4);
-    padding-bottom: max(var(--spacing-2), env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(var(--spacing-3), env(safe-area-inset-bottom, 0px));
     padding-left: max(var(--spacing-4), env(safe-area-inset-left));
     padding-right: max(var(--spacing-4), env(safe-area-inset-right));
     display: flex;
@@ -40,8 +40,9 @@
         max-width: none;
         flex-direction: column;
         justify-content: flex-start;
-        padding-top: calc(var(--spacing-8) + env(safe-area-inset-top));
-        gap: var(--spacing-4);
+        align-items: stretch;
+        padding: calc(var(--spacing-6) + env(safe-area-inset-top, 0px)) var(--spacing-2) var(--spacing-4);
+        gap: var(--spacing-2);
         border-top: none;
         border-right: 1px solid var(--color-border);
         border-radius: 0;
@@ -89,7 +90,7 @@
     .bottom-nav__item {
         width: 100%;
         min-width: 60px;
-        padding: var(--spacing-3);
+        padding: var(--spacing-2);
     }
 }
 
@@ -106,6 +107,10 @@
     transform: scale(1.1);
 }
 
+.bottom-nav__item--active .material-symbols-outlined {
+    font-variation-settings: "FILL" 1;
+}
+
 .bottom-nav__icon {
     width: 36px;
     height: 36px;
@@ -117,6 +122,11 @@
     position: relative;
 }
 
+.bottom-nav__icon .material-symbols-outlined {
+    font-size: 22px;
+    line-height: 1;
+}
+
 @media (min-width: 640px) {
     .bottom-nav__icon {
         width: 40px;
@@ -124,27 +134,29 @@
     }
 }
 
-.bottom-nav__icon svg {
-    width: 20px;
-    height: 20px;
-}
-
 @media (min-width: 640px) {
-    .bottom-nav__icon svg {
-        width: 22px;
-        height: 22px;
+    .bottom-nav__icon .material-symbols-outlined {
+        font-size: 24px;
     }
 }
 
 .bottom-nav__badge {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 10px;
-    height: 10px;
+    top: -2px;
+    right: -2px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
     background: var(--color-critical);
     border: 2px solid var(--color-bg-secondary);
     border-radius: var(--radius-full);
+    color: white;
+    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    line-height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     animation: badge-pulse 2s infinite;
 }
 
@@ -162,10 +174,48 @@
 
 .bottom-nav__label {
     white-space: nowrap;
+    font-size: var(--font-size-xs);
+    line-height: 1.1;
+}
+
+/* Six patient destinations remain directly reachable on compact screens. */
+@media (max-width: 639px) {
+    .bottom-nav {
+        justify-content: space-between;
+        gap: 0;
+        padding-left: max(var(--spacing-1), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--spacing-1), env(safe-area-inset-right, 0px));
+    }
+
+    .bottom-nav__item {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 52px;
+        padding: var(--spacing-1) 1px;
+    }
+
+    .bottom-nav__icon {
+        width: 34px;
+        height: 34px;
+    }
+
+    .bottom-nav__label {
+        max-width: 100%;
+        font-size: clamp(9px, 2.6vw, 11px);
+        letter-spacing: -0.01em;
+    }
+}
+
+@media (min-width: 1024px) {
+    .bottom-nav__label {
+        white-space: normal;
+        text-align: center;
+        max-width: 68px;
+    }
 }
 
 /* Dark theme */
 [data-theme="dark"] .bottom-nav {
     background: rgba(26, 31, 46, 0.95);
-    border-top-color: var(--color-border);
+    border-color: var(--color-border);
 }

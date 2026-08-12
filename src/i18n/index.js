@@ -6,11 +6,23 @@ const translations = {
   en: enTranslations
 };
 
-let currentLocale = 'id'; // Default to Indonesian
+const LOCALE_STORAGE_KEY = 'fetalguard.locale';
+
+const getStoredLocale = () => {
+  if (typeof window === 'undefined') return 'id';
+
+  const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  return translations[storedLocale] ? storedLocale : 'id';
+};
+
+let currentLocale = getStoredLocale(); // Default to Indonesian
 
 export const setLocale = (locale) => {
   if (translations[locale]) {
     currentLocale = locale;
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    }
   }
 };
 

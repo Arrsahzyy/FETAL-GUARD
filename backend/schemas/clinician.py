@@ -23,7 +23,7 @@ class NotificationStatus(str, Enum):
 
 class PatientSummaryResponse(BaseModel):
     id: str
-    user_id: str
+    patient_code: str
     name: str
     age: int
     gestational_age_weeks: int
@@ -38,13 +38,22 @@ class PatientListResponse(BaseModel):
     offset: int
 
 
+class ClinicianStatisticsResponse(BaseModel):
+    total_patients: int
+    active_monitoring: int
+    high_priority_patients: int
+    open_alerts: int
+
+
 class AlertAcknowledgeRequest(BaseModel):
     note: str | None = Field(default=None, max_length=500)
+    expected_version: int = Field(ge=1)
 
 
 class AlertStatusUpdateRequest(BaseModel):
     status: NotificationStatus
     note: str | None = Field(default=None, max_length=500)
+    expected_version: int = Field(ge=1)
 
 
 class NotificationResponse(BaseModel):
@@ -58,6 +67,12 @@ class NotificationResponse(BaseModel):
     acknowledged_at: datetime | None = None
     acknowledged_by_user_id: str | None = None
     acknowledgement_note: str | None = None
+    version: int = 1
+    updated_at: datetime
+    reviewed_by_user_id: str | None = None
+    reviewed_at: datetime | None = None
+    resolved_by_user_id: str | None = None
+    resolved_at: datetime | None = None
     
     # Enrichment fields for clinician view
     patient_id: str | None = None

@@ -1,3 +1,7 @@
+from models.sensor_data import SensorDataChunk
+from core.tenancy import DEFAULT_ORGANIZATION_ID
+
+
 def create_patient_profile(client, headers):
     return client.post(
         "/patients",
@@ -68,6 +72,80 @@ def test_patient_can_update_own_profile(client, auth_headers):
     assert data["medical_history"] == "Riwayat kesehatan singkat untuk pemantauan awal"
 
 
+def test_patient_can_persist_structured_profile_fields(client, auth_headers):
+    headers = auth_headers(email="profile-structured@example.com")
+    create_patient_profile(client, headers)
+
+    response = client.patch(
+        "/patients/me",
+        headers=headers,
+        json={
+            "national_id": "1234567890123456",
+            "birth_date": "1997-04-12",
+            "blood_type": "O+",
+            "phone_number": "+6281234567890",
+            "emergency_contact_name": "Keluarga Pasien",
+            "emergency_contact_phone": "081234567891",
+            "last_menstrual_period": "2026-01-01",
+            "estimated_due_date": "2026-10-08",
+            "gravida": 2,
+            "para": 1,
+            "abortus": 0,
+            "height_cm": 160,
+            "current_weight_kg": 62.5,
+            "has_allergies": True,
+            "allergy_details": "Lateks",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["national_id"] == "1234567890123456"
+    assert data["blood_type"] == "O+"
+    assert data["allergy_details"] == "Lateks"
+    assert data["current_weight_kg"] == 62.5
+
+
+def test_patient_profile_rejects_null_non_nullable_fields(client, auth_headers):
+    headers = auth_headers(email="profile-null@example.com")
+    create_patient_profile(client, headers)
+
+    response = client.patch("/patients/me", headers=headers, json={"name": None})
+
+    assert response.status_code == 422
+
+
+def test_patient_profile_partial_update_validates_merged_state(client, auth_headers):
+    headers = auth_headers(email="profile-merged-validation@example.com")
+    create_patient_profile(client, headers)
+    initial = client.patch(
+        "/patients/me",
+        headers=headers,
+        json={
+            "gravida": 2,
+            "para": 1,
+            "abortus": 0,
+            "has_allergies": True,
+            "allergy_details": "Lateks",
+        },
+    )
+    assert initial.status_code == 200
+
+    impossible_obstetric_history = client.patch(
+        "/patients/me",
+        headers=headers,
+        json={"para": 3},
+    )
+    uncleared_allergy_details = client.patch(
+        "/patients/me",
+        headers=headers,
+        json={"has_allergies": False},
+    )
+
+    assert impossible_obstetric_history.status_code == 422
+    assert uncleared_allergy_details.status_code == 422
+
+
 def test_patient_profile_update_rejects_clinician_role(client, auth_headers):
     clinician_headers = auth_headers(email="profile-clinician@example.com", role="clinician")
 
@@ -101,7 +179,9 @@ def test_patient_can_start_monitoring_session(client, auth_headers):
     assert response.status_code == 201
     data = response.json()
     assert data["status"] == "active"
+    assert data["organization_id"] == DEFAULT_ORGANIZATION_ID
     assert data["patient_id"]
+    assert data["device_assignment_id"] is None
     assert data["start_time"]
     assert data["end_time"] is None
 
@@ -118,7 +198,21 @@ def test_patient_cannot_start_multiple_active_monitoring_sessions(client, auth_h
     assert "active monitoring session" in second_response.json()["detail"]
 
 
-def test_patient_can_upload_sensor_chunks_repeatedly(client, auth_headers):
+def test_patient_can_restore_only_their_active_monitoring_session(client, auth_headers):
+    owner_headers = auth_headers(email="session-active-owner@example.com")
+    active_session = create_active_session(client, owner_headers)
+    other_headers = auth_headers(email="session-active-other@example.com")
+    create_patient_profile(client, other_headers)
+
+    owner_response = client.get("/sessions/active", headers=owner_headers)
+    other_response = client.get("/sessions/active", headers=other_headers)
+
+    assert owner_response.status_code == 200
+    assert owner_response.json()["id"] == active_session["id"]
+    assert other_response.status_code == 404
+
+
+def test_patient_can_upload_sensor_chunks_repeatedly(client, auth_headers, db_session):
     headers = auth_headers(email="chunk-upload@example.com")
     session_data = create_active_session(client, headers)
     session_id = session_data["id"]
@@ -137,11 +231,66 @@ def test_patient_can_upload_sensor_chunks_repeatedly(client, auth_headers):
         assert response.status_code == 201
         data = response.json()
         assert data["session_id"] == session_id
-        assert data["payload"]["p"] == payload["p"]
+        assert "payload" not in data
         assert data["timestamp"]
 
+    stored_chunks = (
+        db_session.query(SensorDataChunk)
+        .filter(SensorDataChunk.session_id == session_id)
+        .order_by(SensorDataChunk.timestamp.asc())
+        .all()
+    )
+    assert [chunk.payload["samples"]["p"] for chunk in stored_chunks] == [
+        payload["p"] for payload in chunk_payloads
+    ]
 
-def test_sensor_chunk_can_store_simulation_metadata(client, auth_headers):
+
+def test_sensor_chunk_rejects_empty_channel_arrays(client, auth_headers):
+    headers = auth_headers(email="empty-chunk@example.com")
+    session_data = create_active_session(client, headers)
+
+    response = client.post(
+        f"/sessions/{session_data['id']}/data",
+        headers=headers,
+        json={"payload": {"p": [], "fsr": []}},
+    )
+
+    assert response.status_code == 422
+
+
+def test_sensor_chunk_ingestion_id_is_idempotent(client, auth_headers):
+    headers = auth_headers(email="idempotent-chunk@example.com")
+    session_data = create_active_session(client, headers)
+    request_body = {
+        "payload": {"p": [1000, 1010]},
+        "ingestion_id": "manual-packet-0001",
+    }
+
+    first = client.post(f"/sessions/{session_data['id']}/data", headers=headers, json=request_body)
+    second = client.post(f"/sessions/{session_data['id']}/data", headers=headers, json=request_body)
+    sessions = client.get("/sessions", headers=headers).json()
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["was_duplicate"] is True
+    assert sessions[0]["sensor_summary"]["sample_count"] == 2
+
+
+def test_session_creation_is_idempotent_by_client_session_id(client, auth_headers):
+    headers = auth_headers(email="idempotent-session@example.com")
+    create_patient_profile(client, headers)
+    body = {"client_session_id": "client-session-0001"}
+
+    first = client.post("/sessions", headers=headers, json=body)
+    second = client.post("/sessions", headers=headers, json=body)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["id"] == second.json()["id"]
+
+
+def test_sensor_chunk_can_store_simulation_metadata(client, auth_headers, db_session):
     headers = auth_headers(email="simulated-chunk@example.com")
     session_data = create_active_session(client, headers)
     payload = {"t": 12345, "hr_ir": [1000]}
@@ -154,9 +303,11 @@ def test_sensor_chunk_can_store_simulation_metadata(client, auth_headers):
 
     assert response.status_code == 201
     data = response.json()
-    assert data["payload"]["source"] == "mock"
-    assert data["payload"]["is_simulated"] is True
-    assert data["payload"]["samples"]["hr_ir"] == [1000]
+    assert "payload" not in data
+    stored = db_session.query(SensorDataChunk).filter(SensorDataChunk.id == data["id"]).one()
+    assert stored.payload["source"] == "mock"
+    assert stored.payload["is_simulated"] is True
+    assert stored.payload["samples"]["hr_ir"] == [1000]
 
 
 def test_patient_cannot_upload_to_completed_session(client, auth_headers):

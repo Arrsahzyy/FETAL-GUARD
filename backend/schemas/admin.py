@@ -8,6 +8,7 @@ from core.security import BCRYPT_MAX_PASSWORD_BYTES
 class AdminClinicianCreate(BaseModel):
     email: EmailStr
     temporary_password: str | None = Field(default=None, min_length=8, max_length=128)
+    membership_role: str = Field(default="clinician", pattern="^(clinician|supervisor)$")
 
     @field_validator("email", mode="after")
     @classmethod
@@ -46,8 +47,13 @@ class AdminUserSummary(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminClinicianSummary(AdminUserSummary):
+    membership_id: str
+    membership_role: str
+
+
 class AdminClinicianListResponse(BaseModel):
-    items: list[AdminUserSummary]
+    items: list[AdminClinicianSummary]
     total: int
     limit: int
     offset: int
@@ -55,10 +61,13 @@ class AdminClinicianListResponse(BaseModel):
 
 class AdminAssignedClinicianSummary(AdminUserSummary):
     assignment_id: str
+    care_role: str
 
 
 class AdminPatientSummary(BaseModel):
     id: str
+    patient_code: str
+    organization_id: str
     user_id: str
     name: str
     age: int
@@ -77,13 +86,21 @@ class AdminPatientListResponse(BaseModel):
 class AdminPatientAssignmentCreate(BaseModel):
     patient_id: str
     clinician_id: str
+    care_role: str = Field(default="primary", pattern="^(primary|supporting)$")
 
 
 class AdminPatientAssignmentResponse(BaseModel):
     id: str
+    organization_id: str
     patient_id: str
     clinician_id: str
+    clinician_membership_id: str
     assigned_by_user_id: str | None = None
+    ended_by_user_id: str | None = None
+    care_role: str
+    version: int
+    starts_at: datetime
+    ends_at: datetime | None = None
     created_at: datetime
     patient: AdminPatientSummary
     clinician: AdminUserSummary
@@ -91,6 +108,7 @@ class AdminPatientAssignmentResponse(BaseModel):
 
 class AdminClinicianProvisionResponse(BaseModel):
     user: AdminUserSummary
+    membership_id: str
     temporary_password: str
 
 
@@ -109,8 +127,19 @@ class AdminClinicianBulkProvisionResponse(BaseModel):
     clinicians: list[AdminClinicianProvisionResponse]
 
 
+class AdminClinicianMembershipRevocationResponse(BaseModel):
+    membership_id: str
+    organization_id: str
+    clinician_id: str
+    ended_at: datetime
+    ended_by_user_id: str | None = None
+    ended_assignment_count: int = Field(ge=0)
+    already_revoked: bool
+
+
 class AdminAuditLogSummary(BaseModel):
     id: str
+    organization_id: str | None = None
     actor_user_id: str
     action: str
     target_user_id: str | None = None

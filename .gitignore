@@ -22,3 +22,29 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local agent, browser QA, and editor state
+.codex-qa/
+.kilo/
+
+# Python and local virtual environments
+__pycache__/
+*.py[cod]
+.venv-ai/
+backend/venv/
+
+# Local database runtime files
+backend/*.db-shm
+backend/*.db-wal
+backend/*.db-journal
+
+# AI datasets, checkpoints, and generated experiment output
+AIMODELPKMKC/
+ai/data/raw/*
+!ai/data/raw/.gitkeep
+ai/data/processed/*
+!ai/data/processed/.gitkeep
+ai/checkpoints/*
+!ai/checkpoints/.gitkeep
+ai/runs/*
+!ai/runs/.gitkeep

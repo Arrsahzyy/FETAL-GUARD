@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "principles": [
+    "Use only public or explicitly approved datasets.",
+    "Do not commit raw clinical datasets to git.",
+    "Do not claim clinical performance before evaluation against documented labels.",
+    "Keep each modality separate until the fusion strategy is explicitly justified."
+  ],
+  "datasets": [
+    {
+      "id": "ctu_uhb_ctgdb",
+      "name": "CTU-UHB Intrapartum Cardiotocography Database",
+      "provider": "PhysioNet",
+      "official_url": "https://physionet.org/content/ctu-uhb-ctgdb/1.0.0/",
+      "access": "public",
+      "primary_use": "baseline_ctg_time_series",
+      "modality": ["fetal_heart_rate", "uterine_contraction"],
+      "sampling_hz": 4,
+      "local_raw_dir": "ai/data/raw/ctu-uhb-ctgdb/1.0.0",
+      "notes": [
+        "Use as the first supervised baseline because FHR and uterine contraction channels are already aligned as CTG time series.",
+        "Outcome metadata must be parsed from records and documented before any supervised label is enabled.",
+        "This is CTG reference data, not a direct replacement for FETAL-GUARD piezo/FSR/MAX30102 hardware data."
+      ]
+    },
+    {
+      "id": "fpcgdb",
+      "name": "Fetal PCG Database",
+      "provider": "PhysioNet",
+      "official_url": "https://physionet.org/content/fpcgdb/1.0.0/",
+      "access": "public",
+      "primary_use": "fetal_heart_sound_signal_exploration",
+      "modality": ["fetal_phonocardiogram"],
+      "sampling_hz": null,
+      "local_raw_dir": "ai/data/raw/fpcgdb/1.0.0",
+      "notes": [
+        "Use for fetal heart sound preprocessing experiments only after documenting sampling rate and labels from downloaded records.",
+        "Do not mix with CTG labels unless an explicit cross-modality experiment is defined."
+      ]
+    },
+    {
+      "id": "adfecgdb",
+      "name": "Abdominal and Direct Fetal ECG Database",
+      "provider": "PhysioNet",
+      "official_url": "https://physionet.org/content/adfecgdb/1.0.0/",
+      "access": "public",
+      "primary_use": "fetal_ecg_reference_exploration",
+      "modality": ["abdominal_ecg", "direct_fetal_ecg"],
+      "sampling_hz": null,
+      "local_raw_dir": "ai/data/raw/adfecgdb/1.0.0",
+      "notes": [
+        "Use as a reference for fetal cardiac signal extraction concepts.",
+        "This modality differs from piezo/PCG and must not be treated as equivalent without validation."
+      ]
+    }
+  ]
+}

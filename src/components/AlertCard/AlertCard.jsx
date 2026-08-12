@@ -44,6 +44,8 @@ const AlertCard = ({
     const formatTime = (ts) => {
         if (!ts) return '';
         const date = new Date(ts);
+        if (Number.isNaN(date.getTime())) return ts;
+
         return date.toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit'
@@ -75,15 +77,17 @@ const AlertCard = ({
                 <div className="alert-card__actions">
                     {!acknowledged && onAcknowledge && (
                         <button
+                            type="button"
                             className="alert-card__btn alert-card__btn--secondary"
                             onClick={onAcknowledge}
                         >
-                            Saya sudah kontak klinik
+                            Tandai sudah ditindaklanjuti
                         </button>
                     )}
 
                     {onAction && actionLabel && (
                         <button
+                            type="button"
                             className={`alert-card__btn alert-card__btn--${type}`}
                             onClick={onAction}
                         >

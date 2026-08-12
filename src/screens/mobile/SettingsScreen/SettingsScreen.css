@@ -2,22 +2,20 @@
     min-height: 100vh;
     min-height: 100dvh;
     background: var(--color-bg-primary);
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--patient-page-bottom-padding, calc(100px + env(safe-area-inset-bottom, 0px)));
 }
 
 /* Tablet adjustments */
 @media (min-width: 640px) {
     .settings-screen {
-        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: var(--patient-page-bottom-padding, calc(120px + env(safe-area-inset-bottom, 0px)));
     }
 }
 
 /* Desktop: Account for sidebar navigation */
 @media (min-width: 1024px) {
     .settings-screen {
-        margin-left: 80px;
-        padding-bottom: var(--spacing-8);
-        max-width: calc(100vw - 80px);
+        padding-bottom: var(--patient-page-bottom-padding, var(--spacing-8));
     }
 }
 
@@ -44,9 +42,9 @@
 }
 
 .settings-header__back {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
     border: none;
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-lg);
@@ -55,14 +53,6 @@
     justify-content: center;
     cursor: pointer;
     transition: all var(--transition-fast);
-}
-
-@media (min-width: 480px) {
-    .settings-header__back {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-    }
 }
 
 .settings-header__back:active {
@@ -97,7 +87,7 @@
 
 /* Content */
 .settings-content {
-    padding: var(--spacing-3);
+    padding: var(--spacing-4);
 }
 
 @media (min-width: 480px) {
@@ -110,8 +100,10 @@
 .settings-section {
     margin-bottom: var(--spacing-4);
     background: var(--color-bg-secondary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-4);
+    box-shadow: var(--shadow-sm);
 }
 
 @media (min-width: 480px) {
@@ -298,12 +290,10 @@
 }
 
 .settings-device__info p {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--color-text-tertiary);
     margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.35;
 }
 
 @media (min-width: 480px) {
@@ -324,6 +314,64 @@
     .settings-device__battery {
         font-size: var(--font-size-sm);
     }
+}
+
+.settings-device__status-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 var(--spacing-2);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.settings-device__status-label--online {
+    background: var(--color-success-bg);
+    color: #16794e;
+}
+
+.settings-device__status-label--registered {
+    background: rgba(74, 163, 255, 0.12);
+    color: var(--color-primary-blue-dark);
+}
+
+.settings-device-registry {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: var(--spacing-2);
+    align-items: center;
+    padding: var(--spacing-3);
+    margin-bottom: var(--spacing-2);
+    border: 1px solid rgba(74, 163, 255, 0.16);
+    border-radius: var(--radius-lg);
+    background: rgba(74, 163, 255, 0.06);
+}
+
+.settings-device-registry .material-symbols-outlined {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: rgba(74, 163, 255, 0.12);
+    color: var(--color-primary-blue-dark);
+}
+
+.settings-device-registry strong {
+    display: block;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.settings-device-registry p {
+    margin: 2px 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
 }
 
 .settings-device__battery svg {
@@ -358,6 +406,17 @@
     border-bottom: none;
 }
 
+.settings-item .toggle {
+    border: 0;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.settings-item .toggle:focus-visible {
+    outline: 3px solid rgba(74, 163, 255, 0.45);
+    outline-offset: 2px;
+}
+
 .settings-item--info {
     padding: var(--spacing-2) 0;
 }
@@ -380,7 +439,7 @@
 
 .settings-item__desc {
     display: block;
-    font-size: 10px;
+    font-size: 12px;
     color: var(--color-text-tertiary);
     margin-top: var(--spacing-1);
 }
@@ -444,6 +503,11 @@
 
 .settings-btn:active {
     opacity: 0.7;
+}
+
+.settings-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
 }
 
 .settings-btn--outline {
@@ -587,13 +651,13 @@
 /* Desktop Enhancements */
 @media (min-width: 1024px) {
     .settings-header {
-        max-width: 800px;
+        max-width: var(--patient-content-default, 840px);
         margin: 0 auto;
         border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     }
     
     .settings-content {
-        max-width: 800px;
+        max-width: var(--patient-content-default, 840px);
         margin: 0 auto;
         padding: var(--spacing-6);
     }
@@ -611,7 +675,7 @@
     }
     
     .settings-footer {
-        max-width: 800px;
+        max-width: var(--patient-content-default, 840px);
         margin: 0 auto;
         padding: var(--spacing-6);
     }
@@ -640,11 +704,15 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-2);
+    width: 100%;
     padding: var(--spacing-3);
     margin-bottom: var(--spacing-2);
     background: var(--color-bg-primary);
     border: 2px solid var(--color-border);
     border-radius: var(--radius-lg);
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
+    text-align: left;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -665,6 +733,15 @@
     border-color: var(--color-primary-pink);
     background: rgba(255, 107, 154, 0.05);
     box-shadow: 0 0 0 3px rgba(255, 107, 154, 0.1);
+}
+
+.settings-connection-card--disabled {
+    cursor: not-allowed;
+    opacity: 0.78;
+}
+
+.settings-connection-card--disabled:active {
+    transform: none;
 }
 
 /* Radio Dot */
@@ -774,12 +851,10 @@
 }
 
 .settings-connection-card__content p {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--color-text-tertiary);
     margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.35;
 }
 
 @media (min-width: 480px) {
@@ -819,7 +894,7 @@
 
 .settings-mqtt-config__field label {
     display: block;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: var(--font-weight-semibold);
     color: var(--color-text-tertiary);
     text-transform: uppercase;
@@ -922,5 +997,55 @@
     .settings-btn--test:hover:not(:disabled) {
         opacity: 0.9;
         box-shadow: var(--shadow-md);
+    }
+}
+
+/* ======================================== */
+/* FAQ Panel                                */
+/* ======================================== */
+
+.settings-faq-panel {
+    padding: var(--spacing-3);
+    margin: var(--spacing-2) 0;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    animation: slideDown 200ms ease-out;
+}
+
+.settings-faq-item {
+    padding: var(--spacing-3) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.settings-faq-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.settings-faq-item:first-child {
+    padding-top: 0;
+}
+
+.settings-faq-item h4 {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-1);
+}
+
+.settings-faq-item p {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: var(--line-height-relaxed);
+}
+
+@media (min-width: 480px) {
+    .settings-faq-item h4 {
+        font-size: var(--font-size-base);
+    }
+    .settings-faq-item p {
+        font-size: var(--font-size-sm);
     }
 }

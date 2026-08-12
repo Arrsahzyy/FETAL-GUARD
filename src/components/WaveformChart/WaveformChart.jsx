@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import { t } from '../../i18n';
 import './WaveformChart.css';
 
 const WaveformChart = ({
@@ -9,32 +10,16 @@ const WaveformChart = ({
     markers = [],
     isLive = false,
     playbackPosition = 0,
-    onPositionChange,
     signalQuality = 'good'
 }) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
-    const animationRef = useRef(null);
     const [dimensions, setDimensions] = useState({ width: 0, height });
     const [isPinching, setIsPinching] = useState(false);
     const [scale, setScale] = useState(1);
-    const [offset, setOffset] = useState(0);
+    const [offset] = useState(0);
 
-    // Generate mock waveform data for demo
-    const generateWaveformData = useCallback((length = 500) => {
-        const points = [];
-        for (let i = 0; i < length; i++) {
-            // Simulate fetal heart rate waveform
-            const baseValue = 135;
-            const variability = Math.sin(i * 0.1) * 10;
-            const noise = (Math.random() - 0.5) * 5;
-            const heartbeat = Math.sin(i * 0.5) * 15 * Math.exp(-((i % 20) / 5));
-            points.push(baseValue + variability + noise + heartbeat);
-        }
-        return points;
-    }, []);
-
-    const waveformData = data.length > 0 ? data : generateWaveformData();
+    const waveformData = data;
 
     // Handle resize
     useEffect(() => {
@@ -48,8 +33,15 @@ const WaveformChart = ({
         };
 
         handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const observer = typeof ResizeObserver !== 'undefined'
+            ? new ResizeObserver(handleResize)
+            : null;
+        if (observer && containerRef.current) observer.observe(containerRef.current);
+        if (!observer) window.addEventListener('resize', handleResize);
+        return () => {
+            observer?.disconnect();
+            if (!observer) window.removeEventListener('resize', handleResize);
+        };
     }, [height]);
 
     // Draw waveform
@@ -61,9 +53,10 @@ const WaveformChart = ({
         const { width, height } = dimensions;
 
         // Set canvas size
-        canvas.width = width * window.devicePixelRatio;
-        canvas.height = height * window.devicePixelRatio;
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * pixelRatio);
+        canvas.height = Math.round(height * pixelRatio);
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
         const draw = () => {
             // Clear canvas
@@ -89,6 +82,15 @@ const WaveformChart = ({
                     ctx.lineTo(x, height);
                     ctx.stroke();
                 }
+            }
+
+            if (waveformData.length < 2) {
+                ctx.fillStyle = 'rgba(100, 116, 139, 0.85)';
+                ctx.font = '14px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(t('patient.monitoring.signalUnavailable'), width / 2, height / 2);
+                return;
             }
 
             // Calculate visible data range
@@ -166,19 +168,9 @@ const WaveformChart = ({
                 }
             }
 
-            // Live mode animation
-            if (isLive) {
-                animationRef.current = requestAnimationFrame(draw);
-            }
         };
 
         draw();
-
-        return () => {
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
-        };
     }, [waveformData, dimensions, showGrid, showMarkers, markers, isLive, playbackPosition, scale, offset, signalQuality]);
 
     // Handle pinch zoom

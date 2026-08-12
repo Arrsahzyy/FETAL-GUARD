@@ -21,6 +21,7 @@ class SensorSummaryCreate(BaseModel):
 
 class SessionSensorSummaryResponse(BaseModel):
     id: str
+    organization_id: str
     session_id: str
     device_id: str | None = None
     fhr_estimate_bpm: int | None = None

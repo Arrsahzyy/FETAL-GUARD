@@ -21,7 +21,12 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
-def create_access_token(subject: str, role: str, expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    subject: str,
+    role: str,
+    expires_delta: timedelta | None = None,
+    auth_version: int = 0,
+) -> str:
     expire_delta = expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     now = datetime.now(timezone.utc)
     expire = now + expire_delta
@@ -31,6 +36,7 @@ def create_access_token(subject: str, role: str, expires_delta: timedelta | None
         "iat": now,
         "sub": str(subject),
         "role": role,
+        "ver": auth_version,
         "type": "access",
     }
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.ALGORITHM)

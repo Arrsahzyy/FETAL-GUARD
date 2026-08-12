@@ -24,8 +24,8 @@
  * ```jsx
  * function MonitoringScreen() {
  *   const { isConnected, sensorData, connect, disconnect } = useMQTT({
- *     brokerUrl: 'wss://broker.hivemq.com:8884/mqtt',
- *     topic: 'fetalguard/sensor/data'
+ *     brokerUrl: import.meta.env.VITE_MQTT_BROKER_URL,
+ *     topic: import.meta.env.VITE_MQTT_TOPIC
  *   });
  * 
  *   return (
@@ -38,16 +38,16 @@
  * ```
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // Konfigurasi default MQTT
 const DEFAULT_CONFIG = {
   // URL broker MQTT — HiveMQ adalah broker gratis untuk testing
   // Untuk production, ganti dengan broker kamu sendiri (Mosquitto, EMQX, dll)
-  brokerUrl: 'wss://broker.hivemq.com:8884/mqtt',
+  brokerUrl: '',
 
   // Topic yang di-subscribe — harus sama dengan yang di-publish oleh ESP32
-  topic: 'fetalguard/sensor/data',
+  topic: '',
 
   // Client ID unik — agar broker bisa bedakan masing-masing app
   clientId: null,  // Auto-generate jika null
@@ -68,11 +68,40 @@ const DEFAULT_CONFIG = {
 };
 
 export function useMQTT(config = {}) {
-  const cfg = {
-    ...DEFAULT_CONFIG,
-    ...config,
-    clientId: config.clientId || `fetalguard-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-  };
+  const [generatedClientId] = useState(
+    () => `fetalguard-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+  );
+  const {
+    brokerUrl = DEFAULT_CONFIG.brokerUrl,
+    topic = DEFAULT_CONFIG.topic,
+    clientId,
+    username = DEFAULT_CONFIG.username,
+    password = DEFAULT_CONFIG.password,
+    qos = DEFAULT_CONFIG.qos,
+    reconnect = DEFAULT_CONFIG.reconnect,
+    reconnectInterval = DEFAULT_CONFIG.reconnectInterval,
+  } = config;
+
+  const cfg = useMemo(() => ({
+    brokerUrl,
+    topic,
+    clientId: clientId || generatedClientId,
+    username,
+    password,
+    qos,
+    reconnect,
+    reconnectInterval,
+  }), [
+    brokerUrl,
+    topic,
+    clientId,
+    generatedClientId,
+    username,
+    password,
+    qos,
+    reconnect,
+    reconnectInterval,
+  ]);
 
   // ============================================
   // STATE
@@ -106,7 +135,7 @@ export function useMQTT(config = {}) {
   // Update config ref saat config berubah
   useEffect(() => {
     configRef.current = cfg;
-  }, [cfg.brokerUrl, cfg.topic]);
+  }, [cfg]);
 
   // ============================================
   // CONNECT — Hubungkan ke MQTT Broker
@@ -123,11 +152,22 @@ export function useMQTT(config = {}) {
     setError(null);
 
     try {
+      if (!import.meta.env.DEV) {
+        throw new Error('Koneksi MQTT langsung belum diaktifkan untuk build production.');
+      }
+      const { brokerUrl, clientId, username, password, topic, qos, reconnect, reconnectInterval } = configRef.current;
+      const allowInsecureLocal = import.meta.env.DEV
+        && /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(brokerUrl);
+      if (!brokerUrl || !topic) {
+        throw new Error('MQTT belum dikonfigurasi untuk deployment ini.');
+      }
+      if (!brokerUrl.startsWith('wss://') && !allowInsecureLocal) {
+        throw new Error('MQTT production wajib menggunakan WebSocket TLS (wss://).');
+      }
+
       // Import mqtt library secara dinamis
       // Library ini sudah handle WebSocket untuk browser/WebView
       const mqtt = await import('mqtt/dist/mqtt.min');
-
-      const { brokerUrl, clientId, username, password, topic, qos, reconnect, reconnectInterval } = configRef.current;
 
       console.log(`[useMQTT] Connecting to ${brokerUrl}...`);
 

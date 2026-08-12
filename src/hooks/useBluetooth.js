@@ -1,289 +1,572 @@
-/**
- * useBluetooth Hook — Koneksi BLE (Mi Band Style)
- * ================================================
- * 
- * PENJELASAN:
- * Hook ini memudahkan kamu menggunakan Bluetooth LE di komponen React.
- * Bayangkan seperti "remote control" untuk koneksi Bluetooth:
- * - scan() → cari perangkat FETAL-GUARD di sekitar
- * - connect(deviceId) → hubungkan ke perangkat
- * - disconnect() → putuskan koneksi
- * 
- * CARA PAKAI:
- * ```jsx
- * function MonitoringScreen() {
- *   const { 
- *     isScanning, devices, connectedDevice, 
- *     sensorData, scan, connect, disconnect 
- *   } = useBluetooth();
- * 
- *   return (
- *     <div>
- *       <button onClick={scan}>Cari Perangkat</button>
- *       {devices.map(d => (
- *         <button onClick={() => connect(d.deviceId)}>{d.name}</button>
- *       ))}
- *       {sensorData && <p>FHR: {sensorData.fhr} bpm</p>}
- *     </div>
- *   );
- * }
- * ```
- */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-
-// Konfigurasi default BLE
 const DEFAULT_CONFIG = {
-  // Nama prefix device yang akan di-scan
-  // Device IoT kamu harus broadcast nama yang diawali prefix ini
   deviceNamePrefix: 'FETAL-GUARD',
-
-  // UUID Service — identifier unik untuk "jenis layanan" BLE
-  // Ini harus cocok dengan yang di-set di firmware ESP32/Arduino kamu
   serviceUUID: '0000ffe0-0000-1000-8000-00805f9b34fb',
-
-  // UUID Characteristic — identifier untuk "data stream" spesifik
   characteristicUUID: '0000ffe1-0000-1000-8000-00805f9b34fb',
-
-  // Timeout scan dalam milidetik (10 detik)
   scanTimeout: 10000,
+  maxReconnectAttempts: 5,
+  reconnectBaseDelay: 1000,
+};
+
+const MAX_FRAME_BYTES = 64 * 1024;
+const MAX_TRANSPORT_PACKET_QUEUE = 512;
+
+const asFiniteNumber = (value, field, minimum, maximum) => {
+  if (value === undefined || value === null) return null;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < minimum || number > maximum) {
+    throw new Error(`invalid_${field}`);
+  }
+  return number;
+};
+
+const asBoolean = (value, field) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value !== 'boolean') throw new Error(`invalid_${field}`);
+  return value;
+};
+
+export const validateTelemetryEnvelope = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('invalid_packet');
+  }
+  if (value.schema_version !== 1) throw new Error('unsupported_schema');
+  if (typeof value.device_uid !== 'string' || value.device_uid.trim().length < 3) {
+    throw new Error('missing_device_uid');
+  }
+  if (typeof value.boot_id !== 'string' || value.boot_id.trim().length < 8) {
+    throw new Error('missing_boot_id');
+  }
+  if (!Number.isSafeInteger(value.sequence_number) || value.sequence_number < 0) {
+    throw new Error('invalid_sequence');
+  }
+
+  const capturedAt = new Date(value.captured_at);
+  if (!value.captured_at || Number.isNaN(capturedAt.getTime())) {
+    throw new Error('invalid_timestamp');
+  }
+
+  const telemetry = value.telemetry && typeof value.telemetry === 'object'
+    ? value.telemetry
+    : value;
+
+  return {
+    deviceUid: value.device_uid.trim().toUpperCase(),
+    bootId: value.boot_id.trim(),
+    sequenceNumber: value.sequence_number,
+    schemaVersion: value.schema_version,
+    capturedAt: capturedAt.toISOString(),
+    sampleRateHz: asFiniteNumber(value.sample_rate_hz, 'sample_rate', 0.1, 10000),
+    fhr: asFiniteNumber(telemetry.fhr, 'fhr', 30, 240),
+    motherHR: asFiniteNumber(
+      telemetry.motherHR ?? telemetry.maternal_heart_rate,
+      'maternal_hr',
+      30,
+      220,
+    ),
+    spo2: asFiniteNumber(telemetry.spo2, 'spo2', 0, 100),
+    signalQuality: asFiniteNumber(
+      telemetry.signalQuality ?? telemetry.signal_quality,
+      'signal_quality',
+      0,
+      100,
+    ),
+    contractionLevel: asFiniteNumber(
+      telemetry.contractionLevel ?? telemetry.contraction_level,
+      'contraction_level',
+      0,
+      100,
+    ),
+    battery: asFiniteNumber(
+      telemetry.battery ?? telemetry.battery_percent,
+      'battery',
+      0,
+      100,
+    ),
+    charging: asBoolean(telemetry.charging, 'charging'),
+    rawChannels: value.channels && typeof value.channels === 'object' ? value.channels : null,
+  };
 };
 
 export function useBluetooth(config = {}) {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
-
-  // ============================================
-  // STATE — data yang bisa diakses di UI
-  // ============================================
-
-  /** Apakah sedang scanning perangkat */
+  const {
+    deviceNamePrefix = DEFAULT_CONFIG.deviceNamePrefix,
+    serviceUUID = DEFAULT_CONFIG.serviceUUID,
+    characteristicUUID = DEFAULT_CONFIG.characteristicUUID,
+    scanTimeout = DEFAULT_CONFIG.scanTimeout,
+    maxReconnectAttempts = DEFAULT_CONFIG.maxReconnectAttempts,
+    reconnectBaseDelay = DEFAULT_CONFIG.reconnectBaseDelay,
+  } = config;
+  const cfg = useMemo(() => ({
+    deviceNamePrefix,
+    serviceUUID,
+    characteristicUUID,
+    scanTimeout,
+    maxReconnectAttempts,
+    reconnectBaseDelay,
+  }), [
+    characteristicUUID,
+    deviceNamePrefix,
+    maxReconnectAttempts,
+    reconnectBaseDelay,
+    scanTimeout,
+    serviceUUID,
+  ]);
   const [isScanning, setIsScanning] = useState(false);
-
-  /** Daftar perangkat yang ditemukan saat scan */
   const [devices, setDevices] = useState([]);
-
-  /** Perangkat yang sedang terkoneksi */
   const [connectedDevice, setConnectedDevice] = useState(null);
-
-  /** Apakah sedang proses connecting */
   const [isConnecting, setIsConnecting] = useState(false);
-
-  /** Data sensor terbaru dari perangkat */
   const [sensorData, setSensorData] = useState(null);
-
-  /** Pesan error terakhir */
   const [error, setError] = useState(null);
-
-  /** Apakah BLE tersedia di device ini */
   const [isAvailable, setIsAvailable] = useState(false);
+  const [connectionState, setConnectionState] = useState('idle');
+  const [lastPacketReceivedAt, setLastPacketReceivedAt] = useState(null);
+  const [sensorPacketVersion, setSensorPacketVersion] = useState(0);
+  const [transportDroppedPacketCount, setTransportDroppedPacketCount] = useState(0);
 
-  // Ref untuk BleClient (diload secara lazy/dinamis)
   const bleClientRef = useRef(null);
-
-  // ============================================
-  // INITIALIZE — cek apakah BLE tersedia
-  // ============================================
+  const connectedDeviceRef = useRef(null);
+  const configRef = useRef(cfg);
+  const scanTimerRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
+  const manualDisconnectRef = useRef(false);
+  const mountedRef = useRef(true);
+  const frameBufferRef = useRef('');
+  const decoderRef = useRef(new TextDecoder());
+  const connectRef = useRef(null);
+  const connectAttemptRef = useRef(null);
+  const connectionGenerationRef = useRef(0);
+  const sensorPacketQueueRef = useRef([]);
 
   useEffect(() => {
-    const initBLE = async () => {
-      try {
-        // Import BLE plugin secara dinamis
-        // Ini agar app tetap bisa jalan di browser (tanpa BLE)
-        const { BleClient } = await import('@capacitor-community/bluetooth-le');
-        bleClientRef.current = BleClient;
+    configRef.current = cfg;
+  }, [cfg]);
 
-        // Inisialisasi BLE
-        await BleClient.initialize({ androidNeverForLocation: false });
-        setIsAvailable(true);
-        console.log('[useBluetooth] BLE initialized successfully');
-      } catch (err) {
-        console.warn('[useBluetooth] BLE not available:', err.message);
-        setIsAvailable(false);
-        // Tidak set error karena ini normal saat di browser
-      }
-    };
-
-    initBLE();
-
-    // Cleanup saat component unmount
-    return () => {
-      if (connectedDevice) {
-        disconnect();
-      }
-    };
+  const clearScanTimer = useCallback(() => {
+    if (scanTimerRef.current !== null) {
+      window.clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
   }, []);
 
-  // ============================================
-  // SCAN — Cari perangkat di sekitar
-  // ============================================
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const stopScan = useCallback(async () => {
+    clearScanTimer();
+    const BleClient = bleClientRef.current;
+    if (BleClient) {
+      try {
+        await BleClient.stopLEScan();
+      } catch {
+        // The native plugin may report that no scan is active; state is still safe to clear.
+      }
+    }
+    if (mountedRef.current) setIsScanning(false);
+  }, [clearScanTimer]);
+
+  const scheduleReconnect = useCallback((deviceId) => {
+    if (manualDisconnectRef.current || !mountedRef.current) return;
+    const attempt = reconnectAttemptRef.current;
+    if (attempt >= configRef.current.maxReconnectAttempts) {
+      setConnectionState('error');
+      setError('reconnect_failed');
+      return;
+    }
+
+    clearReconnectTimer();
+    const delay = Math.min(
+      configRef.current.reconnectBaseDelay * (2 ** attempt),
+      15000,
+    );
+    reconnectAttemptRef.current += 1;
+    setConnectionState('reconnecting');
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      connectRef.current?.(deviceId, { reconnect: true }).catch(() => undefined);
+    }, delay);
+  }, [clearReconnectTimer]);
+
+  const drainSensorPackets = useCallback(() => {
+    if (sensorPacketQueueRef.current.length === 0) return [];
+    return sensorPacketQueueRef.current.splice(0, sensorPacketQueueRef.current.length);
+  }, []);
+
+  const processNotification = useCallback((dataView) => {
+    if (!mountedRef.current) return;
+    try {
+      const bytes = new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength);
+      frameBufferRef.current += decoderRef.current.decode(bytes, { stream: true });
+      if (new TextEncoder().encode(frameBufferRef.current).byteLength > MAX_FRAME_BYTES) {
+        throw new Error('frame_too_large');
+      }
+
+      const frames = frameBufferRef.current.split('\n');
+      frameBufferRef.current = frames.pop() || '';
+
+      if (frames.length === 0 && frameBufferRef.current.trim()) {
+        try {
+          const parsed = JSON.parse(frameBufferRef.current);
+          frames.push(frameBufferRef.current);
+          frameBufferRef.current = '';
+          void parsed;
+        } catch {
+          return;
+        }
+      }
+
+      let acceptedPacketCount = 0;
+      let latestPacket = null;
+      let latestReceivedAt = null;
+      let frameError = null;
+      for (const frame of frames) {
+        if (!frame.trim()) continue;
+        try {
+          const receivedAtMs = Date.now();
+          const packet = {
+            ...validateTelemetryEnvelope(JSON.parse(frame)),
+            receivedAtMs,
+          };
+          sensorPacketQueueRef.current.push(packet);
+          if (sensorPacketQueueRef.current.length > MAX_TRANSPORT_PACKET_QUEUE) {
+            const overflow = sensorPacketQueueRef.current.length - MAX_TRANSPORT_PACKET_QUEUE;
+            sensorPacketQueueRef.current.splice(0, overflow);
+            setTransportDroppedPacketCount((count) => count + overflow);
+            frameError = new Error('transport_queue_overflow');
+          }
+          acceptedPacketCount += 1;
+          latestPacket = packet;
+          latestReceivedAt = receivedAtMs;
+        } catch (packetError) {
+          frameError = packetError;
+        }
+      }
+
+      if (acceptedPacketCount > 0) {
+        setSensorData(latestPacket);
+        setLastPacketReceivedAt(latestReceivedAt);
+        setSensorPacketVersion((version) => version + 1);
+      }
+      if (frameError) {
+        setError(frameError.message || 'decode_failed');
+      } else if (acceptedPacketCount > 0) {
+        setError(null);
+      }
+    } catch (notificationError) {
+      frameBufferRef.current = '';
+      setError(notificationError.message || 'decode_failed');
+    }
+  }, []);
+
+  const connect = useCallback((deviceId, options = {}) => {
+    const BleClient = bleClientRef.current;
+    if (!BleClient || !deviceId) {
+      setError('ble_unavailable');
+      return Promise.reject(new Error('ble_unavailable'));
+    }
+
+    const activeAttempt = connectAttemptRef.current;
+    if (
+      activeAttempt?.deviceId === deviceId
+      && activeAttempt.generation === connectionGenerationRef.current
+      && !manualDisconnectRef.current
+    ) return activeAttempt.promise;
+    if (connectedDeviceRef.current?.deviceId === deviceId && !options.reconnect) {
+      return Promise.resolve(connectedDeviceRef.current);
+    }
+
+    const previousAttempt = activeAttempt?.promise || null;
+    const generation = connectionGenerationRef.current + 1;
+    connectionGenerationRef.current = generation;
+
+    clearReconnectTimer();
+    manualDisconnectRef.current = false;
+    setIsConnecting(true);
+    setConnectionState(options.reconnect ? 'reconnecting' : 'connecting');
+    setError(null);
+
+    const isCurrentAttempt = () => (
+      mountedRef.current
+      && !manualDisconnectRef.current
+      && connectionGenerationRef.current === generation
+    );
+    const cleanupNativeConnection = async (targetDeviceId) => {
+      try {
+        await BleClient.stopNotifications(
+          targetDeviceId,
+          cfg.serviceUUID,
+          cfg.characteristicUUID,
+        );
+      } catch {
+        // Notification cleanup is idempotent across reconnect and device switches.
+      }
+      try {
+        await BleClient.disconnect(targetDeviceId);
+      } catch {
+        // A failed or already-closed native connection is safe to ignore here.
+      }
+    };
+
+    const operation = (async () => {
+      let nativeConnectionOpened = false;
+      let disconnectedDuringSetup = false;
+      let suppressDisconnectCallback = false;
+      try {
+        await stopScan();
+        if (previousAttempt) await previousAttempt.catch(() => undefined);
+        if (!isCurrentAttempt()) throw new Error('connect_superseded');
+
+        const previousDevice = connectedDeviceRef.current;
+        if (previousDevice && previousDevice.deviceId !== deviceId) {
+          await cleanupNativeConnection(previousDevice.deviceId);
+          if (!isCurrentAttempt()) throw new Error('connect_superseded');
+          if (connectedDeviceRef.current?.deviceId === previousDevice.deviceId) {
+            connectedDeviceRef.current = null;
+            setConnectedDevice(null);
+          }
+        }
+
+        await BleClient.connect(deviceId, () => {
+          if (!isCurrentAttempt() || suppressDisconnectCallback) return;
+          disconnectedDuringSetup = true;
+          if (connectedDeviceRef.current?.deviceId === deviceId) {
+            connectedDeviceRef.current = null;
+          }
+          setConnectedDevice(null);
+          setSensorData(null);
+          setLastPacketReceivedAt(null);
+          setConnectionState('disconnected');
+          setError('unexpected_disconnect');
+          scheduleReconnect(deviceId);
+        });
+        nativeConnectionOpened = true;
+        if (!isCurrentAttempt() || disconnectedDuringSetup) {
+          throw new Error('connect_superseded');
+        }
+
+        const device = devices.find((candidate) => candidate.deviceId === deviceId) || { deviceId };
+        connectedDeviceRef.current = device;
+        setConnectedDevice(device);
+        frameBufferRef.current = '';
+        decoderRef.current = new TextDecoder();
+        if (!options.reconnect) {
+          sensorPacketQueueRef.current = [];
+          setTransportDroppedPacketCount(0);
+        }
+
+        const notificationHandler = (dataView) => {
+          if (
+            connectionGenerationRef.current !== generation
+            || connectedDeviceRef.current?.deviceId !== deviceId
+          ) return;
+          processNotification(dataView);
+        };
+        await BleClient.startNotifications(
+          deviceId,
+          cfg.serviceUUID,
+          cfg.characteristicUUID,
+          notificationHandler,
+        );
+        if (!isCurrentAttempt() || disconnectedDuringSetup) {
+          throw new Error('connect_superseded');
+        }
+
+        reconnectAttemptRef.current = 0;
+        setConnectionState('connected');
+        return device;
+      } catch (connectError) {
+        suppressDisconnectCallback = true;
+        if (nativeConnectionOpened) await cleanupNativeConnection(deviceId);
+        const isSuperseded = !isCurrentAttempt() || connectError.message === 'connect_superseded';
+        if (!isSuperseded) {
+          if (connectedDeviceRef.current?.deviceId === deviceId) {
+            connectedDeviceRef.current = null;
+          }
+          setConnectedDevice(null);
+          setSensorData(null);
+          setConnectionState(options.reconnect ? 'reconnecting' : 'error');
+          setError(options.reconnect ? 'reconnect_failed' : 'connect_failed');
+          if (options.reconnect) scheduleReconnect(deviceId);
+        }
+        throw connectError;
+      } finally {
+        if (connectionGenerationRef.current === generation && mountedRef.current) {
+          setIsConnecting(false);
+        }
+      }
+    })();
+
+    connectAttemptRef.current = { deviceId, generation, promise: operation };
+    const clearOperation = () => {
+      if (connectAttemptRef.current?.promise === operation) {
+        connectAttemptRef.current = null;
+      }
+    };
+    void operation.then(clearOperation, clearOperation);
+    return operation;
+  }, [
+    cfg.characteristicUUID,
+    cfg.serviceUUID,
+    clearReconnectTimer,
+    devices,
+    processNotification,
+    scheduleReconnect,
+    stopScan,
+  ]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const initialize = async () => {
+      try {
+        const { BleClient } = await import('@capacitor-community/bluetooth-le');
+        bleClientRef.current = BleClient;
+        await BleClient.initialize({ androidNeverForLocation: false });
+        if (mountedRef.current) {
+          setIsAvailable(true);
+          setConnectionState('idle');
+        }
+      } catch {
+        if (mountedRef.current) {
+          setIsAvailable(false);
+          setConnectionState('unavailable');
+        }
+      }
+    };
+    void initialize();
+
+    return () => {
+      mountedRef.current = false;
+      manualDisconnectRef.current = true;
+      connectionGenerationRef.current += 1;
+      sensorPacketQueueRef.current = [];
+      clearScanTimer();
+      clearReconnectTimer();
+      const BleClient = bleClientRef.current;
+      const device = connectedDeviceRef.current;
+      connectedDeviceRef.current = null;
+      if (BleClient) void BleClient.stopLEScan().catch(() => undefined);
+      if (BleClient && device) {
+        const current = configRef.current;
+        void BleClient.stopNotifications(
+          device.deviceId,
+          current.serviceUUID,
+          current.characteristicUUID,
+        ).catch(() => undefined);
+        void BleClient.disconnect(device.deviceId).catch(() => undefined);
+      }
+    };
+  }, [clearReconnectTimer, clearScanTimer]);
 
   const scan = useCallback(async () => {
     const BleClient = bleClientRef.current;
     if (!BleClient) {
-      setError('Bluetooth tidak tersedia di perangkat ini');
-      return;
+      setError('ble_unavailable');
+      throw new Error('ble_unavailable');
     }
 
-    setIsScanning(true);
+    await stopScan();
     setDevices([]);
     setError(null);
+    setIsScanning(true);
+    setConnectionState('scanning');
 
     try {
-      // Scan device yang namanya diawali "FETAL-GUARD"
       await BleClient.requestLEScan(
         {
           namePrefix: cfg.deviceNamePrefix,
           optionalServices: [cfg.serviceUUID],
         },
         (result) => {
-          // Setiap device ditemukan, tambahkan ke list
-          setDevices((prev) => {
-            // Hindari duplikat berdasarkan deviceId
-            const exists = prev.find((d) => d.deviceId === result.device.deviceId);
-            if (exists) return prev;
-
-            const newDevice = {
+          if (!mountedRef.current) return;
+          setDevices((current) => {
+            const nextDevice = {
               deviceId: result.device.deviceId,
-              name: result.device.name || result.localName || 'Unknown Device',
-              rssi: result.rssi,  // Kekuatan sinyal (makin besar makin dekat)
+              name: result.device.name || result.localName || 'FETAL-GUARD',
+              rssi: result.rssi ?? null,
             };
-
-            console.log(`[useBluetooth] Found: ${newDevice.name} (${newDevice.deviceId})`);
-            return [...prev, newDevice];
+            const index = current.findIndex((item) => item.deviceId === nextDevice.deviceId);
+            if (index < 0) return [...current, nextDevice];
+            const next = [...current];
+            next[index] = nextDevice;
+            return next;
           });
-        }
+        },
       );
-
-      // Stop scan setelah timeout
-      setTimeout(async () => {
-        await BleClient.stopLEScan();
-        setIsScanning(false);
+      scanTimerRef.current = window.setTimeout(() => {
+        void stopScan();
+        if (mountedRef.current && !connectedDeviceRef.current) setConnectionState('idle');
       }, cfg.scanTimeout);
-
-    } catch (err) {
-      setError(`Gagal scan: ${err.message}`);
-      setIsScanning(false);
+    } catch (scanError) {
+      await stopScan();
+      setConnectionState('error');
+      setError('scan_failed');
+      throw scanError;
     }
-  }, [cfg]);
-
-  // ============================================
-  // CONNECT — Hubungkan ke perangkat yang dipilih
-  // ============================================
-
-  const connect = useCallback(async (deviceId) => {
-    const BleClient = bleClientRef.current;
-    if (!BleClient) return;
-
-    setIsConnecting(true);
-    setError(null);
-
-    try {
-      // 1. Connect ke device
-      await BleClient.connect(deviceId, () => {
-        // Callback saat device tiba-tiba disconnect
-        console.log('[useBluetooth] Device disconnected unexpectedly');
-        setConnectedDevice(null);
-        setSensorData(null);
-      });
-
-      // 2. Set device yang terkoneksi
-      const device = devices.find((d) => d.deviceId === deviceId);
-      setConnectedDevice(device || { deviceId });
-
-      // 3. Subscribe ke notifications — menerima data realtime dari sensor
-      await BleClient.startNotifications(
-        deviceId,
-        cfg.serviceUUID,
-        cfg.characteristicUUID,
-        (value) => {
-          // value = DataView dari BLE
-          const parsed = decodeSensorData(value);
-          setSensorData(parsed);
-        }
-      );
-
-      console.log(`[useBluetooth] Connected and subscribed to ${deviceId}`);
-    } catch (err) {
-      setError(`Gagal connect: ${err.message}`);
-      setConnectedDevice(null);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [devices, cfg]);
-
-  // ============================================
-  // DISCONNECT — Putuskan koneksi
-  // ============================================
+  }, [cfg.deviceNamePrefix, cfg.scanTimeout, cfg.serviceUUID, stopScan]);
 
   const disconnect = useCallback(async () => {
+    manualDisconnectRef.current = true;
+    const generation = connectionGenerationRef.current + 1;
+    connectionGenerationRef.current = generation;
+    clearReconnectTimer();
     const BleClient = bleClientRef.current;
-    if (!BleClient || !connectedDevice) return;
-
-    try {
-      await BleClient.stopNotifications(
-        connectedDevice.deviceId,
-        cfg.serviceUUID,
-        cfg.characteristicUUID
-      );
-      await BleClient.disconnect(connectedDevice.deviceId);
-    } catch (err) {
-      console.warn('[useBluetooth] Disconnect error:', err);
-    }
-
-    setConnectedDevice(null);
-    setSensorData(null);
-  }, [connectedDevice, cfg]);
-
-  // ============================================
-  // HELPER — Decode data sensor dari BLE
-  // ============================================
-
-  /**
-   * Decode data yang dikirim dari device IoT via BLE
-   * Mendukung 2 format:
-   * 1. JSON string — { "fhr": 142, "motherHR": 82, ... }
-   * 2. Binary — byte array sesuai protokol yang kamu definisikan
-   */
-  function decodeSensorData(dataView) {
-    try {
-      // Coba parse sebagai JSON string dulu
-      const decoder = new TextDecoder();
-      const text = decoder.decode(dataView.buffer);
-      return JSON.parse(text);
-    } catch {
-      // Fallback: parse sebagai binary data
+    const device = connectedDeviceRef.current;
+    connectedDeviceRef.current = null;
+    if (BleClient && device) {
       try {
-        return {
-          fhr: dataView.getUint16(0, true),
-          motherHR: dataView.getUint16(2, true),
-          signalQuality: dataView.getUint8(4),
-          movements: dataView.getUint8(5),
-          timestamp: new Date().toISOString(),
-        };
+        await BleClient.stopNotifications(
+          device.deviceId,
+          cfg.serviceUUID,
+          cfg.characteristicUUID,
+        );
       } catch {
-        return { fhr: 0, error: 'decode_failed' };
+        // Continue disconnecting even when notification cleanup is already complete.
+      }
+      try {
+        await BleClient.disconnect(device.deviceId);
+      } catch {
+        // Native disconnect is idempotent from the UI perspective.
       }
     }
-  }
-
-  // ============================================
-  // RETURN — semua yang bisa diakses dari komponen
-  // ============================================
+    sensorPacketQueueRef.current = [];
+    if (mountedRef.current && connectionGenerationRef.current === generation) {
+      setConnectedDevice(null);
+      setSensorData(null);
+      setLastPacketReceivedAt(null);
+      setConnectionState('idle');
+      setError(null);
+      setTransportDroppedPacketCount(0);
+      setIsConnecting(false);
+    }
+  }, [cfg.characteristicUUID, cfg.serviceUUID, clearReconnectTimer]);
 
   return {
-    // State
-    isAvailable,       // BLE tersedia di device?
-    isScanning,        // Sedang scanning?
-    isConnecting,      // Sedang connecting?
-    devices,           // Daftar device ditemukan
-    connectedDevice,   // Device yang terkoneksi
-    sensorData,        // Data sensor terbaru
-    error,             // Error message
-
-    // Actions
-    scan,              // Mulai scan
-    connect,           // Connect ke device
-    disconnect,        // Disconnect
+    isAvailable,
+    isScanning,
+    isConnecting,
+    devices,
+    connectedDevice,
+    sensorData,
+    sensorPacketVersion,
+    transportDroppedPacketCount,
+    error,
+    connectionState,
+    lastPacketReceivedAt,
+    drainSensorPackets,
+    scan,
+    stopScan,
+    connect,
+    disconnect,
   };
 }
 

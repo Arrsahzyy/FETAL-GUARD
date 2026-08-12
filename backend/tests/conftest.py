@@ -3,7 +3,7 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -14,6 +14,8 @@ os.environ.setdefault("AUTO_CREATE_DB", "false")
 from db.database import Base, get_db  # noqa: E402
 from main import app  # noqa: E402
 from core.security import get_password_hash  # noqa: E402
+from core.tenancy import ensure_default_organization  # noqa: E402
+from models.organization_membership import OrganizationMembership  # noqa: E402
 from models.user import User  # noqa: E402
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -23,16 +25,34 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+@event.listens_for(engine, "connect")
+def configure_test_sqlite_connection(dbapi_connection, _connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
+
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def import_model_modules() -> None:
     for module_name in (
+        "models.organization",
+        "models.organization_membership",
         "models.user",
         "models.auth_login_attempt",
         "models.auth_refresh_token",
         "models.admin_audit_log",
+        "models.access_audit_event",
+        "models.alert_event",
+        "models.realtime_event",
+        "models.ai_analysis",
         "models.device",
+        "models.device_assignment",
         "models.patient",
         "models.patient_clinician_assignment",
         "models.session",
@@ -109,6 +129,16 @@ def create_user(db_session):
             is_active=is_active,
         )
         db_session.add(user)
+        db_session.flush()
+        if role in {"clinician", "admin"}:
+            organization = ensure_default_organization(db_session)
+            db_session.add(
+                OrganizationMembership(
+                    organization_id=organization.id,
+                    user_id=user.id,
+                    role="org_admin" if role == "admin" else "clinician",
+                )
+            )
         db_session.commit()
         db_session.refresh(user)
         return user

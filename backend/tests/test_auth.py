@@ -33,6 +33,18 @@ def test_register_rejects_clinician_role(client):
     assert "administrator" in response.json()["detail"]
 
 
+def test_patient_registration_fails_closed_when_deployment_disables_it(client, monkeypatch):
+    monkeypatch.setattr(settings, "PATIENT_SELF_REGISTRATION_MODE", "disabled")
+
+    response = client.post(
+        "/auth/register",
+        json={"email": "disabled@example.com", "password": "password123", "role": "patient"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "PATIENT_REGISTRATION_DISABLED"
+
+
 def test_register_rejects_weak_password(client):
     response = client.post(
         "/auth/register",
@@ -111,6 +123,13 @@ def test_refresh_token_rotates_session(client, register_user, login_user):
 
     reused_response = client.post("/auth/refresh", json={"refresh_token": refresh_token})
     assert reused_response.status_code == 401
+
+    winner_response = client.post(
+        "/auth/refresh",
+        json={"refresh_token": refreshed["refresh_token"]},
+    )
+    assert winner_response.status_code == 200
+    assert winner_response.json()["refresh_token"] != refreshed["refresh_token"]
 
     me_response = client.get(
         "/auth/me",
@@ -219,3 +238,53 @@ def test_change_password_rejects_wrong_current_password(client, create_user, log
     )
 
     assert response.status_code == 400
+
+
+def test_patient_registration_creates_account_and_profile_atomically(client, login_user):
+    response = client.post(
+        "/auth/register/patient",
+        json={
+            "email": "atomic-patient@example.com",
+            "password": "password123",
+            "role": "patient",
+            "profile": {
+                "name": "Ayu Atomik",
+                "age": 29,
+                "gestational_age_weeks": 30,
+                "medical_history": None,
+            },
+        },
+    )
+    assert response.status_code == 201
+
+    login_response = login_user(email="atomic-patient@example.com", password="password123")
+    token = login_response.json()["access_token"]
+    profile_response = client.get(
+        "/patients/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert profile_response.status_code == 200
+    assert profile_response.json()["name"] == "Ayu Atomik"
+
+
+def test_change_password_revokes_existing_access_and_refresh_tokens(client, register_user, login_user):
+    register_user(email="password-revoke@example.com")
+    login_response = login_user(email="password-revoke@example.com", password="password123")
+    tokens = login_response.json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    change_response = client.post(
+        "/auth/password",
+        headers=headers,
+        json={"current_password": "password123", "new_password": "password456"},
+    )
+    old_access_response = client.get("/auth/me", headers=headers)
+    old_refresh_response = client.post(
+        "/auth/refresh",
+        json={"refresh_token": tokens["refresh_token"]},
+    )
+
+    assert change_response.status_code == 200
+    assert old_access_response.status_code == 401
+    assert old_refresh_response.status_code == 401

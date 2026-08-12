@@ -1,0 +1,13 @@
+# Install only when you are ready to run data preparation or training.
+# Keep separate from the production web/backend dependencies.
+numpy>=2.0
+pandas>=2.2
+scipy>=1.14
+scikit-learn>=1.5
+wfdb>=4.1
+jupyter>=1.1
+matplotlib>=3.9
+
+# Choose one deep-learning backend for actual training.
+# The scaffold imports torch lazily, so tests can run without it.
+torch>=2.4

@@ -61,6 +61,7 @@ class DeviceUpdate(BaseModel):
 
 class DeviceResponse(BaseModel):
     id: str
+    organization_id: str
     device_uid: str
     patient_id: str | None = None
     display_name: str

@@ -1,166 +1,257 @@
-import React, { useState } from 'react';
-import { t } from '../../../i18n';
-import { AlertCard } from '../../../components';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getLocale, t } from '../../../i18n';
+import { useI18n } from '../../../i18n/useI18n';
+import { usePatientDevice } from '../../../context/usePatientDevice';
+import api, { isRequestCanceled } from '../../../services/api';
+import { createRealtimeEventPoller } from '../../../services/realtimeEventPoller';
+import Icon from '../../../components/Icon/Icon';
 import './NotificationsScreen.css';
 
-const NotificationsScreen = ({ onBack }) => {
-    const [filter, setFilter] = useState('all');
+const mapToneToRiskLevel = (tone) => {
+    if (tone === 'critical') return 'high';
+    if (tone === 'warning') return 'medium';
+    return 'low';
+};
 
-    const notifications = [
-        {
-            id: 'n1',
-            type: 'critical',
-            title: 'Deselerasi Lambat Terdeteksi',
-            message: 'Terdeteksi 3 episode deselerasi lambat dalam 30 menit terakhir dengan durasi >90 detik.',
-            timestamp: '10 menit lalu',
-            recommendation: 'Segera hubungi bidan/dokter atau pergi ke fasilitas kesehatan terdekat.',
-            acknowledged: false,
-            sessionId: 'ses-005'
-        },
-        {
-            id: 'n2',
-            type: 'warning',
-            title: 'Variabilitas FHR Menurun',
-            message: 'Variabilitas detak jantung janin berada di rentang minimal (5.2 bpm) selama 15 menit.',
-            timestamp: '25 menit lalu',
-            recommendation: 'Coba ubah posisi ke miring kiri dan pantau selama 10 menit.',
-            acknowledged: true,
-            sessionId: 'ses-002'
-        },
-        {
-            id: 'n3',
-            type: 'info',
-            title: 'Sesi Monitoring Selesai',
-            message: 'Sesi monitoring selama 45 menit telah selesai dengan hasil baik.',
-            timestamp: '2 jam lalu',
-            acknowledged: true,
-            sessionId: 'ses-001'
-        },
-        {
-            id: 'n4',
-            type: 'info',
-            title: 'Data Berhasil Dikirim ke Klinik',
-            message: 'Data sesi monitoring Anda telah berhasil dibagikan ke RS Bunda Jakarta.',
-            timestamp: '3 jam lalu',
-            acknowledged: true
-        },
-        {
-            id: 'n5',
-            type: 'warning',
-            title: 'Baterai Perangkat Rendah',
-            message: 'Baterai perangkat FETAL-GUARD tersisa 15%. Segera isi ulang untuk menjaga pemantauan.',
-            timestamp: '5 jam lalu',
-            recommendation: 'Hubungkan perangkat ke charger.',
-            acknowledged: true
-        },
-        {
-            id: 'n6',
-            type: 'info',
-            title: 'Pengingat Monitoring Harian',
-            message: 'Waktunya melakukan monitoring harian. Disarankan 2x sehari selama 30 menit.',
-            timestamp: 'Kemarin, 09:00',
-            acknowledged: true
-        },
-        {
-            id: 'n7',
-            type: 'info',
-            title: 'Kunjungan Dokter Mendatang',
-            message: 'Jadwal kontrol dengan Dr. Rina Susanti pada tanggal 15 Februari 2024.',
-            timestamp: '2 hari lalu',
-            acknowledged: true
+const getRiskLabel = (riskLevel) => {
+    if (riskLevel === 'high') return t('patient.notifications.riskHigh');
+    if (riskLevel === 'medium') return t('patient.notifications.riskMedium');
+    return t('patient.notifications.riskLow');
+};
+
+const formatTime = (timeString, locale = getLocale()) => {
+    if (!timeString) return '--';
+    const date = new Date(timeString);
+    if (Number.isNaN(date.getTime())) return '--';
+    return date.toLocaleString(locale === 'en' ? 'en-US' : 'id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const getNotificationTimeLabel = (notification, locale) => {
+    if (notification.isLiveStatus) return t('patient.notifications.currentStatus');
+    return formatTime(notification.created_at, locale);
+};
+
+const NotificationsScreen = () => {
+    const navigate = useNavigate();
+    const { locale } = useI18n();
+    const {
+        activeAlerts,
+        markAlertHandled,
+        pairedDevice,
+        telemetry,
+    } = usePatientDevice();
+    const [serverNotifications, setServerNotifications] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const alertRequestControllerRef = useRef(null);
+
+    const fetchAlerts = useCallback(async ({ silent = false } = {}) => {
+        alertRequestControllerRef.current?.abort();
+        const controller = new AbortController();
+        alertRequestControllerRef.current = controller;
+        if (!silent) setIsLoading(true);
+        try {
+            const data = await api.patients.listAlerts({ signal: controller.signal });
+            if (controller.signal.aborted) return;
+            setServerNotifications(data);
+            setError(null);
+        } catch (requestError) {
+            if (!controller.signal.aborted && !isRequestCanceled(requestError)) setError(true);
+        } finally {
+            if (alertRequestControllerRef.current === controller) {
+                alertRequestControllerRef.current = null;
+                if (!silent) setIsLoading(false);
+            }
         }
-    ];
+    }, []);
 
-    const [acknowledgedIds, setAcknowledgedIds] = useState(
-        notifications.filter(n => n.acknowledged).map(n => n.id)
-    );
+    useEffect(() => {
+        void fetchAlerts();
+        return () => alertRequestControllerRef.current?.abort();
+    }, [fetchAlerts]);
 
-    const handleAcknowledge = (id) => {
-        setAcknowledgedIds(prev => [...prev, id]);
+    useEffect(() => {
+        const poller = createRealtimeEventPoller({
+            fetchEvents: ({ cursor, signal }) => api.patients.listRealtimeEvents({
+                afterCursor: cursor,
+                limit: 100,
+                signal,
+            }),
+            onEvents: (events) => (
+                events.some((event) => event.event_type.startsWith('alert.'))
+                    ? fetchAlerts({ silent: true })
+                    : undefined
+            ),
+            onHeartbeat: () => fetchAlerts({ silent: true }),
+            initialDelayMs: 2_000,
+            heartbeatIntervalMs: 60_000,
+        });
+        poller.start();
+        return () => poller.stop();
+    }, [fetchAlerts]);
+
+    const deviceNotifications = useMemo(() => {
+        const deviceFallback = locale === 'en'
+            ? t('patient.notifications.deviceNotPaired')
+            : t('patient.notifications.deviceNotPaired');
+
+        return activeAlerts.map((alert) => ({
+            id: `device-${alert.id}`,
+            alertId: alert.id,
+            title: alert.title,
+            message: alert.message,
+            action: alert.action,
+            observed_at: telemetry.lastSync || null,
+            risk_level: mapToneToRiskLevel(alert.tone),
+            source: pairedDevice ? pairedDevice.name : deviceFallback,
+            isDeviceAlert: true,
+            isLiveStatus: true,
+        }));
+    }, [activeAlerts, pairedDevice, telemetry.lastSync, locale]);
+
+    const notifications = useMemo(() => {
+        const titleFallback = locale === 'en'
+            ? t('patient.notifications.monitoringAlert')
+            : t('patient.notifications.monitoringAlert');
+        const sourceFallback = locale === 'en'
+            ? t('patient.notifications.savedSession')
+            : t('patient.notifications.savedSession');
+
+        return [
+            ...deviceNotifications,
+            ...serverNotifications.map((notification) => ({
+                ...notification,
+                title: notification.title || titleFallback,
+                source: notification.source || sourceFallback,
+                isDeviceAlert: false,
+                isLiveStatus: false,
+            })),
+        ];
+    }, [deviceNotifications, serverNotifications, locale]);
+
+    const showEmptyState = !isLoading && notifications.length === 0;
+    const showServerNotice = error && deviceNotifications.length > 0;
+    const errorMessage = t('patient.notifications.storedUnavailable');
+    const openHelpOptions = () => {
+        window.dispatchEvent(new CustomEvent('fetalguard:open-emergency'));
     };
-
-    const getFilteredNotifications = () => {
-        if (filter === 'all') return notifications;
-        if (filter === 'unread') return notifications.filter(n => !acknowledgedIds.includes(n.id));
-        return notifications.filter(n => n.type === filter);
-    };
-
-    const unreadCount = notifications.filter(n => !acknowledgedIds.includes(n.id)).length;
 
     return (
         <div className="notifications-screen">
-            {/* Header */}
             <header className="notifications-header">
-                <button className="notifications-header__back" onClick={onBack}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
+                <button
+                    type="button"
+                  className="notifications-header__back"
+                  onClick={() => navigate('/patient/home')}
+                  aria-label={t('patient.common.backHome')}
+                >
+                    <Icon className="material-symbols-outlined" name="arrow_back" />
                 </button>
                 <h1>{t('notifications.title')}</h1>
-                {unreadCount > 0 && (
-                    <span className="notifications-header__badge">{unreadCount}</span>
-                )}
-                <button className="notifications-header__clear">
-                    Tandai Dibaca
-                </button>
             </header>
 
-            {/* Filters */}
-            <div className="notifications-filters">
-                {[
-                    { key: 'all', label: 'Semua' },
-                    { key: 'unread', label: `Belum Dibaca (${unreadCount})` },
-                    { key: 'critical', label: 'Kritis' },
-                    { key: 'warning', label: 'Peringatan' }
-                ].map(f => (
-                    <button
-                        key={f.key}
-                        className={`notifications-filter ${filter === f.key ? 'active' : ''}`}
-                        onClick={() => setFilter(f.key)}
-                    >
-                        {f.label}
-                    </button>
-                ))}
-            </div>
+            {showServerNotice && (
+                <section className="notifications-inline-note" role="status">
+                    <Icon className="material-symbols-outlined" name="info" />
+                    <p>{errorMessage} {t('patient.notifications.serverNotice')}</p>
+                </section>
+            )}
 
-            {/* Notification List */}
-            <div className="notifications-list">
-                {getFilteredNotifications().length === 0 ? (
-                    <div className="notifications-empty">
-                        <div className="notifications-empty__icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                            </svg>
-                        </div>
-                        <p>Tidak ada notifikasi</p>
+            {isLoading && deviceNotifications.length === 0 ? (
+                <div className="notifications-empty" role="status">
+                    <p>{t('patient.notifications.loading')}</p>
+                </div>
+            ) : error && notifications.length === 0 ? (
+                <section className="notifications-empty" role="alert">
+                    <div className="notifications-empty__icon" aria-hidden="true">
+                        <Icon className="material-symbols-outlined" name="notifications_off" />
                     </div>
-                ) : (
-                    getFilteredNotifications().map(notification => (
-                        <AlertCard
+                    <h2>{t('patient.notifications.emptyErrorTitle')}</h2>
+                    <p>{errorMessage} {t('patient.notifications.pairToSeeAlerts')}</p>
+                    <div className="notifications-empty__actions">
+                        <button type="button" className="btn btn-primary" onClick={() => navigate('/patient/home')}>
+                            {t('patient.notifications.pairDevice')}
+                        </button>
+                    </div>
+                </section>
+            ) : showEmptyState ? (
+                <section className="notifications-empty" role="status">
+                    <div className="notifications-empty__icon" aria-hidden="true">
+                        <Icon className="material-symbols-outlined" name="notifications" />
+                    </div>
+                    <h2>{t('patient.notifications.emptyTitle')}</h2>
+                    <p>{t('patient.notifications.emptyDesc')}</p>
+                    <div className="notifications-empty__actions">
+                        <button type="button" className="btn btn-primary" onClick={() => navigate('/patient/home')}>
+                            {t('patient.notifications.pairDevice')}
+                        </button>
+                        <button type="button" className="btn btn-secondary" onClick={() => navigate('/patient/settings')}>
+                            {t('patient.notifications.checkSettings')}
+                        </button>
+                    </div>
+                </section>
+            ) : (
+                <section className="notifications-list" aria-label={t('patient.notifications.listLabel')}>
+                    {notifications.map((notification) => (
+                        <article
                             key={notification.id}
-                            type={notification.type}
-                            title={notification.title}
-                            message={notification.message}
-                            timestamp={notification.timestamp}
-                            recommendation={notification.recommendation}
-                            acknowledged={acknowledgedIds.includes(notification.id)}
-                            onAcknowledge={() => handleAcknowledge(notification.id)}
-                            onAction={notification.sessionId ? () => console.log('View session', notification.sessionId) : undefined}
-                            actionLabel={notification.sessionId ? 'Lihat Sesi' : undefined}
-                        />
-                    ))
-                )}
-            </div>
+                            className={`notifications-card notifications-card--${notification.risk_level || 'medium'}`}
+                        >
+                            <div className="notifications-card__header">
+                                <span>{getNotificationTimeLabel(notification, locale)}</span>
+                                <strong>{getRiskLabel(notification.risk_level)}</strong>
+                            </div>
+                            <h2>{notification.title}</h2>
+                            <p>{notification.message}</p>
+                            <div className="notifications-card__footer">
+                                <span>{notification.source}</span>
+                                {notification.observed_at && (
+                                    <span>
+                                        {t('patient.notifications.updatedAt', {
+                                            time: formatTime(notification.observed_at, locale),
+                                        })}
+                                    </span>
+                                )}
+                                {notification.action && <span>{notification.action}</span>}
+                            </div>
+                            {notification.risk_level !== 'low' && (
+                                <div className="notifications-card__actions">
+                                    {notification.risk_level === 'high' && (
+                                        <button
+                                            type="button"
+                                            className="notifications-card__action notifications-card__action--help"
+                                            onClick={openHelpOptions}
+                                        >
+                                            {t('patient.notifications.openHelp')}
+                                        </button>
+                                    )}
+                                    {notification.isDeviceAlert && (
+                                        <button
+                                            type="button"
+                                            className="notifications-card__action"
+                                            onClick={() => markAlertHandled(notification.alertId)}
+                                        >
+                                            {t('patient.notifications.markHandled')}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </article>
+                    ))}
+                </section>
+            )}
 
-            {/* Bottom Info */}
             <div className="notifications-info">
                 <p>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 16v-4M12 8h.01" />
-                    </svg>
-                    Notifikasi kritis akan selalu menampilkan peringatan dengan suara
+                    <Icon className="material-symbols-outlined" name="info" />
+                    {t('patient.notifications.safetyNote')}
                 </p>
             </div>
         </div>

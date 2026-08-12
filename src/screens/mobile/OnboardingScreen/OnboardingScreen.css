@@ -48,49 +48,7 @@
 }
 
 .onboarding-logo {
-    margin-bottom: var(--spacing-8);
-}
-
-.onboarding-logo__icon {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto var(--spacing-4);
-    background: var(--gradient-primary);
-    border-radius: var(--radius-2xl);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: logo-pulse 2s ease infinite;
-}
-
-@keyframes logo-pulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-        box-shadow: var(--shadow-lg);
-    }
-
-    50% {
-        transform: scale(1.05);
-        box-shadow: var(--shadow-glow-pink);
-    }
-}
-
-.onboarding-logo__icon svg {
-    width: 40px;
-    height: 40px;
-    color: white;
-}
-
-.onboarding-logo h1 {
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-bold);
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin: 0;
+    margin-bottom: var(--spacing-2);
 }
 
 .onboarding-welcome h2 {

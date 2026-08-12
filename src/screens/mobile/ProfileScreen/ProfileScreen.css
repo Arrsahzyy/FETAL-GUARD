@@ -2,28 +2,27 @@
     min-height: 100vh;
     min-height: 100dvh;
     background: var(--color-bg-primary);
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--patient-page-bottom-padding, calc(100px + env(safe-area-inset-bottom, 0px)));
 }
 
 /* Tablet adjustments */
 @media (min-width: 640px) {
     .profile-screen {
-        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: var(--patient-page-bottom-padding, calc(120px + env(safe-area-inset-bottom, 0px)));
     }
 }
 
 /* Desktop: Account for sidebar navigation */
 @media (min-width: 1024px) {
     .profile-screen {
-        margin-left: 80px;
-        padding-bottom: var(--spacing-8);
-        max-width: calc(100vw - 80px);
+        padding-bottom: var(--patient-page-bottom-padding, var(--spacing-8));
     }
 }
 
 /* Header */
 .profile-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
     align-items: center;
     gap: var(--spacing-3);
     padding: var(--spacing-3);
@@ -43,8 +42,9 @@
 }
 
 .profile-header__back {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
     border: none;
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-lg);
@@ -66,26 +66,18 @@
 }
 
 .profile-header h1 {
-    flex: 1;
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
     margin: 0;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.profile-header__save {
-    padding: var(--spacing-2) var(--spacing-4);
-    background: var(--gradient-primary);
-    border: none;
-    border-radius: var(--radius-lg);
-    color: white;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.profile-header__save:disabled {
-    opacity: 0.7;
+.profile-header__spacer {
+    width: 44px;
+    height: 44px;
 }
 
 /* Tabs */
@@ -95,7 +87,9 @@
     padding: var(--spacing-2) var(--spacing-3);
     background: var(--color-bg-secondary);
     overflow-x: auto;
+    scroll-snap-type: x proximity;
     scrollbar-width: none;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .profile-tabs::-webkit-scrollbar {
@@ -123,6 +117,8 @@
     color: var(--color-text-tertiary);
     cursor: pointer;
     white-space: nowrap;
+    min-height: 44px;
+    scroll-snap-align: start;
     transition: all var(--transition-fast);
 }
 
@@ -136,9 +132,35 @@
     color: white;
 }
 
+.profile-tab:focus-visible {
+    outline: 3px solid rgba(255, 107, 154, 0.3);
+    outline-offset: 2px;
+}
+
 .profile-tab:not(.active):hover {
     background: var(--color-bg-tertiary);
     color: var(--color-text-primary);
+}
+
+@media (max-width: 479px) {
+    .profile-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        overflow: visible;
+    }
+
+    .profile-tab {
+        min-width: 0;
+        min-height: 64px;
+        flex-direction: column;
+        justify-content: center;
+        gap: var(--spacing-1);
+        padding: var(--spacing-2) var(--spacing-1);
+        font-size: var(--font-size-xs);
+        line-height: 1.2;
+        text-align: center;
+        white-space: normal;
+    }
 }
 
 /* Form */
@@ -149,17 +171,55 @@
 @media (min-width: 640px) {
     .profile-form {
         padding: var(--spacing-4);
-        max-width: 800px;
+        max-width: var(--patient-content-default, 840px);
         margin: 0 auto;
     }
 }
 
+.profile-scope-note {
+    margin-bottom: var(--spacing-3);
+    padding: var(--spacing-3);
+    background: rgba(74, 163, 255, 0.08);
+    border: 1px solid rgba(74, 163, 255, 0.2);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.profile-form-error {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
+    padding: var(--spacing-3);
+    border: 1px solid rgba(201, 56, 48, 0.34);
+    border-radius: var(--radius-lg);
+    color: #8f211b;
+    background: rgba(201, 56, 48, 0.07);
+}
+
+.profile-form-error p {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
 /* Section */
+.profile-sections {
+    display: grid;
+    gap: var(--spacing-3);
+}
+
 .profile-section {
     background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
     padding: var(--spacing-4);
-    margin-bottom: var(--spacing-4);
+    margin: 0;
+    box-shadow: var(--shadow-sm);
 }
 
 .profile-section__title {
@@ -169,13 +229,6 @@
     margin: 0 0 var(--spacing-4);
     padding-bottom: var(--spacing-2);
     border-bottom: 1px solid var(--color-border);
-}
-
-.profile-section__subtitle {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-secondary);
-    margin: var(--spacing-4) 0 var(--spacing-3);
 }
 
 /* Field */
@@ -199,6 +252,7 @@
 .profile-field select,
 .profile-field textarea {
     width: 100%;
+    min-height: 48px;
     padding: var(--spacing-3);
     background: var(--color-bg-primary);
     border: 1px solid var(--color-border);
@@ -216,9 +270,16 @@
     box-shadow: 0 0 0 3px rgba(255, 107, 154, 0.1);
 }
 
+.profile-field input[aria-invalid="true"],
+.profile-field select[aria-invalid="true"],
+.profile-field textarea[aria-invalid="true"] {
+    border-color: #b52d25;
+    box-shadow: 0 0 0 3px rgba(201, 56, 48, 0.1);
+}
+
 .profile-field textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 96px;
 }
 
 .profile-field__hint {
@@ -253,10 +314,16 @@
 
 /* Checkbox */
 .profile-checklist {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: var(--spacing-3);
     margin-bottom: var(--spacing-4);
+}
+
+@media (min-width: 640px) {
+    .profile-checklist {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .profile-checkbox {
@@ -268,14 +335,15 @@
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all var(--transition-fast);
-}
-
-.profile-checkbox:hover {
-    background: var(--color-bg-tertiary);
+    min-height: 52px;
 }
 
 .profile-checkbox input {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .profile-checkbox__mark {
@@ -302,6 +370,11 @@
     border: solid white;
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
+}
+
+.profile-checkbox input:focus-visible + .profile-checkbox__mark {
+    outline: 3px solid rgba(255, 107, 154, 0.3);
+    outline-offset: 2px;
 }
 
 .profile-checkbox__label {
@@ -335,19 +408,13 @@
 
 /* Actions */
 .profile-actions {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: var(--spacing-3);
-    padding-bottom: calc(var(--spacing-3) + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, var(--color-bg-primary) 80%, transparent);
-    z-index: 50;
+    position: static;
+    padding: var(--spacing-4) 0 0;
+    background: none;
 }
 
 @media (min-width: 640px) {
     .profile-actions {
-        position: static;
         padding: var(--spacing-4) 0 0;
         background: none;
         max-width: 400px;
@@ -371,11 +438,6 @@
     cursor: pointer;
     transition: all var(--transition-fast);
     box-shadow: var(--shadow-lg);
-}
-
-.profile-save-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl);
 }
 
 .profile-save-btn:active {
@@ -407,39 +469,56 @@
 /* Desktop Styles */
 @media (min-width: 1024px) {
     .profile-header {
-        max-width: 900px;
+        max-width: var(--patient-content-default, 840px);
         margin: 0 auto;
         border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     }
     
     .profile-tabs {
-        max-width: 900px;
+        max-width: var(--patient-content-default, 840px);
         margin: 0 auto;
         padding: var(--spacing-4) var(--spacing-6);
         justify-content: center;
     }
     
-    .profile-content {
-        max-width: 900px;
-        margin: 0 auto;
+    .profile-form {
+        max-width: var(--patient-content-default, 840px);
         padding: var(--spacing-6);
     }
 
-    .profile-form {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
+    .profile-sections {
         gap: var(--spacing-4);
     }
 
     .profile-section {
-        margin-bottom: 0;
-    }
-    
-    .profile-section--full-width {
-        grid-column: span 2;
+        padding: var(--spacing-5);
     }
     
     .profile-header__back:hover {
         background: var(--color-bg-quaternary);
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .profile-checkbox:hover {
+        background: var(--color-bg-tertiary);
+    }
+
+    .profile-save-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-xl);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-header__back,
+    .profile-tab,
+    .profile-field input,
+    .profile-field select,
+    .profile-field textarea,
+    .profile-checkbox,
+    .profile-checkbox__mark,
+    .profile-save-btn {
+        transition: none;
     }
 }

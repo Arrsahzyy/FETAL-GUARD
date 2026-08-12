@@ -83,6 +83,19 @@
     animation: pulse-value 1s infinite;
 }
 
+.fhr-display--unavailable .fhr-display__value {
+    background: none;
+    -webkit-text-fill-color: var(--color-text-tertiary);
+    color: var(--color-text-tertiary);
+    animation: none;
+}
+
+.fhr-display--unavailable .fhr-display__pulse-path {
+    stroke: var(--color-text-tertiary);
+    animation: none;
+    opacity: 0.45;
+}
+
 @keyframes pulse-value {
 
     0%,

@@ -9,9 +9,12 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core.config import settings  # noqa: E402
 from db.database import Base  # noqa: E402
+import models.organization  # noqa: F401, E402
+import models.organization_membership  # noqa: F401, E402
 import models.patient  # noqa: F401, E402
 import models.patient_clinician_assignment  # noqa: F401, E402
 import models.device  # noqa: F401, E402
+import models.device_assignment  # noqa: F401, E402
 import models.session_sensor_summary  # noqa: F401, E402
 import models.sensor_data  # noqa: F401, E402
 import models.session  # noqa: F401, E402
@@ -20,6 +23,10 @@ import models.user  # noqa: F401, E402
 import models.auth_login_attempt  # noqa: F401, E402
 import models.auth_refresh_token  # noqa: F401, E402
 import models.admin_audit_log  # noqa: F401, E402
+import models.access_audit_event  # noqa: F401, E402
+import models.alert_event  # noqa: F401, E402
+import models.realtime_event  # noqa: F401, E402
+import models.ai_analysis  # noqa: F401, E402
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
