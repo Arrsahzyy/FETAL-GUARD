@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -6,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from core.tenancy import DEFAULT_ORGANIZATION_ID
 from models.device import Device
 from models.device_assignment import DeviceAssignment
+from models.sensor_data import SensorDataChunk
 from models.session import MonitoringSession
 
 
@@ -94,6 +97,68 @@ def test_admin_can_register_assign_and_list_patient_device(client, auth_headers)
     assert patient_devices_response.json()[0]["device_uid"] == "FG-BELT-001"
     assert admin_list_response.status_code == 200
     assert admin_list_response.json()["total"] == 1
+
+
+def test_shared_esp32_golden_packet_is_stored_exactly_once(
+    client,
+    auth_headers,
+    db_session,
+):
+    fixture_path = (
+        Path(__file__).resolve().parents[2]
+        / "contracts"
+        / "telemetry"
+        / "v1"
+        / "golden-esp32.json"
+    )
+    envelope = json.loads(fixture_path.read_text(encoding="utf-8"))
+    patient_headers = auth_headers(email="golden-esp32-patient@example.com", role="patient")
+    session_data = create_active_session(client, patient_headers, name="Golden ESP32")
+    admin_headers = auth_headers(email="golden-esp32-admin@example.com", role="admin")
+    register_device(
+        client,
+        admin_headers,
+        session_data["patient_id"],
+        device_uid=envelope["device_uid"],
+    )
+
+    captured_at = datetime.now(timezone.utc)
+    request_body = {
+        "payload": {
+            **envelope["channels"],
+            "t": int(captured_at.timestamp() * 1000),
+        },
+        "schema_version": envelope["schema_version"],
+        "ingestion_id": "ble-golden-esp32-sequence-0",
+        "boot_id": envelope["boot_id"],
+        "sequence_number": envelope["sequence_number"],
+        "captured_at": captured_at.isoformat(),
+        "sample_rate_hz": envelope["sample_rate_hz"],
+        "device_uid": envelope["device_uid"],
+        "source": "ble",
+        "is_simulated": False,
+    }
+    first = client.post(
+        f"/sessions/{session_data['id']}/data",
+        headers=patient_headers,
+        json=request_body,
+    )
+    retry = client.post(
+        f"/sessions/{session_data['id']}/data",
+        headers=patient_headers,
+        json=request_body,
+    )
+
+    assert first.status_code == 201
+    assert retry.status_code == 201
+    assert retry.json()["was_duplicate"] is True
+    records = (
+        db_session.query(SensorDataChunk)
+        .filter(SensorDataChunk.session_id == session_data["id"])
+        .all()
+    )
+    assert len(records) == 1
+    assert records[0].payload["samples"]["p"] == envelope["channels"]["p"]
 
 
 def test_device_registration_creates_authoritative_temporal_assignment(

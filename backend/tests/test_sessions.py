@@ -1,3 +1,5 @@
+from models.alert_event import AlertEvent
+from models.notification import Notification
 from models.sensor_data import SensorDataChunk
 from core.tenancy import DEFAULT_ORGANIZATION_ID
 
@@ -70,6 +72,76 @@ def test_patient_can_update_own_profile(client, auth_headers):
     assert data["age"] == 28
     assert data["gestational_age_weeks"] == 34
     assert data["medical_history"] == "Riwayat kesehatan singkat untuk pemantauan awal"
+
+
+def test_patient_can_delete_completed_monitoring_data(client, auth_headers, db_session):
+    headers = auth_headers(email="monitoring-delete@example.com")
+    active_session = create_active_session(client, headers)
+    chunk = SensorDataChunk(
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        session_id=active_session["id"],
+        ingestion_id="delete-test-chunk",
+        schema_version=1,
+        payload={"source": "test"},
+    )
+    notification = Notification(
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        session_id=active_session["id"],
+        message="Perlu cek ulang posisi sabuk",
+        risk_level="medium",
+        status="open",
+    )
+    db_session.add_all([chunk, notification])
+    db_session.flush()
+    db_session.add(AlertEvent(
+        notification_id=notification.id,
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        to_status="open",
+        version=1,
+    ))
+    db_session.commit()
+    completed = client.patch(
+        f"/sessions/{active_session['id']}",
+        headers=headers,
+        json={"status": "completed"},
+    )
+    assert completed.status_code == 200
+
+    response = client.delete("/patients/me/monitoring-data", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "deleted_sessions": 1,
+        "deleted_alerts": 1,
+        "deleted_sensor_chunks": 1,
+        "deleted_ai_results": 0,
+    }
+    assert client.get("/sessions", headers=headers).json() == []
+    assert client.get("/patients/me", headers=headers).status_code == 200
+
+
+def test_patient_monitoring_data_deletion_rejects_active_session(client, auth_headers):
+    headers = auth_headers(email="monitoring-delete-active@example.com")
+    create_active_session(client, headers)
+
+    response = client.delete("/patients/me/monitoring-data", headers=headers)
+
+    assert response.status_code == 409
+    assert "active monitoring session" in response.json()["detail"]
+
+
+def test_patient_monitoring_data_deletion_rejects_non_patient(client, auth_headers):
+    clinician_headers = auth_headers(
+        email="monitoring-delete-clinician@example.com",
+        role="clinician",
+    )
+
+    response = client.delete(
+        "/patients/me/monitoring-data",
+        headers=clinician_headers,
+    )
+
+    assert response.status_code == 403
 
 
 def test_patient_can_persist_structured_profile_fields(client, auth_headers):

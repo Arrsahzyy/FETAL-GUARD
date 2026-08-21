@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+artifacts/
 *.local
 
 # Editor directories and files
@@ -34,6 +35,7 @@ __pycache__/
 backend/venv/
 
 # Local database runtime files
+backend/fetal_guard.local-mobile.db
 backend/*.db-shm
 backend/*.db-wal
 backend/*.db-journal

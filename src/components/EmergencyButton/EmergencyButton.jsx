@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n';
+import { getPatientPreferences } from '../../services/patientPreferences';
+import { sharePatientLocation } from '../../services/nativePatientFeatures';
 import './EmergencyButton.css';
 
 const toDialPhone = (value) => String(value || '').replace(/[^\d+]/g, '');
@@ -10,12 +12,14 @@ const EmergencyButton = ({
     onCallTrustedContact,
     clinicPhone,
     trustedContactPhone,
+    patientUserId,
     emergencyPhone = '112',
     disabled = false,
     compact = false,
 }) => {
     const [showConfirm, setShowConfirm] = useState(false);
     const [confirmStep, setConfirmStep] = useState(0);
+    const [locationShareState, setLocationShareState] = useState('idle');
     const modalRef = useRef(null);
     const cancelButtonRef = useRef(null);
     const previousFocusRef = useRef(null);
@@ -76,6 +80,7 @@ const EmergencyButton = ({
     const resetConfirm = () => {
         setShowConfirm(false);
         setConfirmStep(0);
+        setLocationShareState('idle');
     };
 
     const handlePress = () => {
@@ -125,6 +130,26 @@ const EmergencyButton = ({
             window.location.href = `tel:${phone}`;
         }
         resetConfirm();
+    };
+
+    const canShareLocation = patientUserId
+        && getPatientPreferences(patientUserId).shareLocation;
+
+    const handleShareLocation = async () => {
+        setLocationShareState('loading');
+        try {
+            const result = await sharePatientLocation({
+                title: t('patient.emergency.locationShareTitle'),
+                text: t('patient.emergency.locationShareText'),
+            });
+            setLocationShareState(result.shared ? 'shared' : result.copied ? 'copied' : 'ready');
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                setLocationShareState('idle');
+                return;
+            }
+            setLocationShareState('error');
+        }
     };
 
     const titleId = `emergency-title-${confirmStep}`;
@@ -197,6 +222,18 @@ const EmergencyButton = ({
                                             {t('patient.emergency.callTrustedContact')}
                                         </button>
                                     )}
+                                    {canShareLocation && (
+                                        <button
+                                            type="button"
+                                            className="emergency-modal__btn emergency-modal__btn--clinic"
+                                            onClick={() => { void handleShareLocation(); }}
+                                            disabled={locationShareState === 'loading'}
+                                        >
+                                            {locationShareState === 'loading'
+                                                ? t('patient.emergency.locationSharing')
+                                                : t('patient.emergency.shareLocation')}
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         className="emergency-modal__btn emergency-modal__btn--primary"
@@ -205,6 +242,11 @@ const EmergencyButton = ({
                                         {t('patient.emergency.continue')}
                                     </button>
                                 </div>
+                                {canShareLocation && locationShareState !== 'idle' && locationShareState !== 'loading' && (
+                                    <p className={`emergency-modal__share-status emergency-modal__share-status--${locationShareState}`} role="status">
+                                        {t(`patient.emergency.locationShareStatus.${locationShareState}`)}
+                                    </p>
+                                )}
                             </>
                         )}
 

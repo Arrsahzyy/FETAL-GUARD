@@ -335,3 +335,14 @@
         transform: scale(1.02);
     }
 }
+
+.emergency-modal__share-status {
+    margin: var(--spacing-3) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+}
+
+.emergency-modal__share-status--error {
+    color: var(--color-danger, #b42318);
+}

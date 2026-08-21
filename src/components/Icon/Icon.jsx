@@ -123,6 +123,9 @@ export default function Icon({ name, className = '', ...props }) {
     case 'check_circle':
     case 'verified':
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></svg>;
+    case 'do_not_disturb_on':
+    case 'block':
+      return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="m6.5 6.5 11 11" /></svg>;
     case 'health_and_safety':
       return <svg {...common}><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /><path d="M9 11h6" /><path d="M12 8v6" /></svg>;
     case 'emergency':

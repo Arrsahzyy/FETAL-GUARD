@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/useAuth";
 import { usePatientDevice } from "../../../context/usePatientDevice";
@@ -6,6 +6,7 @@ import { getWeeklyEducationArticle } from "../../../content/patientEducation";
 import Icon from "../../../components/Icon/Icon";
 import { t } from "../../../i18n";
 import { useI18n } from "../../../i18n/useI18n";
+import PatientHomeAnalysisSummary from "./PatientHomeAnalysisSummary";
 import "./HomeScreen.css";
 
 // ─── SVG Ring constants ────────────────────────────────────────────────────────
@@ -146,8 +147,6 @@ const DeviceStatusPill = ({ pairedDevice, pairingState, connectionState, isTelem
 // ─── DevicePanel ──────────────────────────────────────────────────────────────
 
 const DevicePanel = ({
-  availableDevices,
-  connectToDevice,
   disconnectDevice,
   deviceRegistryError,
   hasRegisteredDevice,
@@ -161,7 +160,7 @@ const DevicePanel = ({
   pairingError,
   pairingState,
   registeredDevices,
-  scanForDevice,
+  onOpenDevicePicker,
 }) => (
   <section className="home-device" aria-labelledby="home-device-title">
     <div className="home-section-heading">
@@ -230,9 +229,7 @@ const DevicePanel = ({
         <button
           type="button"
           className="home-button home-button--primary"
-          onClick={() => {
-            void scanForDevice();
-          }}
+          onClick={onOpenDevicePicker}
           disabled={isScanning || isConnecting || isDeviceRegistryLoading || !hasRegisteredDevice}
         >
           <Icon className="material-symbols-outlined" name="bluetooth_searching" />
@@ -250,47 +247,152 @@ const DevicePanel = ({
             {pairingError}
           </p>
         )}
-
-        <div className="home-device-list" aria-live="polite">
-          {availableDevices.map((device) => (
-            <button
-              key={device.deviceId}
-              type="button"
-              className="home-device-row"
-              onClick={() => {
-                void connectToDevice(device);
-              }}
-              disabled={isConnecting || !device.isRegistered}
-            >
-              <Icon className="material-symbols-outlined" name="sensors" />
-              <span>
-                <strong>{device.name}</strong>
-                <small>
-                  {!device.isRegistered
-                    ? t("patient.home.deviceNotInRegistry")
-                    : device.rssi
-                    ? t("patient.home.deviceNear")
-                    : t("patient.home.deviceReady")}
-                </small>
-              </span>
-              <Icon className="material-symbols-outlined" name="chevron_right" />
-            </button>
-          ))}
-
-          {!isScanning && availableDevices.length === 0 && (
-            <p className="home-device-list__empty">
-              {!hasRegisteredDevice
-                ? t("patient.home.noRegisteredDeviceScan")
-                : !isBleAvailable
-                  ? t("patient.home.bleUnavailableHint")
-                  : t("patient.home.deviceEmpty")}
-            </p>
-          )}
-        </div>
+        <p className="home-device__hint">
+          {t("patient.home.devicePickerHint")}
+        </p>
       </>
     )}
   </section>
 );
+
+const DevicePickerDialog = ({
+  availableDevices,
+  connectToDevice,
+  isBleAvailable,
+  isConnecting,
+  isOpen,
+  isScanning,
+  onClose,
+  onScan,
+  pairingError,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="home-device-picker-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isConnecting) onClose();
+      }}
+    >
+      <section
+        className="home-device-picker"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="home-device-picker-title"
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !isConnecting) onClose();
+        }}
+      >
+        <header className="home-device-picker__header">
+          <div>
+            <p>{t("patient.home.devicePickerEyebrow")}</p>
+            <h2 id="home-device-picker-title">{t("patient.home.devicePickerTitle")}</h2>
+          </div>
+          <button
+            type="button"
+            className="home-device-picker__close"
+            onClick={onClose}
+            disabled={isConnecting}
+            aria-label={t("patient.home.devicePickerClose")}
+            autoFocus
+          >
+            <Icon className="material-symbols-outlined" name="close" />
+          </button>
+        </header>
+
+        <p className="home-device-picker__description">
+          {t("patient.home.devicePickerDescription")}
+        </p>
+
+        <div className="home-device-picker__scan-status" role="status" aria-live="polite">
+          <Icon
+            className="material-symbols-outlined"
+            name={isScanning ? "bluetooth_searching" : "sensors"}
+          />
+          <span>
+            {isScanning
+              ? t("patient.home.scanLoading")
+              : t("patient.home.devicePickerFound", { count: availableDevices.length })}
+          </span>
+        </div>
+
+        {pairingError && (
+          <p className="home-device-picker__error" role="alert">
+            {pairingError}
+          </p>
+        )}
+
+        <div className="home-device-picker__list">
+          {availableDevices.map((device) => (
+            <article key={device.deviceId} className="home-device-picker__item">
+              <div className="home-device-picker__icon" aria-hidden="true">
+                <Icon className="material-symbols-outlined" name="sensors" />
+              </div>
+              <div className="home-device-picker__copy">
+                <strong>{device.name}</strong>
+                <span>
+                  {device.rssi !== null && device.rssi !== undefined
+                    ? t("patient.home.deviceSignal", { value: device.rssi })
+                    : t("patient.home.deviceReady")}
+                </span>
+                <small className={device.isRegistered ? "is-registered" : "is-unregistered"}>
+                  {device.isRegistered
+                    ? t("patient.home.deviceRegisteredForYou")
+                    : t("patient.home.deviceNotInRegistry")}
+                </small>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void connectToDevice(device);
+                }}
+                disabled={isConnecting || !device.isRegistered}
+              >
+                {isConnecting
+                  ? t("patient.home.deviceConnecting")
+                  : t("patient.home.connectDevice")}
+              </button>
+            </article>
+          ))}
+
+          {!isScanning && availableDevices.length === 0 && (
+            <div className="home-device-picker__empty">
+              <Icon className="material-symbols-outlined" name="bluetooth_searching" />
+              <strong>{t("patient.home.devicePickerEmptyTitle")}</strong>
+              <p>
+                {!isBleAvailable
+                  ? t("patient.home.bleUnavailableHint")
+                  : t("patient.home.deviceEmpty")}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <footer className="home-device-picker__actions">
+          <button
+            type="button"
+            className="home-button home-button--ghost"
+            onClick={onClose}
+            disabled={isConnecting}
+          >
+            {t("patient.home.devicePickerClose")}
+          </button>
+          <button
+            type="button"
+            className="home-button home-button--primary"
+            onClick={onScan}
+            disabled={isScanning || isConnecting}
+          >
+            <Icon className="material-symbols-outlined" name="refresh" />
+            {t("patient.home.scanAgain")}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+};
 
 // ─── MetricCard ───────────────────────────────────────────────────────────────
 
@@ -518,6 +620,7 @@ const WeeklyEducationCard = ({ pregnancyWeek, locale, onOpen }) => {
 const HomeScreen = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isDevicePickerOpen, setIsDevicePickerOpen] = useState(false);
 
   const { locale } = useI18n();
 
@@ -557,6 +660,16 @@ const HomeScreen = () => {
   const batteryTone = getBatteryTone(currentTelemetry.battery);
   const batteryPercent = getNumericValue(currentTelemetry.battery);
 
+  const openDevicePicker = () => {
+    setIsDevicePickerOpen(true);
+    void scanForDevice();
+  };
+
+  const handleConnectDevice = async (device) => {
+    const connected = await connectToDevice(device);
+    if (connected) setIsDevicePickerOpen(false);
+  };
+
   const handlePrimaryAction = () => {
     if (pairedDevice) {
       navigate("/patient/monitoring");
@@ -566,7 +679,7 @@ const HomeScreen = () => {
       navigate("/patient/settings");
       return;
     }
-    void scanForDevice();
+    openDevicePicker();
   };
 
   return (
@@ -609,6 +722,11 @@ const HomeScreen = () => {
         </section>
 
         {/* 2 ─ Pregnancy Hero (BARU) */}
+        <PatientHomeAnalysisSummary
+          onOpenMonitoring={() => navigate("/patient/monitoring")}
+          onOpenHistory={() => navigate("/patient/history")}
+        />
+
         <PregnancyHero pregnancyWeek={pregnancyWeek} />
 
         {/* 3 ─ Daily Tips Card (BARU) */}
@@ -620,8 +738,6 @@ const HomeScreen = () => {
 
         {/* 4 ─ Device Panel */}
         <DevicePanel
-          availableDevices={availableDevices}
-          connectToDevice={connectToDevice}
           disconnectDevice={disconnectDevice}
           deviceRegistryError={deviceRegistryError}
           hasRegisteredDevice={hasRegisteredDevice}
@@ -635,7 +751,7 @@ const HomeScreen = () => {
           pairingError={pairingError}
           pairingState={pairingState}
           registeredDevices={registeredDevices}
-          scanForDevice={scanForDevice}
+          onOpenDevicePicker={openDevicePicker}
         />
 
         {/* 5 ─ Summary Grid 2×2 */}
@@ -755,6 +871,19 @@ const HomeScreen = () => {
               : t("patient.home.registerDeviceFirst")}
         </button>
       </main>
+      <DevicePickerDialog
+        availableDevices={availableDevices}
+        connectToDevice={handleConnectDevice}
+        isBleAvailable={isBleAvailable}
+        isConnecting={isConnecting}
+        isOpen={isDevicePickerOpen}
+        isScanning={isScanning}
+        onClose={() => setIsDevicePickerOpen(false)}
+        onScan={() => {
+          void scanForDevice();
+        }}
+        pairingError={pairingError}
+      />
     </div>
   );
 };

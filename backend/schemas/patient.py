@@ -192,3 +192,10 @@ class PatientNotificationResponse(BaseModel):
     acknowledged_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class PatientMonitoringDataDeletionResponse(BaseModel):
+    deleted_sessions: int
+    deleted_alerts: int
+    deleted_sensor_chunks: int
+    deleted_ai_results: int

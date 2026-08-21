@@ -1,4 +1,5 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./styles/design-tokens.css";
 import "./styles/components.css";
@@ -97,8 +98,14 @@ function RequireRole({ role, children }) {
 /**
  * RoleRedirect — Root "/" handler: arahkan berdasarkan role
  */
-function RoleRedirect() {
-  const { isAuthenticated, isAuthLoading, user } = useAuth();
+function RoleRedirect({ patientOnly = false }) {
+  const { isAuthenticated, isAuthLoading, logout, user } = useAuth();
+
+  useEffect(() => {
+    if (patientOnly && isAuthenticated && user?.role !== "patient") {
+      logout();
+    }
+  }, [isAuthenticated, logout, patientOnly, user?.role]);
 
   if (isAuthLoading) {
     return (
@@ -118,6 +125,22 @@ function RoleRedirect() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login/ibu-hamil" replace />;
+  }
+
+  if (patientOnly && user?.role !== "patient") {
+    return (
+      <div
+        className="app font-display"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <p>Menyiapkan portal pasien...</p>
+      </div>
+    );
   }
 
   if (user?.must_reset_password) {
@@ -170,13 +193,24 @@ function LoginGuard({ portal = "general" }) {
 // ============================================
 
 function App() {
+  const isNativePatientApp = Capacitor.isNativePlatform();
+
   return (
     <Suspense fallback={<div className="app font-display" aria-busy="true" />}>
     <Routes>
       {/* === PUBLIC === */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/portal-ibu-hamil" element={<PatientPortalPage />} />
-      <Route path="/portal-nakes" element={<ClinicianPortalPage />} />
+      <Route
+        path="/"
+        element={isNativePatientApp ? <RoleRedirect patientOnly /> : <LandingPage />}
+      />
+      <Route
+        path="/portal-ibu-hamil"
+        element={isNativePatientApp ? <Navigate to="/" replace /> : <PatientPortalPage />}
+      />
+      <Route
+        path="/portal-nakes"
+        element={isNativePatientApp ? <Navigate to="/" replace /> : <ClinicianPortalPage />}
+      />
       <Route
         path="/login"
         element={<Navigate to="/login/ibu-hamil" replace />}
@@ -185,8 +219,18 @@ function App() {
         path="/login/ibu-hamil"
         element={<LoginGuard portal="patient" />}
       />
-      <Route path="/login/nakes" element={<LoginGuard portal="clinician" />} />
-      <Route path="/login/admin" element={<LoginGuard portal="admin" />} />
+      <Route
+        path="/login/nakes"
+        element={isNativePatientApp
+          ? <Navigate to="/login/ibu-hamil" replace />
+          : <LoginGuard portal="clinician" />}
+      />
+      <Route
+        path="/login/admin"
+        element={isNativePatientApp
+          ? <Navigate to="/login/ibu-hamil" replace />
+          : <LoginGuard portal="admin" />}
+      />
       <Route
         path="/ganti-password-awal"
         element={

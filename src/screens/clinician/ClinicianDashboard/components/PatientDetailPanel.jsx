@@ -5,6 +5,7 @@ import Icon from '../../../../components/Icon';
 import RiskBadge from './RiskBadge';
 import DataAvailability from './DataAvailability';
 import { formatDateTime, formatDuration } from '../../../../utils/formatters';
+import ClinicianAIAnalysisPanel from './ClinicianAIAnalysisPanel';
 
 export default function PatientDetailPanel({
   selectedPatient,
@@ -111,6 +112,8 @@ export default function PatientDetailPanel({
                 )}
               </div>
             </div>
+
+            <ClinicianAIAnalysisPanel patientId={selectedPatient.id} />
 
             <div className="detail-section">
               <h3>{t('clinician.quickActions')}</h3>

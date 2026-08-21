@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  clearTelemetryRecordsForUser,
   createTelemetryQueueScope,
   deleteTelemetryRecord,
   getNextPendingTelemetryRecord,
@@ -76,4 +77,26 @@ test('failed telemetry remains quarantined until an explicit retry', async () =>
   assert.equal((await getNextPendingTelemetryRecord(scopeKey)).record.id, recordId);
 
   await deleteTelemetryRecord(recordId);
+});
+
+test('clearing one patient queue preserves other patient records', async () => {
+  const firstScope = createTelemetryQueueScope({
+    userId: 'delete-owner',
+    sessionId: 'delete-session',
+    deviceId: 'delete-device',
+  });
+  const secondScope = createTelemetryQueueScope({
+    userId: 'preserved-owner',
+    sessionId: 'preserved-session',
+    deviceId: 'preserved-device',
+  });
+  await putTelemetryRecord(createRecord('queue-delete-owner', firstScope, 1));
+  await putTelemetryRecord(createRecord('queue-preserved-owner', secondScope, 1));
+
+  const result = await clearTelemetryRecordsForUser('delete-owner');
+
+  assert.equal(result.count, 1);
+  assert.equal((await hasTelemetryRecord('queue-delete-owner')).exists, false);
+  assert.equal((await hasTelemetryRecord('queue-preserved-owner')).exists, true);
+  await deleteTelemetryRecord('queue-preserved-owner');
 });

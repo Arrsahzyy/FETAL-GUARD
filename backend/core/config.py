@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         "http://localhost:4173",
         "http://127.0.0.1:4173",
         "http://localhost",
+        "https://localhost",
         "capacitor://localhost",
     ]
     TRUSTED_HOSTS: list[str] = ["localhost", "127.0.0.1", "testserver"]
@@ -46,7 +47,7 @@ class Settings(BaseSettings):
     PATIENT_REGISTRATION_ORGANIZATION_ID: str | None = None
     REQUIRE_POSTGRES_RLS: bool = True
     REALTIME_EVENT_RETENTION_HOURS: int = 72
-    AI_PIPELINE_MODE: Literal["disabled", "research", "shadow"] = "disabled"
+    AI_PIPELINE_MODE: Literal["disabled", "research", "shadow", "clinician"] = "disabled"
     AI_ACTIVE_MODEL_VERSION_ID: str | None = None
     AI_WINDOW_SECONDS: int = 60
     AI_WINDOW_STRIDE_SECONDS: int = 15

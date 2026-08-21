@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { t } from "../../../i18n";
 import { useI18n } from "../../../i18n/useI18n";
@@ -7,16 +7,20 @@ import { useTheme } from "../../../context/useTheme";
 import { usePatientDevice } from "../../../context/usePatientDevice";
 import FeedbackModal from "../../../components/FeedbackModal/FeedbackModal";
 import Icon from "../../../components/Icon/Icon";
+import {
+  getPatientNetworkStatus,
+  playPatientNotificationSound,
+  requestLocationPermission,
+  requestNotificationPermission,
+  triggerPatientHaptic,
+} from "../../../services/nativePatientFeatures";
+import {
+  getPatientPreferences,
+  setPatientPreferences,
+} from "../../../services/patientPreferences";
+import api, { getApiErrorMessage } from "../../../services/api";
+import { clearTelemetryRecordsForUser } from "../../../services/patientTelemetryQueue";
 import "./SettingsScreen.css";
-
-const INITIAL_SETTINGS = {
-  pushNotifications: false,
-  importantAlerts: false,
-  soundAlerts: false,
-  hapticFeedback: false,
-  uploadWifiOnly: false,
-  shareLocation: false,
-};
 
 const ToggleButton = ({ active, label, disabled = false, onClick }) => (
   <button
@@ -63,11 +67,20 @@ const SettingsScreen = () => {
   const { locale: currentLocale, changeLocale } = useI18n();
 
   const [settings, setSettings] = useState(() => ({
-    ...INITIAL_SETTINGS,
+    ...getPatientPreferences(user?.id),
     language: currentLocale,
   }));
   const [faqOpen, setFaqOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false });
+  const [isDeletingData, setIsDeletingData] = useState(false);
+
+  useEffect(() => {
+    setSettings((current) => ({
+      ...current,
+      ...getPatientPreferences(user?.id),
+      language: currentLocale,
+    }));
+  }, [currentLocale, user?.id]);
 
   const patientProfile = user?.patientProfile;
   const patientName =
@@ -105,13 +118,83 @@ const SettingsScreen = () => {
     changeLocale(lang); // Reactive: memicu re-render seluruh app
   };
 
-  const handleFeatureInDev = (featureName) => {
+  const commitPreferences = (nextPreferences) => {
+    if (!user?.id) return;
+    const persisted = setPatientPreferences(user.id, nextPreferences);
+    setSettings((current) => ({ ...current, ...persisted }));
+  };
+
+  const showCapabilityError = (messageKey) => {
     openModal({
-      title: t("patient.common.featureUnavailable"),
-      message: t("patient.settings.featureMessage", { feature: featureName }),
-      type: "info",
+      title: t("patient.settings.permissionTitle"),
+      message: t(messageKey),
+      type: "warning",
       confirmText: t("patient.common.gotIt"),
     });
+  };
+
+  const handlePreferenceToggle = async (key) => {
+    const enabled = !settings[key];
+    try {
+      if (enabled && (key === "pushNotifications" || key === "importantAlerts")) {
+        const granted = await requestNotificationPermission();
+        if (!granted) {
+          showCapabilityError("patient.settings.notificationPermissionDenied");
+          return;
+        }
+      }
+      if (enabled && key === "uploadWifiOnly") {
+        const network = await getPatientNetworkStatus();
+        if (!network.canIdentifyWifi) {
+          showCapabilityError("patient.settings.wifiDetectionUnavailable");
+          return;
+        }
+      }
+      if (enabled && key === "shareLocation") {
+        const granted = await requestLocationPermission();
+        if (!granted) {
+          showCapabilityError("patient.settings.locationPermissionDenied");
+          return;
+        }
+      }
+
+      const nextPreferences = {
+        ...settings,
+        [key]: enabled,
+        ...(key === "importantAlerts" && enabled ? { pushNotifications: true } : {}),
+        ...(key === "pushNotifications" && !enabled ? { importantAlerts: false } : {}),
+      };
+      commitPreferences(nextPreferences);
+      if (enabled && key === "soundAlerts") await playPatientNotificationSound();
+      if (enabled && key === "hapticFeedback") await triggerPatientHaptic();
+    } catch {
+      showCapabilityError("patient.settings.permissionRequestFailed");
+    }
+  };
+
+  const handleDeleteMonitoringData = async () => {
+    setIsDeletingData(true);
+    try {
+      await api.patients.deleteMonitoringData();
+      await clearTelemetryRecordsForUser(user.id);
+      openModal({
+        title: t("patient.settings.deleteSuccessTitle"),
+        message: t("patient.settings.deleteSuccessMessage"),
+        type: "success",
+        confirmText: t("patient.common.gotIt"),
+      });
+    } catch (error) {
+      openModal({
+        title: t("patient.settings.deleteFailedTitle"),
+        message: error?.response?.status === 409
+          ? t("patient.settings.deleteActiveSessionMessage")
+          : getApiErrorMessage(error),
+        type: "error",
+        confirmText: t("patient.common.gotIt"),
+      });
+    } finally {
+      setIsDeletingData(false);
+    }
   };
 
   const handleDeviceAction = async () => {
@@ -254,8 +337,8 @@ const SettingsScreen = () => {
 
           <button
             type="button"
-            className="settings-connection-card settings-connection-card--disabled"
-            disabled
+            className="settings-connection-card"
+            onClick={() => navigate("/patient/home")}
           >
             <div className="settings-connection-card__icon settings-connection-card__icon--ble">
               <Icon className="material-symbols-outlined" name="bluetooth" />
@@ -268,8 +351,13 @@ const SettingsScreen = () => {
 
           <button
             type="button"
-            className="settings-connection-card settings-connection-card--disabled"
-            disabled
+            className="settings-connection-card"
+            onClick={() => openModal({
+              title: t("patient.settings.internetTitle"),
+              message: t("patient.settings.internetStatusMessage"),
+              type: "info",
+              confirmText: t("patient.common.gotIt"),
+            })}
           >
             <div className="settings-connection-card__icon settings-connection-card__icon--mqtt">
               <Icon className="material-symbols-outlined" name="cloud" />
@@ -285,7 +373,7 @@ const SettingsScreen = () => {
           <h2 className="settings-section__title">
             {t("settings.notifications.title")}
           </h2>
-          <p className="settings-section__desc">{t("patient.settings.nativeFeaturesUnavailable")}</p>
+          <p className="settings-section__desc">{t("patient.settings.notificationFeatureDesc")}</p>
           <div className="settings-item">
             <span className="settings-item__label">
               {t("settings.notifications.push")}
@@ -293,7 +381,7 @@ const SettingsScreen = () => {
             <ToggleButton
               active={settings.pushNotifications}
               label={t("settings.notifications.push")}
-              disabled
+              onClick={() => { void handlePreferenceToggle("pushNotifications"); }}
             />
           </div>
           <div className="settings-item">
@@ -301,7 +389,7 @@ const SettingsScreen = () => {
             <ToggleButton
               active={settings.importantAlerts}
               label={t("patient.settings.importantAlerts")}
-              disabled
+              onClick={() => { void handlePreferenceToggle("importantAlerts"); }}
             />
           </div>
           <div className="settings-item">
@@ -311,7 +399,7 @@ const SettingsScreen = () => {
             <ToggleButton
               active={settings.soundAlerts}
               label={t("settings.notifications.sound")}
-              disabled
+              onClick={() => { void handlePreferenceToggle("soundAlerts"); }}
             />
           </div>
           <div className="settings-item">
@@ -319,7 +407,7 @@ const SettingsScreen = () => {
             <ToggleButton
               active={settings.hapticFeedback}
               label={t("patient.settings.haptic")}
-              disabled
+              onClick={() => { void handlePreferenceToggle("hapticFeedback"); }}
             />
           </div>
         </section>
@@ -328,7 +416,7 @@ const SettingsScreen = () => {
           <h2 className="settings-section__title">
             {t("settings.privacy.title")}
           </h2>
-          <p className="settings-section__desc">{t("patient.settings.uploadPolicyUnavailable")}</p>
+          <p className="settings-section__desc">{t("patient.settings.privacyFeatureDesc")}</p>
           <div className="settings-item">
             <div className="settings-item__content">
               <span className="settings-item__label">
@@ -341,7 +429,7 @@ const SettingsScreen = () => {
             <ToggleButton
               active={settings.uploadWifiOnly}
               label={t("settings.privacy.wifiOnly")}
-              disabled
+              onClick={() => { void handlePreferenceToggle("uploadWifiOnly"); }}
             />
           </div>
           <div className="settings-item">
@@ -356,22 +444,34 @@ const SettingsScreen = () => {
             <ToggleButton
               active={settings.shareLocation}
               label={t("settings.privacy.locationShare")}
-              disabled
+              onClick={() => { void handlePreferenceToggle("shareLocation"); }}
             />
           </div>
           <button
             type="button"
             className="settings-btn settings-btn--link"
-            onClick={() => handleFeatureInDev(t("patient.settings.features.retention"))}
+            onClick={() => openModal({
+              title: t("settings.privacy.dataRetention"),
+              message: t("patient.settings.retentionMessage"),
+              type: "info",
+              confirmText: t("patient.common.gotIt"),
+            })}
           >
             {t("settings.privacy.dataRetention")}
           </button>
           <button
             type="button"
             className="settings-btn settings-btn--link settings-btn--danger"
-            onClick={() => handleFeatureInDev(t("patient.settings.features.delete"))}
+            disabled={isDeletingData}
+            onClick={() => openModal({
+              title: t("patient.settings.deleteConfirmTitle"),
+              message: t("patient.settings.deleteConfirmMessage"),
+              type: "warning",
+              confirmText: t("patient.settings.deleteConfirmAction"),
+              onConfirm: () => { void handleDeleteMonitoringData(); },
+            })}
           >
-            {t("settings.privacy.deleteData")}
+            {isDeletingData ? t("patient.settings.deletingData") : t("settings.privacy.deleteData")}
           </button>
         </section>
 
@@ -449,14 +549,19 @@ const SettingsScreen = () => {
           <button
             type="button"
             className="settings-btn settings-btn--link"
-            onClick={() => handleFeatureInDev(t("patient.settings.features.support"))}
+            onClick={() => window.dispatchEvent(new CustomEvent("fetalguard:open-emergency"))}
           >
             {t("patient.settings.support")}
           </button>
           <button
             type="button"
             className="settings-btn settings-btn--link"
-            onClick={() => handleFeatureInDev(t("patient.settings.features.privacy"))}
+            onClick={() => openModal({
+              title: t("settings.privacyPolicy"),
+              message: t("patient.settings.privacyPolicyMessage"),
+              type: "info",
+              confirmText: t("patient.common.gotIt"),
+            })}
           >
             {t("settings.privacyPolicy")}
           </button>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import BottomNav from '../components/BottomNav/BottomNav';
 import EmergencyButton from '../components/EmergencyButton/EmergencyButton';
+import PatientNotificationBridge from '../components/PatientNotificationBridge/PatientNotificationBridge';
 import { PatientDeviceProvider } from '../context/PatientDeviceContext.jsx';
 import { PatientMonitoringProvider } from '../context/PatientMonitoringContext.jsx';
 import { usePatientDevice } from '../context/usePatientDevice';
@@ -28,9 +29,12 @@ const PatientLayoutContent = () => {
                 <Outlet />
             </main>
 
+            <PatientNotificationBridge />
+
             <EmergencyButton
                 compact={location.pathname !== '/patient/home'}
                 trustedContactPhone={trustedContactPhone}
+                patientUserId={user?.id}
             />
 
             {/* Bottom Navigation — driven by URL */}

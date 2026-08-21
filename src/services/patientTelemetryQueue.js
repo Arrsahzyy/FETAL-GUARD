@@ -254,6 +254,43 @@ export const deleteTelemetryRecord = async (recordId) => {
   return { durable: true };
 };
 
+export const clearTelemetryRecordsForUser = async (userId) => {
+  const userScopePrefix = `${encodeURIComponent(String(userId || '').trim())}|`;
+  if (userScopePrefix === '|') throw new Error('telemetry_queue_user_required');
+  const database = await openDatabase();
+  if (!database) {
+    let count = 0;
+    for (const [recordId, record] of memoryQueue.entries()) {
+      if (String(record.scopeKey || '').startsWith(userScopePrefix)) {
+        memoryQueue.delete(recordId);
+        count += 1;
+      }
+    }
+    return { count, durable: false };
+  }
+
+  const count = await new Promise((resolve, reject) => {
+    const transaction = database.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.openCursor();
+    let deleted = 0;
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      if (String(cursor.value?.scopeKey || '').startsWith(userScopePrefix)) {
+        cursor.delete();
+        deleted += 1;
+      }
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error || new Error('telemetry_queue_read_failed'));
+    transaction.oncomplete = () => resolve(deleted);
+    transaction.onabort = () => reject(transaction.error || new Error('telemetry_queue_transaction_aborted'));
+    transaction.onerror = () => reject(transaction.error || new Error('telemetry_queue_transaction_failed'));
+  });
+  return { count, durable: true };
+};
+
 export const requeueFailedTelemetryRecords = async (scopeKey) => {
   const { records, durable } = await listTelemetryRecords(scopeKey);
   const failedRecords = records.filter((record) => record.status === 'failed');

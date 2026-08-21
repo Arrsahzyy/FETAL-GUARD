@@ -2,6 +2,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const devServerUrl = process.env.CAPACITOR_DEV_SERVER_URL;
 const isNativeDevServerEnabled = Boolean(devServerUrl);
+const isLocalCleartextApiEnabled =
+  process.env.CAPACITOR_ALLOW_LOCAL_CLEARTEXT_API === 'true';
 
 const config: CapacitorConfig = {
   appId: 'com.fetalguard.app',
@@ -36,9 +38,9 @@ const config: CapacitorConfig = {
 
   android: {
     backgroundColor: '#F6F8FB',
-    allowMixedContent: isNativeDevServerEnabled,
+    allowMixedContent: isNativeDevServerEnabled || isLocalCleartextApiEnabled,
     captureInput: true,
-    webContentsDebuggingEnabled: isNativeDevServerEnabled,
+    webContentsDebuggingEnabled: isNativeDevServerEnabled || isLocalCleartextApiEnabled,
   },
 };
 

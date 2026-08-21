@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { createWebBluetoothClient } from '../services/webBluetoothClient.js';
 
 const DEFAULT_CONFIG = {
   deviceNamePrefix: 'FETAL-GUARD',
@@ -11,6 +13,14 @@ const DEFAULT_CONFIG = {
 
 const MAX_FRAME_BYTES = 64 * 1024;
 const MAX_TRANSPORT_PACKET_QUEUE = 512;
+
+export const createGatewayTimeSyncValue = (timestampMs = Date.now()) => {
+  if (!Number.isSafeInteger(timestampMs) || timestampMs < 0) {
+    throw new Error('invalid_time_sync');
+  }
+  const bytes = new TextEncoder().encode(`T${timestampMs}`);
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+};
 
 const asFiniteNumber = (value, field, minimum, maximum) => {
   if (value === undefined || value === null) return null;
@@ -373,6 +383,12 @@ export function useBluetooth(config = {}) {
           cfg.characteristicUUID,
           notificationHandler,
         );
+        await BleClient.write(
+          deviceId,
+          cfg.serviceUUID,
+          cfg.characteristicUUID,
+          createGatewayTimeSyncValue(),
+        );
         if (!isCurrentAttempt() || disconnectedDuringSetup) {
           throw new Error('connect_superseded');
         }
@@ -428,14 +444,21 @@ export function useBluetooth(config = {}) {
     mountedRef.current = true;
     const initialize = async () => {
       try {
-        const { BleClient } = await import('@capacitor-community/bluetooth-le');
-        bleClientRef.current = BleClient;
-        await BleClient.initialize({ androidNeverForLocation: false });
+        if (Capacitor.isNativePlatform()) {
+          const { BleClient } = await import('@capacitor-community/bluetooth-le');
+          await BleClient.initialize({ androidNeverForLocation: false });
+          bleClientRef.current = BleClient;
+        } else {
+          const webClient = createWebBluetoothClient();
+          await webClient.initialize();
+          bleClientRef.current = webClient;
+        }
         if (mountedRef.current) {
           setIsAvailable(true);
           setConnectionState('idle');
         }
       } catch {
+        bleClientRef.current = null;
         if (mountedRef.current) {
           setIsAvailable(false);
           setConnectionState('unavailable');

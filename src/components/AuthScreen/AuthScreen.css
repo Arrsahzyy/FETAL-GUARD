@@ -25,6 +25,19 @@
     var(--color-bg-primary);
 }
 
+.auth-screen--native {
+  align-items: flex-start;
+  padding:
+    max(var(--spacing-5), env(safe-area-inset-top))
+    max(var(--spacing-4), env(safe-area-inset-right))
+    max(var(--spacing-5), env(safe-area-inset-bottom))
+    max(var(--spacing-4), env(safe-area-inset-left));
+}
+
+.auth-screen--native .auth-panel {
+  margin: auto 0;
+}
+
 .auth-panel {
   width: min(100%, 440px);
   background: var(--color-bg-secondary);
@@ -137,6 +150,77 @@
 .auth-panel__portal-option--active {
   color: var(--color-primary);
   background: rgba(74, 163, 255, 0.1);
+}
+
+.auth-panel__local-test-note {
+  margin: 0 0 var(--spacing-3);
+  padding: var(--spacing-3);
+  color: var(--color-text-secondary);
+  background: rgba(74, 163, 255, 0.08);
+  border: 1px solid rgba(74, 163, 255, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.auth-panel__local-test-note > p {
+  margin: 0;
+}
+
+.auth-panel__local-api-settings {
+  margin-top: var(--spacing-2);
+}
+
+.auth-panel__local-api-settings summary {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.auth-panel__local-api-settings form {
+  display: grid;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.auth-panel__local-api-settings label {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.auth-panel__local-api-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-2);
+}
+
+.auth-panel__local-api-row input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.auth-panel__local-api-row button {
+  min-height: 42px;
+  padding: 0 var(--spacing-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: white;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.auth-panel__local-api-row input:focus-visible,
+.auth-panel__local-api-row button:focus-visible {
+  outline: 3px solid rgba(74, 163, 255, 0.45);
+  outline-offset: 2px;
 }
 
 .auth-screen--patient .auth-panel__portal-option--active {

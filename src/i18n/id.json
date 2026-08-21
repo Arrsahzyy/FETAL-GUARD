@@ -8,10 +8,17 @@
     "back": "Kembali",
     "apiTimeout": "Koneksi API melewati batas waktu.",
     "apiUnavailable": "Tidak dapat terhubung ke layanan FETAL-GUARD.",
+    "apiUnavailableLocal": "Tidak dapat menghubungi backend lokal di {address}. Pastikan backend laptop aktif dan alamatnya benar.",
     "apiError": "Terjadi kesalahan saat menghubungi layanan FETAL-GUARD.",
     "apiMobileConfigMissing": "Alamat API production belum dikonfigurasi untuk aplikasi mobile.",
     "apiHttpsRequired": "Alamat API production wajib menggunakan HTTPS.",
-    "sessionExpired": "Sesi masuk berakhir. Silakan masuk kembali."
+    "sessionExpired": "Sesi masuk berakhir. Silakan masuk kembali.",
+    "localApiHint": "Mode uji lokal: pastikan layanan FETAL-GUARD di laptop aktif dan dapat dijangkau oleh HP.",
+    "localApiSettings": "Pengaturan koneksi uji",
+    "localApiAddress": "Alamat backend laptop",
+    "localApiSaved": "Alamat tersimpan. Silakan coba daftar atau masuk kembali.",
+    "localApiInvalid": "Gunakan alamat HTTP dengan IP lokal, misalnya http://192.168.137.1:3020.",
+    "save": "Simpan"
   },
   "patient": {
     "nav": {
@@ -47,7 +54,15 @@
       "openTopic": "Buka",
       "hideDetails": "Tutup",
       "readMore": "Baca ringkas",
-      "viewAll": "Lihat semua edukasi"
+      "viewAll": "Lihat semua edukasi",
+      "categoryAll": "Semua",
+      "categoryCare": "Perawatan rutin",
+      "categoryNutrition": "Nutrisi",
+      "categoryActivity": "Aktivitas aman",
+      "categoryMonitoring": "Pemantauan bayi",
+      "categorySafety": "Tanda bahaya",
+      "filterAria": "Saring topik edukasi",
+      "noTopics": "Topik ini sedang tampil sebagai edukasi minggu ini. Pilih kategori lain untuk membaca topik tambahan."
     },
     "common": {
       "backHome": "Kembali ke Beranda",
@@ -73,7 +88,17 @@
       "continue": "Lanjutkan ke layanan darurat",
       "finalTitle": "Konfirmasi panggilan",
       "finalMessage": "Tekan tombol untuk menghubungi layanan darurat ({phone}).",
-      "callEmergency": "PANGGIL LAYANAN DARURAT"
+      "callEmergency": "PANGGIL LAYANAN DARURAT",
+      "shareLocation": "Bagikan lokasi saya",
+      "locationSharing": "Menyiapkan lokasi...",
+      "locationShareTitle": "Lokasi bantuan FETAL-GUARD",
+      "locationShareText": "Saya membagikan lokasi ini karena sedang membutuhkan bantuan.",
+      "locationShareStatus": {
+        "shared": "Lokasi dibagikan melalui aplikasi yang Anda pilih.",
+        "copied": "Tautan lokasi disalin. Kirimkan kepada orang yang Anda percaya.",
+        "ready": "Tautan lokasi siap dibagikan.",
+        "error": "Lokasi tidak dapat dibagikan. Periksa izin lokasi dan coba kembali."
+      }
     },
     "home": {
       "userFallback": "Pengguna",
@@ -137,6 +162,18 @@
       "pairStep3": "Mulai sesi hanya saat status perangkat sudah terhubung.",
       "scanLoading": "Memindai perangkat...",
       "scanButton": "Pindai perangkat",
+      "scanAgain": "Pindai ulang",
+      "devicePickerHint": "Hasil pemindaian akan terbuka sebagai daftar perangkat yang dapat dipilih.",
+      "devicePickerEyebrow": "Bluetooth FETAL-GUARD",
+      "devicePickerTitle": "Pilih perangkat sabuk",
+      "devicePickerDescription": "Hanya perangkat aktif yang ditugaskan ke akun Anda yang dapat dihubungkan.",
+      "devicePickerClose": "Tutup daftar perangkat",
+      "devicePickerFound": "{count} perangkat ditemukan",
+      "devicePickerEmptyTitle": "Belum ada perangkat terdeteksi",
+      "deviceSignal": "Sinyal {value} dBm",
+      "deviceRegisteredForYou": "Terdaftar untuk akun Anda",
+      "connectDevice": "Hubungkan",
+      "deviceConnecting": "Menghubungkan...",
       "deviceNear": "Jarak perangkat terdeteksi baik",
       "deviceReady": "Siap dipasangkan",
       "deviceEmpty": "Belum ada perangkat ditemukan. Pastikan sabuk aktif sebelum memindai.",
@@ -163,6 +200,45 @@
       "startMonitoring": "Mulai pemantauan",
       "pairDeviceFirst": "Pasangkan perangkat dulu",
       "registerDeviceFirst": "Cek perangkat terdaftar",
+      "analysis": {
+        "eyebrow": "Fitur utama FETAL-GUARD",
+        "title": "Analisis hybrid deep learning",
+        "subtitle": "Ringkasan aturan keselamatan dan CNN-LSTM. Hasil hanya ditampilkan setelah quality gate dan peninjauan yang dipersyaratkan.",
+        "openMonitoring": "Buka pemantauan",
+        "loadingTitle": "Memuat ringkasan skrining",
+        "loadingDesc": "Mengambil hasil analisis dan sesi pemantauan terbaru dari sistem.",
+        "loadErrorTitle": "Ringkasan belum dapat dimuat",
+        "loadErrorDesc": "Periksa koneksi lalu coba lagi. Belum tersedia tidak berarti kondisi telah dinilai.",
+        "resultLabel": "Hasil analisis hybrid terbaru",
+        "resultAvailableDesc": "Status berikut berasal dari hasil yang diterbitkan sistem untuk pasien, bukan dari data contoh di beranda.",
+        "pendingTitle": "Belum ada hasil yang dapat ditampilkan",
+        "pendingDesc": "Belum ada hasil yang lolos quality gate dan alur peninjauan untuk pasien. Kondisi belum dapat disimpulkan dari keadaan ini.",
+        "recommendationLabel": "Rekomendasi tindak lanjut",
+        "recommendationPending": "Menunggu hasil yang memenuhi syarat",
+        "recommendationPendingDesc": "Lanjutkan pemeriksaan rutin sesuai arahan nakes. Mulai sesi dengan sabuk terhubung bila Anda dijadwalkan melakukan pemantauan.",
+        "recommendationUnavailable": "Rekomendasi baru belum dapat dimuat",
+        "recommendationUnavailableDesc": "Jangan mengambil kesimpulan dari status koneksi. Gunakan arahan nakes yang sudah diberikan dan coba muat ulang saat koneksi membaik.",
+        "monitoringLabel": "Hasil pemantauan sumber",
+        "noSession": "Belum ada sesi tersimpan",
+        "sourceSessionUnavailable": "Sesi sumber belum dapat dicocokkan",
+        "openActiveSession": "Lihat sesi aktif",
+        "openHistory": "Lihat riwayat",
+        "sessionStatus": {
+          "active": "Sesi sedang berlangsung",
+          "completed": "Sesi terakhir selesai",
+          "error": "Sesi berakhir dengan kendala"
+        },
+        "contractionIndicator": "Indikator tekanan FSR",
+        "contraction": {
+          "unknown": "Belum tersedia",
+          "none": "Belum terindikasi",
+          "mild": "Indikasi ringan",
+          "regular": "Pola berulang terindikasi",
+          "strong": "Tekanan lebih kuat terindikasi"
+        },
+        "monitoringNote": "DJJ, HR ibu, kualitas sinyal, dan tekanan FSR adalah ringkasan pemantauan perangkat. Nilai ini bukan diagnosis atau pengganti pemeriksaan nakes.",
+        "refreshWarning": "Data yang tersimpan tetap ditampilkan, tetapi pembaruan terbaru belum dapat diambil."
+      },
       "dailyTips": [
         {
           "icon": "water_drop",
@@ -280,6 +356,7 @@
       "persistenceSynced": "Data sudah tersimpan di sistem",
       "persistenceRetrying": "Penyimpanan sedang dicoba ulang",
       "persistenceOffline": "Offline; sesi dipertahankan dan data belum dikirim",
+      "persistenceWifiRequired": "Menunggu koneksi Wi-Fi sesuai pengaturan unggah",
       "persistenceRejected": "Sebagian data ditolak karena kontrak tidak valid",
       "persistenceQueueFull": "Antrean data penuh; sesi perlu diperiksa",
       "pendingPackets": "{count} paket menunggu penyimpanan",
@@ -345,7 +422,54 @@
       "contractionLegend": "Pembacaan FSR 0-100%",
       "eventLegend": "Peristiwa hanya ditampilkan setelah tersedia dari pemrosesan sistem yang telah divalidasi.",
       "signalAlertTitle": "Kualitas sinyal perlu diperbaiki",
-      "signalAlertAction": "Ulangi posisi sabuk"
+      "signalAlertAction": "Ulangi posisi sabuk",
+      "ai": {
+        "eyebrow": "Analisis hybrid",
+        "title": "Hasil skrining awal",
+        "subtitle": "Ringkasan hasil pemrosesan CNN-LSTM dan pemeriksaan keselamatan sistem untuk sesi ini.",
+        "sessionRequiredTitle": "Mulai sesi untuk mendapatkan hasil",
+        "sessionRequiredDesc": "Analisis hanya berjalan dari data sesi yang tersimpan dan memenuhi kontrak perangkat.",
+        "loadingTitle": "Memuat hasil analisis",
+        "loadingDesc": "Data sesi tetap tersimpan selama hasil disiapkan.",
+        "loadErrorTitle": "Hasil belum dapat dimuat",
+        "loadErrorDesc": "Data sesi tetap aman. Periksa koneksi lalu coba lagi.",
+        "retry": "Coba lagi",
+        "pendingTitle": "Menunggu hasil yang dapat ditampilkan",
+        "pendingActiveDesc": "Sistem sedang mengumpulkan dan memproses data. Hasil hanya muncul setelah quality gate dan peninjauan yang dipersyaratkan selesai.",
+        "pendingCompletedDesc": "Belum ada hasil yang dapat ditampilkan untuk sesi ini. Belum tersedia tidak berarti kondisi telah dinilai.",
+        "simulatedNotice": "Hasil ini berasal dari data uji dan tidak digunakan untuk menilai kondisi kehamilan.",
+        "latestLabel": "Hasil terbaru",
+        "fhr": "Estimasi DJJ/FHR",
+        "maternalHr": "HR ibu",
+        "signalQuality": "Kualitas sinyal",
+        "reviewed": "Sudah melalui tinjauan nakes",
+        "timelineTitle": "Rentetan hasil sesi",
+        "timelineCount": "{count} window analisis",
+        "disclaimer": "Hasil ini membantu skrining awal dan tidak menggantikan pemeriksaan dokter, bidan, atau fasilitas kesehatan.",
+        "quality": {
+          "usable": "Data memadai",
+          "limited": "Data terbatas",
+          "unusable": "Data belum memadai"
+        },
+        "status": {
+          "routine_monitoring": {
+            "label": "Pemantauan rutin",
+            "description": "Hasil skrining awal terbaru dapat dipantau sesuai sesi. Tetap ikuti jadwal pemeriksaan dan arahan tenaga kesehatan."
+          },
+          "needs_observation": {
+            "label": "Perlu observasi",
+            "description": "Hasil skrining awal perlu dicermati. Ikuti arahan nakes dan ulangi pemantauan bila diminta."
+          },
+          "review_with_clinician": {
+            "label": "Perlu ditinjau bersama nakes",
+            "description": "Hubungi tenaga kesehatan atau fasilitas kesehatan melalui jalur yang sudah diberikan untuk arahan lanjutan."
+          },
+          "insufficient_signal": {
+            "label": "Sinyal belum memadai",
+            "description": "Sistem belum memiliki data yang cukup. Periksa posisi sabuk dan ulangi pemantauan bila memungkinkan."
+          }
+        }
+      }
     },
     "history": {
       "loadError": "Gagal mengambil data riwayat sesi.",
@@ -355,7 +479,15 @@
       "pdfSuccessMessage": "File \"{filename}\" tersimpan. Laporan berisi {count} sesi dengan 4 tabel data lengkap.",
       "pdfFailTitle": "Gagal Ekspor",
       "pdfFailMessage": "Terjadi kesalahan saat membuat PDF. Coba lagi.",
-      "shareUnavailableMessage": "Fitur berbagi langsung ke klinik belum tersedia.",
+      "shareUnavailableMessage": "Perangkat ini belum menyediakan menu berbagi.",
+      "shareTitle": "Ringkasan riwayat FETAL-GUARD",
+      "shareText": "Saya ingin membagikan ringkasan riwayat FETAL-GUARD: {count} sesi selesai, sesi terbaru {date}. Data ini merupakan skrining awal dan tidak menggantikan pemeriksaan tenaga kesehatan. PDF lengkap dapat dibuat dari halaman Riwayat.",
+      "shareEmptyTitle": "Belum ada sesi untuk dibagikan",
+      "shareEmptyMessage": "Selesaikan satu sesi pemantauan terlebih dahulu sebelum membagikan ringkasan.",
+      "shareCopiedTitle": "Ringkasan disalin",
+      "shareCopiedMessage": "Tempelkan ringkasan pada saluran komunikasi klinik yang resmi.",
+      "shareFailedTitle": "Ringkasan belum dapat dibagikan",
+      "shareFailedMessage": "Menu berbagi dan clipboard tidak tersedia pada perangkat ini.",
       "emptyTitle": "Belum ada riwayat pemantauan",
       "emptyDesc": "Riwayat akan tampil setelah sesi pemantauan tersimpan dari perangkat FETAL-GUARD.",
       "startMonitoring": "Mulai pemantauan",
@@ -411,7 +543,8 @@
       "safetyNote": "FETAL-GUARD membantu pemantauan awal dan tidak menggantikan pemeriksaan dokter, bidan, atau fasilitas kesehatan.",
       "riskHigh": "Segera hubungi nakes",
       "riskMedium": "Perlu cek",
-      "riskLow": "Pemantauan rutin"
+      "riskLow": "Pemantauan rutin",
+      "openAppForDetails": "Buka aplikasi untuk melihat rincian pemantauan."
     },
     "settings": {
       "profileFallback": "Profil pasien",
@@ -442,10 +575,28 @@
       "internetDesc": "Data sesi dapat dikirim saat koneksi internet tersedia.",
       "importantAlerts": "Peringatan penting",
       "haptic": "Umpan Balik Getar",
-      "nativeFeaturesUnavailable": "Notifikasi native, suara, dan getar belum diaktifkan. Pilihan ini dikunci agar tidak memberi kesan perlindungan yang belum berjalan.",
-      "uploadPolicyUnavailable": "Kebijakan unggah berbasis jaringan dan berbagi lokasi belum diaktifkan. Aplikasi tidak mengakses lokasi pasien.",
+      "nativeFeaturesUnavailable": "Notifikasi perangkat aktif saat aplikasi menerima alert dari sistem. Notifikasi ini tidak menggantikan pemeriksaan atau bantuan darurat.",
+      "uploadPolicyUnavailable": "Kebijakan jaringan diterapkan pada antrean data. Lokasi hanya dibaca setelah Anda memilih Bagikan lokasi pada menu bantuan.",
+      "notificationFeatureDesc": "Notifikasi perangkat dikirim saat aplikasi menerima alert dari sistem. Jangan menunggu notifikasi untuk mencari bantuan.",
+      "privacyFeatureDesc": "Atur jaringan unggah dan izin berbagi lokasi. Aplikasi tidak melacak lokasi di latar belakang.",
+      "permissionTitle": "Izin perangkat diperlukan",
+      "notificationPermissionDenied": "Notifikasi belum dapat diaktifkan karena izin perangkat ditolak. Anda dapat mengubah izin melalui pengaturan sistem.",
+      "locationPermissionDenied": "Berbagi lokasi belum dapat diaktifkan karena izin lokasi ditolak.",
+      "permissionRequestFailed": "Pengaturan tidak dapat diaktifkan pada perangkat ini. Coba kembali atau periksa pengaturan sistem.",
+      "wifiDetectionUnavailable": "Browser ini tidak dapat membedakan Wi-Fi dan data seluler dengan aman. Gunakan aplikasi Android untuk kebijakan Wi-Fi saja.",
+      "internetStatusMessage": "Data sesi memakai internet HP dan disimpan dalam antrean saat koneksi belum tersedia. Pilihan Wi-Fi saja dapat diatur pada bagian Privasi & Data.",
       "wifiDesc": "Hanya unggah data saat tersambung Wi-Fi.",
-      "locationDesc": "Izinkan berbagi lokasi hanya saat bantuan dibutuhkan.",
+      "locationDesc": "Tampilkan aksi berbagi lokasi pada menu bantuan. Lokasi baru dibaca saat aksi itu ditekan.",
+      "retentionMessage": "Batas kebijakan produk adalah 90 hari. Pada deployment saat ini, penghapusan otomatis terjadwal belum dapat dijamin; Anda dapat menghapus data pemantauan secara mandiri di bawah ini. Profil akun, riwayat penugasan perangkat, dan audit akses disimpan terpisah untuk keamanan.",
+      "deleteConfirmTitle": "Hapus data pemantauan?",
+      "deleteConfirmMessage": "Sesi aktif harus dihentikan terlebih dahulu. Sesi selesai, data sensor, hasil analisis, dan alert akan dihapus permanen. Profil akun serta riwayat keamanan tidak ikut dihapus.",
+      "deleteConfirmAction": "Hapus permanen",
+      "deletingData": "Menghapus data...",
+      "deleteSuccessTitle": "Data pemantauan dihapus",
+      "deleteSuccessMessage": "Data pemantauan tersimpan dan antrean lokal akun ini telah dibersihkan.",
+      "deleteFailedTitle": "Data belum dapat dihapus",
+      "deleteActiveSessionMessage": "Hentikan dan simpan sesi pemantauan yang sedang aktif sebelum menghapus data.",
+      "privacyPolicyMessage": "FETAL-GUARD hanya menggunakan data profil dan pemantauan untuk mendukung skrining awal. Lokasi tidak dilacak; lokasi hanya dibaca saat Anda memilih berbagi pada menu bantuan. Data tidak boleh dianggap sebagai diagnosis.",
       "appearance": "Tampilan",
       "darkMode": "Mode Gelap",
       "userGuide": "Panduan Pengguna",
@@ -725,7 +876,7 @@
     },
     "notifications": {
       "title": "Notifikasi",
-      "push": "Notifikasi Push",
+      "push": "Notifikasi Perangkat",
       "critical": "Peringatan Penting",
       "sound": "Suara Notifikasi",
       "batteryThreshold": "Ambang Baterai Rendah"
@@ -748,8 +899,8 @@
       "wifiOnly": "Unggah hanya via Wi-Fi",
       "locationShare": "Bagikan Lokasi saat Butuh Bantuan",
       "autoEscalation": "Bantuan Otomatis ke Klinik",
-      "dataRetention": "Penyimpanan Data: 90 Hari",
-      "deleteData": "Hapus Semua Data Saya"
+      "dataRetention": "Target Penyimpanan Data: 90 Hari",
+      "deleteData": "Hapus Data Pemantauan Saya"
     },
     "privacyPolicy": "Kebijakan Privasi",
     "dataRetention": "Penyimpanan Data",
@@ -854,6 +1005,23 @@
     "sessionNumber": "Sesi {number}",
     "duration": "Durasi",
     "noMonitoringSession": "Belum ada sesi pemantauan.",
+    "aiTimelineTitle": "Rentetan Analisis Hybrid",
+    "aiTimelineDesc": "Window hasil CNN-LSTM yang sudah lolos gate untuk supervisi dan tindak lanjut.",
+    "aiResultCount": "{count} hasil",
+    "aiLoading": "Memuat hasil analisis...",
+    "aiLoadError": "Hasil analisis belum dapat dimuat.",
+    "aiEmpty": "Belum ada hasil analisis yang dapat ditinjau untuk pasien ini.",
+    "aiUncertainty": "Ketidakpastian",
+    "aiReviewActions": "Tindakan tinjauan hasil analisis",
+    "aiReviewSaving": "Menyimpan...",
+    "aiReviewError": "Tinjauan belum tersimpan. Muat ulang lalu coba lagi.",
+    "aiVisibleToPatient": "Sudah tersedia pada aplikasi pasien",
+    "aiAwaitingPatientPublication": "Menunggu publikasi aman ke aplikasi pasien",
+    "aiReview": {
+      "confirmed": "Setujui untuk dibagikan",
+      "needs_followup": "Bagikan dan tindak lanjuti",
+      "dismissed": "Jangan gunakan hasil"
+    },
     "quickActions": "Aksi Cepat",
     "contact": "Hubungi",
     "viewSession": "Lihat Sesi",

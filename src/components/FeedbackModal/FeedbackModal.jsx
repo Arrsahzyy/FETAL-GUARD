@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { t } from '../../i18n';
 import Icon from '../Icon/Icon';
 import './FeedbackModal.css';
 
@@ -79,7 +80,7 @@ const FeedbackModal = ({ isOpen, onClose, title, message, type = 'info', confirm
                     {onConfirm ? (
                         <>
                             <button type="button" className="feedback-modal-btn feedback-modal-btn--cancel" onClick={onClose}>
-                                Batal
+                                {t('common.cancel')}
                             </button>
                             <button
                                 ref={primaryButtonRef}

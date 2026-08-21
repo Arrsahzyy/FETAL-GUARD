@@ -2,7 +2,7 @@
 
 ## Status dan tujuan
 
-Pipeline AI adalah sistem pendukung skrining awal, bukan sistem diagnosis. Implementasi saat ini menyediakan fondasi engineering dan berjalan `fail-closed`: inference sinkron publik tetap nonaktif, job baru hanya dibuat jika pipeline diaktifkan eksplisit, dan hasil worker selalu disimpan sebagai `shadow`.
+Pipeline AI adalah sistem pendukung skrining awal, bukan sistem diagnosis. Implementasi saat ini menyediakan fondasi engineering dan berjalan `fail-closed`: inference sinkron publik tetap nonaktif dan job baru hanya dibuat jika pipeline diaktifkan eksplisit. Mode `research`/`shadow` menyimpan hasil sebagai `shadow`; mode `clinician` hanya menerima model `clinical_validated` dan membuat hasil tersedia lebih dulu untuk tinjauan nakes. Hasil baru masuk feed pasien setelah tinjauan non-dismissed dipromosikan oleh worker terisolasi.
 
 ## Alur data
 
@@ -16,8 +16,10 @@ ESP32 / gateway
 -> preprocessing + validity mask + quality gate
 -> CNN per modalitas -> temporal pooling -> LSTM
 -> safety layer
--> shadow result
+-> shadow result atau clinician result sesuai deployment gate
 -> validasi dan controlled promotion
+-> tinjauan nakes
+-> worker publication gate
 -> API pasien/nakes sesuai RBAC + audit + realtime event
 ```
 
@@ -63,7 +65,7 @@ Setiap artefak memiliki version, SHA-256, input schema, preprocessing version, v
 | clinical_validated | ya | ya | ya |
 | retired | tidak | tidak | tidak |
 
-Training selalu menghasilkan status `experimental`. Perubahan status memerlukan proses validasi dan approval di luar training script. Model tervalidasi klinis dapat dipromosikan ke visibility nakes; visibility pasien juga mensyaratkan review nakes yang tidak berstatus `dismissed`.
+Training selalu menghasilkan status `experimental`. Perubahan status memerlukan proses validasi dan approval di luar training script. Model tervalidasi klinis pada slot `clinician` dapat menghasilkan visibility nakes. Visibility pasien mensyaratkan review nakes `confirmed` atau `needs_followup`, lalu `run_ai_publication_worker.py` mempromosikan hasil menggunakan database role worker. Jika review kemudian berubah menjadi `dismissed`, worker mencabut kembali visibility pasien. API nakes hanya menulis review dan tidak memiliki privilege untuk mengubah hasil AI.
 
 ## Isolasi dan keamanan
 
@@ -73,4 +75,4 @@ Pada PostgreSQL, RLS menjadi lapisan tambahan. Mutasi job/result hanya diterima 
 
 ## Batas implementasi saat ini
 
-Fondasi belum berarti sistem siap klinis. Masih diperlukan adapter payload hardware v2, worker inference end-to-end, artefak nyata, validasi analitik/klinis, monitoring drift, dan pengujian kegagalan/load. Sampai seluruh gate tersebut terpenuhi, dashboard harus mempertahankan no-data state dan tidak menampilkan hasil AI seolah-olah berasal dari perangkat nyata.
+Fondasi belum berarti sistem siap klinis. Masih diperlukan adapter payload hardware v2, worker inference end-to-end, artefak nyata, validasi analitik/klinis, monitoring drift, dan pengujian kegagalan/load. Publication worker yang tersedia hanya menangani promosi hasil yang sudah ada; worker tersebut tidak menggantikan inference worker. Sampai seluruh gate terpenuhi, aplikasi pasien dan dashboard harus mempertahankan no-data state dan tidak menampilkan hasil AI seolah-olah berasal dari perangkat nyata.

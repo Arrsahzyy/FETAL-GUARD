@@ -1,18 +1,36 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 import { t } from '../i18n';
 import { authSessionEpoch } from './authSessionEpoch.js';
+import {
+  evaluateApiRuntimePolicy,
+  normalizePrivateNetworkApiBaseUrl,
+} from './apiRuntimeConfig.js';
 
 const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim();
-const isNativeRuntime = typeof window !== 'undefined'
-  && window.location.protocol === 'capacitor:';
-const hasMissingNativeApiConfig = import.meta.env.PROD
-  && isNativeRuntime
-  && !configuredApiBaseUrl;
-const hasUnsafeProductionApiConfig = import.meta.env.PROD
-  && configuredApiBaseUrl.startsWith('http://')
-  && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(configuredApiBaseUrl);
-const API_BASE_URL = configuredApiBaseUrl
+const isNativeRuntime = Capacitor.isNativePlatform();
+const isLocalAndroidDebugRuntime = isNativeRuntime
+  && import.meta.env.MODE === 'android-local'
+  && import.meta.env.VITE_ALLOW_INSECURE_LOCAL_API === 'true';
+const LOCAL_ANDROID_API_STORAGE_KEY = 'fetal_guard_local_android_api_base_url';
+const storedLocalAndroidApiBaseUrl = isLocalAndroidDebugRuntime && typeof window !== 'undefined'
+  ? normalizePrivateNetworkApiBaseUrl(
+    window.localStorage.getItem(LOCAL_ANDROID_API_STORAGE_KEY),
+  )
+  : null;
+let API_BASE_URL = storedLocalAndroidApiBaseUrl
+  || configuredApiBaseUrl
   || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
+const {
+  hasMissingNativeApiConfig,
+  hasUnsafeProductionApiConfig,
+} = evaluateApiRuntimePolicy({
+  configuredApiBaseUrl: API_BASE_URL,
+  isNativeRuntime,
+  isProduction: import.meta.env.PROD,
+  mode: import.meta.env.MODE,
+  allowInsecureLocalApi: import.meta.env.VITE_ALLOW_INSECURE_LOCAL_API === 'true',
+});
 const AUTH_TOKEN_KEY = 'fetal_guard_access_token';
 const AUTH_REFRESH_TOKEN_KEY = 'fetal_guard_refresh_token';
 const AUTH_USER_KEY = 'fetal_guard_user';
@@ -53,6 +71,20 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export function setLocalAndroidApiBaseUrl(value) {
+  if (!isLocalAndroidDebugRuntime || typeof window === 'undefined') {
+    throw new Error('Local Android API override is unavailable in this build');
+  }
+  const normalizedValue = normalizePrivateNetworkApiBaseUrl(value);
+  if (!normalizedValue) {
+    throw new TypeError('Local Android API must be a private HTTP origin');
+  }
+  window.localStorage.setItem(LOCAL_ANDROID_API_STORAGE_KEY, normalizedValue);
+  API_BASE_URL = normalizedValue;
+  apiClient.defaults.baseURL = normalizedValue;
+  return normalizedValue;
+}
 
 export function getStoredToken() {
   return getAuthStorage()?.getItem(AUTH_TOKEN_KEY) || null;
@@ -288,7 +320,9 @@ export function getApiErrorMessage(error) {
   }
 
   if (!error?.response) {
-    return t('common.apiUnavailable');
+    return isLocalAndroidDebugRuntime
+      ? t('common.apiUnavailableLocal', { address: API_BASE_URL })
+      : t('common.apiUnavailable');
   }
 
   return t('common.apiError');
@@ -487,6 +521,11 @@ const patients = {
       signal,
       params: { limit, offset },
     });
+    return response.data;
+  },
+
+  async deleteMonitoringData() {
+    const response = await apiClient.delete('/patients/me/monitoring-data');
     return response.data;
   },
 

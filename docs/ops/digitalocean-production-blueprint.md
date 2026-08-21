@@ -63,8 +63,8 @@ Backend:
 | `BACKEND_CORS_ORIGINS` | `["https://app.fetalguard.id","https://staging-app.fetalguard.id"]` | Format JSON list |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Bisa disesuaikan |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `14` | Sesuai policy session |
-| `AI_PIPELINE_MODE` | `disabled` | Pertahankan disabled sampai model registry dan worker siap |
-| `AI_ACTIVE_MODEL_VERSION_ID` | UUID model aktif | Wajib untuk mode research/shadow |
+| `AI_PIPELINE_MODE` | `disabled` | Gunakan `clinician` hanya setelah worker siap dan model clinical_validated aktif |
+| `AI_ACTIVE_MODEL_VERSION_ID` | UUID model aktif | Wajib untuk mode aktif research/shadow/clinician |
 
 Frontend:
 
@@ -99,6 +99,14 @@ Migration harus dijalankan oleh owner role yang tidak dipakai aplikasi. Web API 
 Role API hanya memerlukan `SELECT, INSERT` pada `ai_inference_jobs`, `SELECT` pada `ai_analysis_results`/`ai_model_versions`, serta `SELECT, INSERT, UPDATE` pada `ai_analysis_reviews`. Role API tidak boleh mendapat `UPDATE` job atau `INSERT/UPDATE` result; readiness akan gagal jika privilege berlebih itu ditemukan.
 
 Worker harus menggunakan database role bernama tepat `fetal_guard_ai_worker`. Berikan hanya privilege yang dibutuhkan: `SELECT, UPDATE` job; `SELECT, INSERT, UPDATE` result; `SELECT` model version, sensor chunk, dan AI review; `SELECT, INSERT` realtime event; serta `SELECT, INSERT, UPDATE` realtime cursor. Jangan berikan membership worker role kepada API role. Kredensial dan connection pool worker harus terpisah dari backend web.
+
+Tambahkan publication worker sebagai App Platform background worker dengan source `backend/` dan run command:
+
+```text
+python run_ai_publication_worker.py
+```
+
+Komponen ini memakai `SQLALCHEMY_DATABASE_URI` milik role `fetal_guard_ai_worker`, bukan URI milik API. Publication worker merekonsiliasi hasil clinician yang sudah direview, termasuk mencabut hasil pasien jika review berubah menjadi `dismissed`; inference worker end-to-end tetap merupakan komponen terpisah yang harus diselesaikan sebelum mode `clinician` diaktifkan.
 
 ## 7. Smoke Test Minimum
 

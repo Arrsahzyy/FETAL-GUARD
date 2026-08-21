@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user
@@ -42,12 +42,20 @@ def _build_event_page(
     organization_id: str,
     after_cursor: int | None,
     limit: int,
+    patient_audience_only: bool = False,
 ) -> RealtimeEventPageResponse:
     base_query = db.query(RealtimeEvent).filter(
         RealtimeEvent.organization_id == organization_id,
         RealtimeEvent.patient_id.in_(authorized_patient_ids),
         RealtimeEvent.expires_at > datetime.now(timezone.utc),
     )
+    if patient_audience_only:
+        base_query = base_query.filter(
+            or_(
+                RealtimeEvent.event_type != "ai.analysis.updated",
+                RealtimeEvent.payload["visibility"].as_string() == "patient",
+            )
+        )
     if after_cursor is None:
         latest = base_query.order_by(RealtimeEvent.cursor.desc()).first()
         return RealtimeEventPageResponse(
@@ -98,6 +106,7 @@ def list_patient_realtime_events(
         organization_id=patient.organization_id,
         after_cursor=after_cursor,
         limit=limit,
+        patient_audience_only=True,
     )
 
 

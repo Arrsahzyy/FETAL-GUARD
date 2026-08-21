@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- apiRuntimeConfig.js still restricts the APK to an explicit RFC1918 URL. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

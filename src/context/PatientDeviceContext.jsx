@@ -444,12 +444,12 @@ export function PatientDeviceProvider({ children }) {
   const connectToDevice = useCallback(async (device) => {
     if (!device || !device.isRegistered || !device.registeredDeviceId) {
       setPairingError(t('patient.deviceAlerts.unregisteredDevice'));
-      return;
+      return false;
     }
     const registryDevice = registeredDevices.find((item) => item.id === device.registeredDeviceId);
     if (!registryDevice || registryDevice.status !== 'active') {
       setPairingError(t('patient.deviceAlerts.inactiveDevice'));
-      return;
+      return false;
     }
 
     setPairingError('');
@@ -459,10 +459,12 @@ export function PatientDeviceProvider({ children }) {
     selectedRegistryDeviceRef.current = registryDevice;
     try {
       await connectBluetooth(device.deviceId);
+      return true;
     } catch {
       if (pairingAttemptRef.current !== pairingAttempt) return;
       selectedRegistryDeviceRef.current = null;
       setPairingState('idle');
+      return false;
     }
   }, [connectBluetooth, registeredDevices]);
 

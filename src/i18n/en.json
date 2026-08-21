@@ -8,10 +8,17 @@
     "back": "Back",
     "apiTimeout": "The API connection timed out.",
     "apiUnavailable": "The FETAL-GUARD service could not be reached.",
+    "apiUnavailableLocal": "The local backend at {address} could not be reached. Make sure the laptop backend is running and the address is correct.",
     "apiError": "An error occurred while contacting the FETAL-GUARD service.",
     "apiMobileConfigMissing": "The production API address has not been configured for the mobile app.",
     "apiHttpsRequired": "The production API address must use HTTPS.",
-    "sessionExpired": "Your session has ended. Please sign in again."
+    "sessionExpired": "Your session has ended. Please sign in again.",
+    "localApiHint": "Local test mode: make sure the FETAL-GUARD service is running on the laptop and reachable from the phone.",
+    "localApiSettings": "Test connection settings",
+    "localApiAddress": "Laptop backend address",
+    "localApiSaved": "Address saved. Try registering or signing in again.",
+    "localApiInvalid": "Use an HTTP address with a private IP, for example http://192.168.137.1:3020.",
+    "save": "Save"
   },
   "patient": {
     "nav": {
@@ -47,7 +54,15 @@
       "openTopic": "Open",
       "hideDetails": "Close",
       "readMore": "Read summary",
-      "viewAll": "View all education"
+      "viewAll": "View all education",
+      "categoryAll": "All",
+      "categoryCare": "Routine care",
+      "categoryNutrition": "Nutrition",
+      "categoryActivity": "Safe activity",
+      "categoryMonitoring": "Baby monitoring",
+      "categorySafety": "Warning signs",
+      "filterAria": "Filter education topics",
+      "noTopics": "This topic is already featured as this week's highlight. Choose another category to read more."
     },
     "common": {
       "backHome": "Back to Home",
@@ -73,7 +88,17 @@
       "continue": "Continue to emergency service",
       "finalTitle": "Confirm call",
       "finalMessage": "Press the button to call emergency services ({phone}).",
-      "callEmergency": "CALL EMERGENCY SERVICES"
+      "callEmergency": "CALL EMERGENCY SERVICES",
+      "shareLocation": "Share my location",
+      "locationSharing": "Preparing location...",
+      "locationShareTitle": "FETAL-GUARD assistance location",
+      "locationShareText": "I am sharing this location because I need assistance.",
+      "locationShareStatus": {
+        "shared": "Location was shared through the app you selected.",
+        "copied": "The location link was copied. Send it to someone you trust.",
+        "ready": "The location link is ready to share.",
+        "error": "Location could not be shared. Check location permission and try again."
+      }
     },
     "home": {
       "userFallback": "User",
@@ -137,6 +162,18 @@
       "pairStep3": "Start a session only when the device status is connected.",
       "scanLoading": "Scanning devices...",
       "scanButton": "Scan device",
+      "scanAgain": "Scan again",
+      "devicePickerHint": "Scan results will open as a list of devices you can select.",
+      "devicePickerEyebrow": "FETAL-GUARD Bluetooth",
+      "devicePickerTitle": "Select a belt device",
+      "devicePickerDescription": "Only active devices assigned to your account can be connected.",
+      "devicePickerClose": "Close device list",
+      "devicePickerFound": "{count} devices found",
+      "devicePickerEmptyTitle": "No devices detected yet",
+      "deviceSignal": "Signal {value} dBm",
+      "deviceRegisteredForYou": "Registered to your account",
+      "connectDevice": "Connect",
+      "deviceConnecting": "Connecting...",
       "deviceNear": "Device distance looks good",
       "deviceReady": "Ready to pair",
       "deviceEmpty": "No devices found yet. Make sure the belt is powered on before scanning.",
@@ -163,6 +200,45 @@
       "startMonitoring": "Start monitoring",
       "pairDeviceFirst": "Pair device first",
       "registerDeviceFirst": "Check registered device",
+      "analysis": {
+        "eyebrow": "Core FETAL-GUARD feature",
+        "title": "Hybrid deep-learning analysis",
+        "subtitle": "A summary of safety rules and CNN-LSTM processing. Results appear only after the required quality gate and review flow.",
+        "openMonitoring": "Open monitoring",
+        "loadingTitle": "Loading screening summary",
+        "loadingDesc": "Retrieving the latest analysis result and monitoring session from the system.",
+        "loadErrorTitle": "Summary cannot be loaded yet",
+        "loadErrorDesc": "Check the connection and try again. Unavailable does not mean the condition has been assessed.",
+        "resultLabel": "Latest hybrid-analysis result",
+        "resultAvailableDesc": "This status comes from a result published by the system for the patient, not sample data on the home page.",
+        "pendingTitle": "No displayable result yet",
+        "pendingDesc": "No result has passed the quality gate and patient review flow yet. No condition can be concluded from this state.",
+        "recommendationLabel": "Follow-up recommendation",
+        "recommendationPending": "Waiting for an eligible result",
+        "recommendationPendingDesc": "Continue routine care as directed by your clinician. Start a session with the belt connected when monitoring is scheduled.",
+        "recommendationUnavailable": "A new recommendation cannot be loaded yet",
+        "recommendationUnavailableDesc": "Do not draw a conclusion from the connection state. Follow the guidance already provided by your clinician and reload when the connection improves.",
+        "monitoringLabel": "Source monitoring result",
+        "noSession": "No stored session yet",
+        "sourceSessionUnavailable": "Source session could not be matched",
+        "openActiveSession": "View active session",
+        "openHistory": "View history",
+        "sessionStatus": {
+          "active": "Session in progress",
+          "completed": "Latest session completed",
+          "error": "Session ended with an issue"
+        },
+        "contractionIndicator": "FSR pressure indicator",
+        "contraction": {
+          "unknown": "Not available",
+          "none": "Not indicated",
+          "mild": "Mild indication",
+          "regular": "Repeating pattern indicated",
+          "strong": "Stronger pressure indicated"
+        },
+        "monitoringNote": "FHR, maternal HR, signal quality, and FSR pressure are device-monitoring summaries. These values are not a diagnosis or a replacement for professional assessment.",
+        "refreshWarning": "Stored data remains visible, but the latest update could not be retrieved."
+      },
       "dailyTips": [
         {
           "icon": "water_drop",
@@ -280,6 +356,7 @@
       "persistenceSynced": "Data has been stored by the system",
       "persistenceRetrying": "Storage is being retried",
       "persistenceOffline": "Offline; the session remains open and data has not been sent",
+      "persistenceWifiRequired": "Waiting for Wi-Fi according to the upload setting",
       "persistenceRejected": "Some data was rejected because its contract was invalid",
       "persistenceQueueFull": "The data queue is full; the session needs review",
       "pendingPackets": "{count} packets waiting to be stored",
@@ -345,7 +422,54 @@
       "contractionLegend": "FSR reading 0-100%",
       "eventLegend": "Events are shown only after validated system processing provides them.",
       "signalAlertTitle": "Signal quality needs adjustment",
-      "signalAlertAction": "Adjust belt placement"
+      "signalAlertAction": "Adjust belt placement",
+      "ai": {
+        "eyebrow": "Hybrid analysis",
+        "title": "Early-screening result",
+        "subtitle": "A summary of CNN-LSTM processing and system safety checks for this session.",
+        "sessionRequiredTitle": "Start a session to receive a result",
+        "sessionRequiredDesc": "Analysis only runs on stored session data that satisfies the device contract.",
+        "loadingTitle": "Loading analysis results",
+        "loadingDesc": "Session data remains stored while the result is prepared.",
+        "loadErrorTitle": "Results cannot be loaded yet",
+        "loadErrorDesc": "Session data remains safe. Check the connection and try again.",
+        "retry": "Try again",
+        "pendingTitle": "Waiting for a displayable result",
+        "pendingActiveDesc": "The system is collecting and processing data. A result appears only after the required quality gate and review are complete.",
+        "pendingCompletedDesc": "There is no displayable result for this session yet. Unavailable does not mean the condition has been assessed.",
+        "simulatedNotice": "This result comes from test data and is not used to assess a pregnancy condition.",
+        "latestLabel": "Latest result",
+        "fhr": "FHR estimate",
+        "maternalHr": "Maternal HR",
+        "signalQuality": "Signal quality",
+        "reviewed": "Reviewed by a clinician",
+        "timelineTitle": "Session result sequence",
+        "timelineCount": "{count} analysis windows",
+        "disclaimer": "This result supports early screening and does not replace an examination by a doctor, midwife, or healthcare facility.",
+        "quality": {
+          "usable": "Adequate data",
+          "limited": "Limited data",
+          "unusable": "Data not yet adequate"
+        },
+        "status": {
+          "routine_monitoring": {
+            "label": "Routine monitoring",
+            "description": "The latest early-screening result can be monitored as scheduled. Continue routine checkups and follow professional guidance."
+          },
+          "needs_observation": {
+            "label": "Observation needed",
+            "description": "The early-screening result needs attention. Follow clinician guidance and repeat monitoring if requested."
+          },
+          "review_with_clinician": {
+            "label": "Review with a clinician",
+            "description": "Contact a healthcare professional or facility through the provided channel for further guidance."
+          },
+          "insufficient_signal": {
+            "label": "Signal not yet adequate",
+            "description": "The system does not have enough data. Check belt placement and repeat monitoring when possible."
+          }
+        }
+      }
     },
     "history": {
       "loadError": "Failed to load monitoring session history.",
@@ -355,7 +479,15 @@
       "pdfSuccessMessage": "File \"{filename}\" has been saved. The report contains {count} sessions with 4 complete data tables.",
       "pdfFailTitle": "Export Failed",
       "pdfFailMessage": "An error occurred while creating the PDF. Please try again.",
-      "shareUnavailableMessage": "Direct sharing to a clinic is not available yet.",
+      "shareUnavailableMessage": "Sharing is not available on this device.",
+      "shareTitle": "FETAL-GUARD history summary",
+      "shareText": "I would like to share a FETAL-GUARD history summary: {count} completed sessions, latest session {date}. This is early-screening data and does not replace a clinician assessment. A complete PDF can be created from the History page.",
+      "shareEmptyTitle": "No session is ready to share",
+      "shareEmptyMessage": "Complete a monitoring session before sharing a summary.",
+      "shareCopiedTitle": "Summary copied",
+      "shareCopiedMessage": "Paste the summary into your clinic's official communication channel.",
+      "shareFailedTitle": "Summary could not be shared",
+      "shareFailedMessage": "Sharing and clipboard access are unavailable on this device.",
       "emptyTitle": "No monitoring history yet",
       "emptyDesc": "History will appear after monitoring sessions are saved from the FETAL-GUARD device.",
       "startMonitoring": "Start monitoring",
@@ -411,7 +543,8 @@
       "safetyNote": "FETAL-GUARD supports early monitoring and does not replace assessment by doctors, midwives, or healthcare facilities.",
       "riskHigh": "Contact clinician soon",
       "riskMedium": "Needs check",
-      "riskLow": "Routine monitoring"
+      "riskLow": "Routine monitoring",
+      "openAppForDetails": "Open the app to view monitoring details."
     },
     "settings": {
       "profileFallback": "Patient profile",
@@ -442,10 +575,28 @@
       "internetDesc": "Session data can be sent when internet connectivity is available.",
       "importantAlerts": "Important alerts",
       "haptic": "Haptic Feedback",
-      "nativeFeaturesUnavailable": "Native notifications, sound, and haptics are not enabled. These options are locked so they do not imply protection that is not running.",
-      "uploadPolicyUnavailable": "Network-based upload policy and location sharing are not enabled. The app does not access patient location.",
+      "nativeFeaturesUnavailable": "Device notifications are active while the app receives alerts from the system. They do not replace assessment or emergency assistance.",
+      "uploadPolicyUnavailable": "The network policy is applied to the data queue. Location is only read after you choose Share location from the assistance menu.",
+      "notificationFeatureDesc": "Device notifications are sent when the app receives an alert from the system. Do not wait for a notification before seeking help.",
+      "privacyFeatureDesc": "Control upload networking and location sharing permission. The app does not track location in the background.",
+      "permissionTitle": "Device permission required",
+      "notificationPermissionDenied": "Notifications could not be enabled because device permission was denied. You can change it in system settings.",
+      "locationPermissionDenied": "Location sharing could not be enabled because location permission was denied.",
+      "permissionRequestFailed": "This setting could not be enabled on this device. Try again or check system settings.",
+      "wifiDetectionUnavailable": "This browser cannot safely distinguish Wi-Fi from mobile data. Use the Android app for Wi-Fi-only policy.",
+      "internetStatusMessage": "Session data uses the phone internet and remains queued while unavailable. Wi-Fi-only can be configured under Privacy & Data.",
       "wifiDesc": "Upload data only when connected to Wi-Fi.",
-      "locationDesc": "Allow location sharing only when support is needed.",
+      "locationDesc": "Show a location-sharing action in the assistance menu. Location is read only after that action is pressed.",
+      "retentionMessage": "The product policy limit is 90 days. Scheduled automatic deletion cannot yet be guaranteed in the current deployment; you can delete monitoring data yourself below. Account profile, device assignment history, and access audits are retained separately for security.",
+      "deleteConfirmTitle": "Delete monitoring data?",
+      "deleteConfirmMessage": "Any active session must be stopped first. Completed sessions, sensor data, analysis results, and alerts will be permanently deleted. The account profile and security history are retained.",
+      "deleteConfirmAction": "Delete permanently",
+      "deletingData": "Deleting data...",
+      "deleteSuccessTitle": "Monitoring data deleted",
+      "deleteSuccessMessage": "Stored monitoring data and this account's local queue have been cleared.",
+      "deleteFailedTitle": "Data could not be deleted",
+      "deleteActiveSessionMessage": "Stop and save the active monitoring session before deleting data.",
+      "privacyPolicyMessage": "FETAL-GUARD uses profile and monitoring data only to support early screening. Location is not tracked; it is read only when you choose to share it from the assistance menu. Data must not be treated as a diagnosis.",
       "appearance": "Appearance",
       "darkMode": "Dark Mode",
       "userGuide": "User Guide",
@@ -725,7 +876,7 @@
     },
     "notifications": {
       "title": "Notifications",
-      "push": "Push Notifications",
+      "push": "Device Notifications",
       "critical": "Important Messages",
       "sound": "Notification Sound",
       "batteryThreshold": "Low Battery Threshold"
@@ -748,8 +899,8 @@
       "wifiOnly": "Upload only via Wi-Fi",
       "locationShare": "Share Location When Support Is Needed",
       "autoEscalation": "Automatic Clinic Support",
-      "dataRetention": "Data Retention: 90 Days",
-      "deleteData": "Delete All My Data"
+      "dataRetention": "Data Retention Target: 90 Days",
+      "deleteData": "Delete My Monitoring Data"
     },
     "privacyPolicy": "Privacy Policy",
     "dataRetention": "Data Retention",
@@ -854,6 +1005,23 @@
     "sessionNumber": "Session {number}",
     "duration": "Duration",
     "noMonitoringSession": "No monitoring session yet.",
+    "aiTimelineTitle": "Hybrid Analysis Sequence",
+    "aiTimelineDesc": "CNN-LSTM result windows that passed the gate for supervision and follow-up.",
+    "aiResultCount": "{count} results",
+    "aiLoading": "Loading analysis results...",
+    "aiLoadError": "Analysis results cannot be loaded yet.",
+    "aiEmpty": "There is no reviewable analysis result for this patient yet.",
+    "aiUncertainty": "Uncertainty",
+    "aiReviewActions": "Analysis result review actions",
+    "aiReviewSaving": "Saving...",
+    "aiReviewError": "The review was not saved. Reload and try again.",
+    "aiVisibleToPatient": "Available in the patient application",
+    "aiAwaitingPatientPublication": "Awaiting safe publication to the patient application",
+    "aiReview": {
+      "confirmed": "Approve for sharing",
+      "needs_followup": "Share and follow up",
+      "dismissed": "Do not use result"
+    },
     "quickActions": "Quick Actions",
     "contact": "Contact",
     "viewSession": "View Session",

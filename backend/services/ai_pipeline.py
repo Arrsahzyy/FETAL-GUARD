@@ -109,6 +109,11 @@ def _active_model(db: Session) -> AIModelVersion:
         "clinical_validated",
     }:
         raise RuntimeError("Shadow mode requires at least analytical validation")
+    if (
+        settings.AI_PIPELINE_MODE == "clinician"
+        and model.validation_status != "clinical_validated"
+    ):
+        raise RuntimeError("Clinician mode requires clinical validation")
     if model.validation_status == "retired":
         raise RuntimeError("Retired AI model cannot receive inference jobs")
     return model
@@ -298,7 +303,13 @@ def complete_inference_job(
     if existing is not None:
         return existing
 
-    visibility = "shadow"
+    visibility = (
+        "clinician"
+        if settings.AI_PIPELINE_MODE == "clinician"
+        and model.deployment_slot == "clinician"
+        and model.validation_status == "clinical_validated"
+        else "shadow"
+    )
     result = AIAnalysisResult(
         id=str(uuid.uuid4()),
         organization_id=job.organization_id,
@@ -328,6 +339,24 @@ def complete_inference_job(
     job.locked_at = None
     job.updated_at = datetime.now(timezone.utc)
     db.flush()
+    if visibility == "clinician":
+        enqueue_realtime_event(
+            db,
+            organization_id=result.organization_id,
+            patient_id=result.patient_id,
+            event_type="ai.analysis.updated",
+            resource_id=result.id,
+            idempotency_key=(
+                f"ai.analysis.updated:{result.id}:visibility:clinician:version:1"
+            ),
+            payload={
+                "quality_status": result.quality_status,
+                "screening_status": result.screening_status,
+                "visibility": "clinician",
+                "version": 1,
+            },
+            occurred_at=result.created_at,
+        )
     return result
 
 
@@ -347,7 +376,10 @@ def publish_analysis_result(
         raise RuntimeError("Only a clinically validated model can publish visible results")
     if result.quality_status == "unusable" and result.screening_status != "insufficient_signal":
         raise RuntimeError("Unusable signal cannot publish a screening classification")
+    review = None
     if visibility == "patient":
+        if result.is_simulated:
+            raise RuntimeError("Simulated AI results cannot be published to patients")
         review = (
             db.query(AIAnalysisReview)
             .filter(AIAnalysisReview.analysis_result_id == result.id)
@@ -359,23 +391,122 @@ def publish_analysis_result(
             )
 
     result.visibility = visibility
+    published_at = datetime.now(timezone.utc)
+    publication_version = review.version if review is not None else 1
     enqueue_realtime_event(
         db,
         organization_id=result.organization_id,
         patient_id=result.patient_id,
         event_type="ai.analysis.updated",
         resource_id=result.id,
-        idempotency_key=f"ai.analysis.updated:{result.id}:visibility:{visibility}",
+        idempotency_key=(
+            f"ai.analysis.updated:{result.id}:visibility:{visibility}:"
+            f"version:{publication_version}"
+        ),
         payload={
             "quality_status": result.quality_status,
             "screening_status": result.screening_status,
             "visibility": visibility,
-            "version": 1,
+            "version": publication_version,
         },
-        occurred_at=result.created_at,
+        occurred_at=published_at,
     )
     db.flush()
     return result
+
+
+def publish_reviewed_analysis_results(
+    db: Session,
+    *,
+    limit: int = 25,
+) -> list[AIAnalysisResult]:
+    """Reconcile reviewed clinician results through the isolated worker role.
+
+    The clinician API records human review but intentionally cannot mutate AI
+    result visibility. A worker with the dedicated database role calls this
+    bounded function after review, preserving the API/worker privilege split.
+    Retractions are processed before new patient publications so a dismissed
+    review fails closed even when the batch is full.
+    """
+
+    set_ai_worker_database_context(db)
+    if not 1 <= limit <= 100:
+        raise ValueError("AI publication batch limit must be between 1 and 100")
+
+    retractions = (
+        db.query(AIAnalysisResult)
+        .join(
+            AIAnalysisReview,
+            AIAnalysisReview.analysis_result_id == AIAnalysisResult.id,
+        )
+        .filter(
+            AIAnalysisResult.visibility == "patient",
+            AIAnalysisReview.decision == "dismissed",
+        )
+        .order_by(AIAnalysisReview.updated_at.asc(), AIAnalysisResult.created_at.asc())
+        .with_for_update(of=AIAnalysisResult, skip_locked=True)
+        .limit(limit)
+        .all()
+    )
+    reconciled: list[AIAnalysisResult] = []
+    for result in retractions:
+        review = (
+            db.query(AIAnalysisReview)
+            .filter(AIAnalysisReview.analysis_result_id == result.id)
+            .one()
+        )
+        result.visibility = "clinician"
+        enqueue_realtime_event(
+            db,
+            organization_id=result.organization_id,
+            patient_id=result.patient_id,
+            event_type="ai.analysis.updated",
+            resource_id=result.id,
+            idempotency_key=(
+                f"ai.analysis.updated:{result.id}:visibility:clinician:"
+                f"review:{review.version}"
+            ),
+            payload={
+                # The patient audience must refresh its feed to remove the
+                # withdrawn result. No clinician-only analysis metadata is
+                # included in this event.
+                "visibility": "patient",
+                "version": review.version,
+            },
+            occurred_at=datetime.now(timezone.utc),
+        )
+        reconciled.append(result)
+
+    remaining = limit - len(reconciled)
+    if remaining <= 0:
+        db.flush()
+        return reconciled
+
+    candidates = (
+        db.query(AIAnalysisResult)
+        .join(
+            AIAnalysisReview,
+            AIAnalysisReview.analysis_result_id == AIAnalysisResult.id,
+        )
+        .join(AIModelVersion, AIModelVersion.id == AIAnalysisResult.model_version_id)
+        .filter(
+            AIAnalysisResult.visibility == "clinician",
+            AIAnalysisReview.decision.in_(("confirmed", "needs_followup")),
+            AIAnalysisResult.is_simulated.is_(False),
+            AIModelVersion.validation_status == "clinical_validated",
+            AIModelVersion.deployment_slot == "clinician",
+            AIModelVersion.is_active.is_(True),
+        )
+        .order_by(AIAnalysisReview.updated_at.asc(), AIAnalysisResult.created_at.asc())
+        .with_for_update(of=AIAnalysisResult, skip_locked=True)
+        .limit(remaining)
+        .all()
+    )
+    for result in candidates:
+        reconciled.append(
+            publish_analysis_result(db, result=result, visibility="patient")
+        )
+    return reconciled
 
 
 def fail_inference_job(

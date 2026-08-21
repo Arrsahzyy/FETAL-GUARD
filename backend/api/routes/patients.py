@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,10 +12,12 @@ from models.patient import Patient
 from models.user import User
 from schemas.patient import (
     PatientCreate,
+    PatientMonitoringDataDeletionResponse,
     PatientNotificationResponse,
     PatientResponse,
     PatientUpdate,
 )
+from core.audit import add_access_audit_event
 
 router = APIRouter()
 
@@ -169,3 +171,114 @@ def list_my_alerts(
     )
     
     return alerts
+
+
+@router.delete(
+    "/me/monitoring-data",
+    response_model=PatientMonitoringDataDeletionResponse,
+)
+def delete_my_monitoring_data(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete patient-owned monitoring records while retaining account and audit identity."""
+    require_patient_role(current_user)
+    patient = db.query(Patient).filter(Patient.user_id == current_user.id).first()
+    if patient is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient profile not found",
+        )
+
+    from models.ai_analysis import AIAnalysisResult, AIAnalysisReview, AIInferenceJob
+    from models.alert_event import AlertEvent
+    from models.notification import Notification
+    from models.sensor_data import SensorDataChunk
+    from models.session import MonitoringSession
+    from models.session_sensor_summary import SessionSensorSummary
+
+    sessions = db.query(MonitoringSession).filter(
+        MonitoringSession.patient_id == patient.id,
+        MonitoringSession.organization_id == patient.organization_id,
+    )
+    if sessions.filter(MonitoringSession.status == "active").first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="End the active monitoring session before deleting monitoring data",
+        )
+
+    session_ids = [session_id for (session_id,) in sessions.with_entities(MonitoringSession.id).all()]
+    if not session_ids:
+        return PatientMonitoringDataDeletionResponse(
+            deleted_sessions=0,
+            deleted_alerts=0,
+            deleted_sensor_chunks=0,
+            deleted_ai_results=0,
+        )
+
+    notification_ids = [
+        notification_id
+        for (notification_id,) in db.query(Notification.id)
+        .filter(Notification.session_id.in_(session_ids))
+        .all()
+    ]
+    deleted_alerts = len(notification_ids)
+    deleted_sensor_chunks = db.query(SensorDataChunk).filter(
+        SensorDataChunk.session_id.in_(session_ids)
+    ).count()
+    deleted_ai_results = db.query(AIAnalysisResult).filter(
+        AIAnalysisResult.session_id.in_(session_ids)
+    ).count()
+
+    try:
+        if notification_ids:
+            db.query(AlertEvent).filter(
+                AlertEvent.notification_id.in_(notification_ids)
+            ).delete(synchronize_session=False)
+        db.query(Notification).filter(
+            Notification.session_id.in_(session_ids)
+        ).delete(synchronize_session=False)
+        db.query(AIAnalysisReview).filter(
+            AIAnalysisReview.patient_id == patient.id
+        ).delete(synchronize_session=False)
+        db.query(AIAnalysisResult).filter(
+            AIAnalysisResult.session_id.in_(session_ids)
+        ).delete(synchronize_session=False)
+        db.query(AIInferenceJob).filter(
+            AIInferenceJob.session_id.in_(session_ids)
+        ).delete(synchronize_session=False)
+        db.query(SessionSensorSummary).filter(
+            SessionSensorSummary.session_id.in_(session_ids)
+        ).delete(synchronize_session=False)
+        db.query(SensorDataChunk).filter(
+            SensorDataChunk.session_id.in_(session_ids)
+        ).delete(synchronize_session=False)
+        deleted_sessions = sessions.delete(synchronize_session=False)
+        add_access_audit_event(
+            db,
+            action="patient.monitoring_data.delete",
+            resource_type="patient_monitoring_data",
+            resource_id=patient.id,
+            purpose="patient_self_service_deletion",
+            outcome="success",
+            actor_user_id=current_user.id,
+            organization_id=patient.organization_id,
+            patient_id=patient.id,
+            request=request,
+            details={"deleted_sessions": deleted_sessions},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Monitoring data could not be deleted safely",
+        )
+
+    return PatientMonitoringDataDeletionResponse(
+        deleted_sessions=deleted_sessions,
+        deleted_alerts=deleted_alerts,
+        deleted_sensor_chunks=deleted_sensor_chunks,
+        deleted_ai_results=deleted_ai_results,
+    )

@@ -72,9 +72,19 @@ Hasil training disimpan di `ai/runs/cnn_lstm/<model-version>/` sebagai `model.pt
 - `AI_PIPELINE_MODE=disabled`: default; ingest tidak membuat job AI.
 - `AI_PIPELINE_MODE=research`: mengizinkan artefak experimental untuk penelitian internal; hasil tetap `shadow`.
 - `AI_PIPELINE_MODE=shadow`: membutuhkan minimal `analytical_validated`; hasil tetap tidak terlihat pengguna.
-- Publikasi ke nakes/pasien hanya dapat dilakukan untuk model `clinical_validated`.
+- `AI_PIPELINE_MODE=clinician`: hanya menerima model `clinical_validated` pada slot `clinician`; hasil tersedia untuk nakes yang berwenang.
+- Hasil nakes baru dipublikasikan ke pasien setelah review `confirmed`/`needs_followup` dan diproses worker publication dengan database role terisolasi.
 
 Set `AI_ACTIVE_MODEL_VERSION_ID` ketika mode bukan `disabled`. Readiness backend gagal jika model aktif tidak ada atau status validasinya tidak memenuhi mode.
+
+Worker publication dijalankan terpisah dari backend web:
+
+```powershell
+cd backend
+.\venv\Scripts\python.exe run_ai_publication_worker.py
+```
+
+Proses tersebut belum menjalankan inference. Adapter window hardware dan inference worker end-to-end tetap wajib diselesaikan sebelum mode `clinician` digunakan.
 
 ## Yang masih wajib sebelum penggunaan klinis
 

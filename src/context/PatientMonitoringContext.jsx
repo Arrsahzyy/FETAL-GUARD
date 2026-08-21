@@ -2,6 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../i18n';
 import api, { getApiErrorMessage } from '../services/api';
 import {
+  addPatientNetworkStatusListener,
+  canUploadWithPatientPolicy,
+} from '../services/nativePatientFeatures';
+import {
+  getPatientPreferences,
+  PATIENT_PREFERENCES_CHANGED_EVENT,
+} from '../services/patientPreferences';
+import {
   createTelemetryQueueScope,
   deleteTelemetryRecord,
   getNextPendingTelemetryRecord,
@@ -253,8 +261,15 @@ export function PatientMonitoringProvider({ children }) {
     if (!scopeKey || !session || session.status !== 'active') return Promise.resolve();
 
     const operation = (async () => {
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        if (mountedRef.current) setDataPersistenceState('offline');
+      const uploadPolicy = await canUploadWithPatientPolicy(
+        getPatientPreferences(user?.id).uploadWifiOnly,
+      );
+      if (!uploadPolicy.allowed) {
+        if (mountedRef.current) {
+          setDataPersistenceState(
+            uploadPolicy.reason === 'offline' ? 'offline' : 'wifi_required',
+          );
+        }
         return;
       }
 
@@ -368,11 +383,22 @@ export function PatientMonitoringProvider({ children }) {
     };
     void operation.then(clearOperation, clearOperation);
     return operation;
-  }, [clearRetryTimer, refreshQueueCounts, scheduleRetryAt]);
+  }, [clearRetryTimer, refreshQueueCounts, scheduleRetryAt, user?.id]);
 
   useEffect(() => {
     flushQueueRef.current = flushQueue;
   }, [flushQueue]);
+
+  useEffect(() => {
+    const handlePreferenceChange = (event) => {
+      if (String(event.detail?.userId) === String(user?.id)) void flushQueue();
+    };
+    window.addEventListener(PATIENT_PREFERENCES_CHANGED_EVENT, handlePreferenceChange);
+    return () => window.removeEventListener(
+      PATIENT_PREFERENCES_CHANGED_EVENT,
+      handlePreferenceChange,
+    );
+  }, [flushQueue, user?.id]);
 
   useEffect(() => {
     const previousScope = queueScopeRef.current;
@@ -475,13 +501,18 @@ export function PatientMonitoringProvider({ children }) {
   }, [clearRetryTimer, user?.id, user?.role]);
 
   useEffect(() => {
-    const handleOnline = () => void flushQueue();
-    const handleOffline = () => setDataPersistenceState('offline');
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    let removeListener = () => undefined;
+    let disposed = false;
+    void addPatientNetworkStatusListener((status) => {
+      if (status.connected) void flushQueue();
+      else setDataPersistenceState('offline');
+    }).then((remove) => {
+      if (disposed) remove();
+      else removeListener = remove;
+    });
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      disposed = true;
+      removeListener();
     };
   }, [flushQueue]);
 

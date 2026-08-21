@@ -79,4 +79,101 @@
 - [ ] Aplikasi (atau nRF Connect) bisa subscribe ke GATT characteristic dan mendapat stream data yang masuk akal (berubah saat sensor disentuh).
 - [ ] Tidak ada klaim diagnostik medis yang tercantum pada antarmuka aplikasi.
 - [ ] Suhu casing tidak panas saat beroperasi terus menerus selama 1 jam.
-- [ ] Kode berhasil dikompilasi (build success).
+- [x] Kode berhasil dikompilasi untuk `esp32:esp32:esp32s3` dengan ESP32 core 3.3.8.
+
+## 15. Implementasi Gateway Lokal v1
+
+Alur uji lokal yang diimplementasikan adalah:
+
+```text
+Sensor -> ESP32-S3 (BLE peripheral) -> browser/aplikasi pasien
+-> FastAPI lokal terautentikasi -> database -> tampilan pasien/nakes
+```
+
+ESP32 tidak menyimpan JWT, password pasien, atau secret backend. Identitas perangkat pada
+`FG_DEVICE_UID` di `fetalguard.ino` harus sama persis dengan `device_uid` yang didaftarkan
+dan ditugaskan kepada pasien oleh admin. Nilai bawaan untuk smoke test adalah
+`FETAL-GUARD-001`.
+
+Kontrak paket canonical berada di `contracts/telemetry/v1/golden-esp32.json`. Firmware
+mengirim satu frame JSON berakhiran newline setiap satu detik melalui service `FFE0` dan
+characteristic `FFE1`. Frame dipecah menjadi fragmen 20 byte agar tetap aman pada ATT MTU
+minimum, lalu dirakit kembali oleh aplikasi. Sesudah subscribe, aplikasi menulis perintah
+`T<unix_epoch_ms>` ke characteristic yang sama agar timestamp ESP32 berasal dari jam gateway.
+
+Payload 1 Hz ini adalah snapshot untuk membuktikan integrasi lokal. Payload belum menggantikan
+transport biner berkecepatan tinggi yang diperlukan untuk menyimpan bentuk gelombang penuh dan
+menjalankan pipeline AI berbasis window sinyal.
+
+## 16. Prosedur Uji Lokal End-to-End
+
+Prasyarat firmware:
+
+- Arduino ESP32 core dengan target `ESP32S3 Dev Module`.
+- Library SparkFun MAX3010x yang menyediakan `MAX30105.h` dan `spo2_algorithm.h`.
+- ESP32-S3 dan rangkaian sensor sesuai pin pada `fetalguard.ino`.
+
+Langkah uji:
+
+1. Pastikan `FG_DEVICE_UID` di sketch bernilai `FETAL-GUARD-001`, atau gunakan UID lain yang konsisten di firmware dan registry backend.
+2. Compile dan upload `fetalguard.ino`, lalu buka Serial Monitor pada 115200 baud.
+3. Jalankan backend dari folder `backend`:
+
+   ```powershell
+   .\venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000
+   ```
+
+4. Jalankan frontend dari root repository:
+
+   ```powershell
+   npm.cmd run dev
+   ```
+
+5. Login sebagai admin, daftarkan perangkat dengan UID yang sama, lalu assign ke pasien penguji.
+6. Buka `http://localhost:5173` memakai Chrome atau Edge di komputer yang memiliki Bluetooth, lalu login sebagai pasien tersebut.
+7. Pada halaman monitoring, lakukan scan, pilih `FETAL-GUARD-001`, connect, kemudian mulai sesi monitoring.
+8. Pastikan Serial Monitor menampilkan `[BLE] Waktu gateway tersinkronisasi.` dan UI menerima data tanpa status stale.
+9. Pastikan upload berubah menjadi tersinkronisasi dan satu `boot_id + sequence_number` hanya membuat satu record walaupun paket dikirim ulang.
+
+Web Bluetooth membutuhkan secure context. `localhost` diterima untuk uji desktop, tetapi alamat
+HTTP LAN seperti `http://192.168.x.x:5173` pada browser HP umumnya tidak. Untuk uji Android,
+gunakan build Capacitor yang sudah memakai plugin BLE native atau layani frontend melalui HTTPS.
+Selain itu, `127.0.0.1` di HP menunjuk ke HP itu sendiri, bukan komputer backend.
+
+## 17. Kriteria Lulus Smoke Test Gateway
+
+- ESP32 advertising dengan UID yang terdaftar dan dapat dipilih dari aplikasi.
+- Sinkronisasi waktu diterima sebelum frame telemetry dikirim.
+- Fixture v1 yang sama lolos parser frontend dan contract ingestion backend.
+- Paket retry tersimpan tepat satu kali berdasarkan ingestion id.
+- Nilai yang tidak tersedia tetap kosong; sistem tidak membuat angka klinis pengganti.
+- Compile, flash, perubahan sensor fisik, latency, dan packet loss dibuktikan dengan perangkat nyata sebelum checklist hardware dinyatakan selesai.
+
+## 18. Build APK Android untuk Backend Lokal
+
+APK debug lokal mempertahankan BLE native dan mengizinkan HTTP hanya ketika build memakai mode
+`android-local`, flag eksplisit, dan alamat API berada pada rentang IPv4 privat. Manifest
+cleartext berada di source set `debug`, sehingga kebijakan tersebut tidak masuk ke APK release.
+
+Contoh untuk laptop dengan IP `192.168.1.22`:
+
+```powershell
+npm.cmd run build:android:local -- -ApiBaseUrl http://192.168.1.22:8000
+```
+
+Hasil build berada di `artifacts/FETAL-GUARD-local-debug.apk`. Jalankan backend dengan host dan
+CORS khusus aplikasi mobile lokal:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-backend-local-mobile.ps1 -LaptopIp 192.168.1.22
+```
+
+HP dan laptop harus berada pada Wi-Fi yang sama untuk jalur aplikasi ke backend. Hubungan ESP32
+ke HP tetap menggunakan BLE dan tidak bergantung pada Wi-Fi tersebut. Jika IP laptop berubah,
+APK harus dibangun ulang menggunakan IP baru. Pastikan Windows Firewall mengizinkan TCP 8000
+hanya pada jaringan privat yang dipercaya.
+
+Launcher icon Android memakai simbol ibu-janin dan jantung FETAL-GUARD tanpa teks agar tetap
+terbaca pada ukuran kecil. Master foreground berada di
+`src/assets/fetal-guard-app-icon-foreground.png`; seluruh varian legacy, round, dan adaptive
+dibuat ulang otomatis oleh `scripts/generate-android-icons.ps1` saat build APK lokal.

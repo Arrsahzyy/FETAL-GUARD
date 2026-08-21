@@ -2,15 +2,18 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from services import ai_pipeline
 from models.ai_analysis import AIAnalysisResult, AIInferenceJob, AIModelVersion
 from models.organization_membership import OrganizationMembership
 from models.patient import Patient
 from models.patient_clinician_assignment import PatientClinicianAssignment
 from services.ai_pipeline import (
     AIWorkerOutput,
+    assert_ai_pipeline_ready,
     claim_next_inference_job,
     complete_inference_job,
     publish_analysis_result,
+    publish_reviewed_analysis_results,
 )
 
 
@@ -256,11 +259,151 @@ def test_worker_output_and_publication_are_fail_closed(db_session, client, auth_
         publish_analysis_result(db_session, result=completed, visibility="clinician")
 
     model.validation_status = "clinical_validated"
+    completed.is_simulated = True
+    with pytest.raises(RuntimeError, match="Simulated AI results"):
+        publish_analysis_result(db_session, result=completed, visibility="patient")
+    completed.is_simulated = False
     with pytest.raises(RuntimeError, match="clinician review"):
         publish_analysis_result(db_session, result=completed, visibility="patient")
     published = publish_analysis_result(db_session, result=completed, visibility="clinician")
     db_session.commit()
     assert published.visibility == "clinician"
+
+
+def test_clinical_worker_result_is_visible_to_clinician_then_published_after_review(
+    db_session,
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    patient_headers = auth_headers(email="ai-patient-feed@example.com", role="patient")
+    patient_profile, session = create_patient_session(
+        client,
+        patient_headers,
+        name="AI Patient Feed",
+    )
+    patient = db_session.get(Patient, patient_profile["id"])
+    model, job, existing = create_model_job_result(
+        db_session,
+        patient=patient,
+        session_id=session["id"],
+        visibility="clinician",
+        validation_status="clinical_validated",
+    )
+    db_session.delete(existing)
+    job.status = "processing"
+    db_session.commit()
+
+    monkeypatch.setattr(ai_pipeline.settings, "AI_PIPELINE_MODE", "clinician")
+    monkeypatch.setattr(ai_pipeline.settings, "AI_ACTIVE_MODEL_VERSION_ID", model.id)
+    model.validation_status = "experimental"
+    with pytest.raises(RuntimeError, match="clinical validation"):
+        assert_ai_pipeline_ready(db_session)
+    model.validation_status = "clinical_validated"
+    assert_ai_pipeline_ready(db_session)
+    result = complete_inference_job(
+        db_session,
+        job=job,
+        output=AIWorkerOutput(
+            quality_status="usable",
+            quality_score=0.93,
+            screening_status="routine_monitoring",
+            reasons=("screening_model_signal",),
+            fhr_bpm=142,
+            maternal_hr_bpm=82,
+            uncertainty=0.12,
+        ),
+    )
+    db_session.commit()
+    assert result.visibility == "clinician"
+    assert model.deployment_slot == "clinician"
+
+    patient_events_before_review = client.get(
+        "/realtime/patient/events",
+        headers=patient_headers,
+        params={"after_cursor": 0},
+    )
+    assert patient_events_before_review.status_code == 200
+    assert not any(
+        event["event_type"] == "ai.analysis.updated"
+        for event in patient_events_before_review.json()["events"]
+    )
+
+    clinician_headers = auth_headers(
+        email="ai-patient-feed-clinician@example.com",
+        role="clinician",
+    )
+    assign_patient(db_session, client, clinician_headers, patient)
+    review_response = client.patch(
+        f"/ai/clinician/results/{result.id}/review",
+        headers=clinician_headers,
+        json={
+            "decision": "confirmed",
+            "note": "Hasil dapat dibagikan sebagai skrining awal kepada pasien.",
+            "expected_version": 0,
+        },
+    )
+    before_publication = client.get("/ai/results", headers=patient_headers)
+
+    assert review_response.status_code == 200
+    assert before_publication.status_code == 200
+    assert before_publication.json()["items"] == []
+
+    published = publish_reviewed_analysis_results(db_session)
+    db_session.commit()
+    after_publication = client.get("/ai/results", headers=patient_headers)
+
+    assert [item.id for item in published] == [result.id]
+    assert after_publication.status_code == 200
+    assert [item["id"] for item in after_publication.json()["items"]] == [result.id]
+    assert after_publication.json()["items"][0]["visibility"] == "patient"
+    patient_events_after_publication = client.get(
+        "/realtime/patient/events",
+        headers=patient_headers,
+        params={"after_cursor": 0},
+    )
+    patient_ai_events = [
+        event
+        for event in patient_events_after_publication.json()["events"]
+        if event["event_type"] == "ai.analysis.updated"
+    ]
+    assert patient_ai_events
+    assert all(event["data"]["visibility"] == "patient" for event in patient_ai_events)
+
+    dismissed_response = client.patch(
+        f"/ai/clinician/results/{result.id}/review",
+        headers=clinician_headers,
+        json={
+            "decision": "dismissed",
+            "note": "Hasil tidak lagi digunakan setelah tinjauan lanjutan.",
+            "expected_version": 1,
+        },
+    )
+    assert dismissed_response.status_code == 200
+    assert dismissed_response.json()["version"] == 2
+
+    reconciled = publish_reviewed_analysis_results(db_session)
+    db_session.commit()
+    after_retraction = client.get("/ai/results", headers=patient_headers)
+
+    assert [item.id for item in reconciled] == [result.id]
+    assert after_retraction.status_code == 200
+    assert after_retraction.json()["items"] == []
+    db_session.refresh(result)
+    assert result.visibility == "clinician"
+    patient_events_after_retraction = client.get(
+        "/realtime/patient/events",
+        headers=patient_headers,
+        params={"after_cursor": 0},
+    )
+    assert patient_events_after_retraction.status_code == 200
+    assert len(
+        [
+            event
+            for event in patient_events_after_retraction.json()["events"]
+            if event["event_type"] == "ai.analysis.updated"
+        ]
+    ) >= 2
 
 
 def test_worker_reclaims_an_abandoned_processing_job(db_session, client, auth_headers):

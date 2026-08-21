@@ -16,8 +16,27 @@ const formatReferenceDate = (date, locale) => new Intl.DateTimeFormat(
   { day: "numeric", month: "long", year: "numeric" },
 ).format(new Date(`${date}T00:00:00`));
 
+const CATEGORY_ORDER = ["care", "nutrition", "activity", "monitoring", "safety"];
+
+const CATEGORY_ICONS = {
+  care: "calendar_month",
+  nutrition: "nutrition",
+  activity: "directions_walk",
+  monitoring: "child_friendly",
+  safety: "health_and_safety",
+};
+
+const CATEGORY_LABEL_KEYS = {
+  care: "patient.education.categoryCare",
+  nutrition: "patient.education.categoryNutrition",
+  activity: "patient.education.categoryActivity",
+  monitoring: "patient.education.categoryMonitoring",
+  safety: "patient.education.categorySafety",
+};
+
 const EducationArticle = ({ article, expanded, featured = false, onToggle }) => {
   const detailId = `education-${article.id}-detail`;
+  const categoryLabelKey = CATEGORY_LABEL_KEYS[article.category];
 
   return (
     <article
@@ -31,20 +50,29 @@ const EducationArticle = ({ article, expanded, featured = false, onToggle }) => 
         aria-expanded={expanded}
         aria-controls={detailId}
       >
-        <Icon className="education-card__icon material-symbols-outlined" name={article.icon} />
+        <span className="education-card__icon" aria-hidden="true">
+          <Icon className="material-symbols-outlined" name={article.icon} />
+        </span>
         <span className="education-card__heading-copy">
-          <span className="education-card__source-type">
-            {featured
-              ? t("patient.education.officialSource")
-              : t("patient.education.quickRead")}
+          <span className="education-card__tags">
+            <span className="education-card__source-type">
+              {featured
+                ? t("patient.education.officialSource")
+                : t("patient.education.quickRead")}
+            </span>
+            {categoryLabelKey && (
+              <span className="education-card__category">{t(categoryLabelKey)}</span>
+            )}
           </span>
           <span className="education-card__title">{article.title}</span>
-          {featured && <span className="education-card__summary">{article.summary}</span>}
+          <span className="education-card__summary">{article.summary}</span>
         </span>
         <span className="education-card__toggle-label">
-          {expanded
-            ? t("patient.education.hideDetails")
-            : t("patient.education.openTopic")}
+          <span className="education-card__toggle-text">
+            {expanded
+              ? t("patient.education.hideDetails")
+              : t("patient.education.openTopic")}
+          </span>
           <Icon
             className="material-symbols-outlined"
             name="expand_more"
@@ -55,26 +83,30 @@ const EducationArticle = ({ article, expanded, featured = false, onToggle }) => 
 
       {expanded && (
         <div className="education-card__details" id={detailId}>
-          {!featured && <p className="education-card__summary">{article.summary}</p>}
-
           <dl className="education-card__guidance">
-            <div>
+            <div className="education-card__guidance-item education-card__guidance-item--action">
               <dt>
-                <Icon className="material-symbols-outlined" name="check_circle" />
+                <span className="education-card__guidance-icon" aria-hidden="true">
+                  <Icon className="material-symbols-outlined" name="check_circle" />
+                </span>
                 {t("patient.education.actionLabel")}
               </dt>
               <dd>{article.action}</dd>
             </div>
-            <div>
+            <div className="education-card__guidance-item education-card__guidance-item--caution">
               <dt>
-                <Icon className="material-symbols-outlined" name="do_not_disturb_on" />
+                <span className="education-card__guidance-icon" aria-hidden="true">
+                  <Icon className="material-symbols-outlined" name="do_not_disturb_on" />
+                </span>
                 {t("patient.education.cautionLabel")}
               </dt>
               <dd>{article.caution}</dd>
             </div>
-            <div className="education-card__urgent">
+            <div className="education-card__guidance-item education-card__guidance-item--urgent">
               <dt>
-                <Icon className="material-symbols-outlined" name="health_and_safety" />
+                <span className="education-card__guidance-icon" aria-hidden="true">
+                  <Icon className="material-symbols-outlined" name="health_and_safety" />
+                </span>
                 {t("patient.education.urgentLabel")}
               </dt>
               <dd>{article.urgent}</dd>
@@ -108,6 +140,7 @@ const EducationScreen = () => {
   const { user } = useAuth();
   const { locale } = useI18n();
   const [expandedArticleId, setExpandedArticleId] = useState(null);
+  const [activeCategory, setActiveCategory] = useState("all");
   const pregnancyWeek = Number(user?.patientProfile?.gestational_age_weeks);
   const hasPregnancyWeek = Number.isFinite(pregnancyWeek)
     && pregnancyWeek >= 1
@@ -118,6 +151,18 @@ const EducationScreen = () => {
     [locale, pregnancyWeek],
   );
   const otherArticles = articles.filter((article) => article.id !== weeklyArticle.id);
+  const availableCategories = useMemo(
+    () => CATEGORY_ORDER.filter(
+      (category) => articles.some((article) => article.category === category),
+    ),
+    [articles],
+  );
+  const filteredTopics = useMemo(
+    () => (activeCategory === "all"
+      ? otherArticles
+      : otherArticles.filter((article) => article.category === activeCategory)),
+    [otherArticles, activeCategory],
+  );
   const referenceDate = formatReferenceDate(EDUCATION_REFERENCE_CHECKED_AT, locale);
 
   const openHelpOptions = () => {
@@ -141,9 +186,14 @@ const EducationScreen = () => {
         >
           <Icon className="material-symbols-outlined" name="arrow_back" />
         </button>
-        <div>
-          <h1>{t("patient.education.title")}</h1>
-          <p>{t("patient.education.subtitle")}</p>
+        <div className="education-header__copy">
+          <span className="education-header__icon" aria-hidden="true">
+            <Icon className="material-symbols-outlined" name="menu_book" />
+          </span>
+          <div className="education-header__text">
+            <h1>{t("patient.education.title")}</h1>
+            <p>{t("patient.education.subtitle")}</p>
+          </div>
         </div>
       </header>
 
@@ -183,22 +233,50 @@ const EducationScreen = () => {
 
         <section className="education-topics" aria-labelledby="education-topics-title">
           <div className="education-section-heading">
-            <Icon className="material-symbols-outlined" name="menu_book" />
+            <span className="education-section-heading__icon" aria-hidden="true">
+              <Icon className="material-symbols-outlined" name="menu_book" />
+            </span>
             <div>
               <h2 id="education-topics-title">{t("patient.education.allTopics")}</h2>
               <p>{t("patient.education.topicHint")}</p>
             </div>
           </div>
-          <div className="education-topic-list">
-            {otherArticles.map((article) => (
-              <EducationArticle
-                key={article.id}
-                article={article}
-                expanded={expandedArticleId === article.id}
-                onToggle={() => toggleArticle(article.id)}
-              />
+
+          <div className="education-filter" role="group" aria-label={t("patient.education.filterAria")}>
+            <button
+              type="button"
+              className={`education-filter__chip${activeCategory === "all" ? " is-active" : ""}`}
+              onClick={() => setActiveCategory("all")}
+            >
+              {t("patient.education.categoryAll")}
+            </button>
+            {availableCategories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={`education-filter__chip${activeCategory === category ? " is-active" : ""}`}
+                onClick={() => setActiveCategory(category)}
+              >
+                <Icon className="material-symbols-outlined" name={CATEGORY_ICONS[category]} />
+                {t(CATEGORY_LABEL_KEYS[category])}
+              </button>
             ))}
           </div>
+
+          {filteredTopics.length > 0 ? (
+            <div className="education-topic-list">
+              {filteredTopics.map((article) => (
+                <EducationArticle
+                  key={article.id}
+                  article={article}
+                  expanded={expandedArticleId === article.id}
+                  onToggle={() => toggleArticle(article.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="education-topics__empty">{t("patient.education.noTopics")}</p>
+          )}
         </section>
 
         <aside className="education-source-note" role="note">

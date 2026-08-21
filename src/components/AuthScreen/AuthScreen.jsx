@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import { t } from '../../i18n';
+import { API_BASE_URL, setLocalAndroidApiBaseUrl } from '../../services/api';
 import BrandLogo from '../BrandLogo/BrandLogo';
 import './AuthScreen.css';
 
@@ -75,10 +78,14 @@ const PORTAL_CONFIG = {
 const AuthScreen = ({ portal = 'general' }) => {
   const { login, registerPatient, logout, authError, isAuthLoading } = useAuth();
   const config = PORTAL_CONFIG[portal] || PORTAL_CONFIG.general;
+  const isNativePatientApp = Capacitor.isNativePlatform() && portal === 'patient';
+  const isLocalAndroidBuild = isNativePatientApp && import.meta.env.MODE === 'android-local';
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [localApiAddress, setLocalApiAddress] = useState(API_BASE_URL);
+  const [localApiStatus, setLocalApiStatus] = useState('');
 
   useEffect(() => {
     setMode('login');
@@ -128,41 +135,83 @@ const AuthScreen = ({ portal = 'general' }) => {
     }
   };
 
+  const handleLocalApiSubmit = (event) => {
+    event.preventDefault();
+    setLocalApiStatus('');
+    try {
+      const savedAddress = setLocalAndroidApiBaseUrl(localApiAddress);
+      setLocalApiAddress(savedAddress);
+      setSubmitError('');
+      setLocalApiStatus(t('common.localApiSaved'));
+    } catch {
+      setLocalApiStatus(t('common.localApiInvalid'));
+    }
+  };
+
   const errorMessage = submitError || authError;
 
   return (
-    <div className={`auth-screen ${config.className}`}>
+    <div className={`auth-screen ${config.className}${isNativePatientApp ? ' auth-screen--native' : ''}`}>
       <section className="auth-panel" aria-label={`Autentikasi ${config.label}`}>
         <div className="auth-panel__header">
-          <Link to={config.backPath} className="auth-panel__back-link">
-            &larr; {config.backLabel}
-          </Link>
+          {!isNativePatientApp && (
+            <Link to={config.backPath} className="auth-panel__back-link">
+              &larr; {config.backLabel}
+            </Link>
+          )}
           <BrandLogo variant="auth" />
           <span className="auth-panel__portal-label">{config.label}</span>
           <h1>{heading}</h1>
           <p>{description}</p>
         </div>
 
-        <nav className="auth-panel__portal-switch" aria-label="Pilih jalur portal">
-          <Link
-            to="/login/ibu-hamil"
-            className={portal === 'patient' ? 'auth-panel__portal-option auth-panel__portal-option--active' : 'auth-panel__portal-option'}
-          >
-            Ibu Hamil
-          </Link>
-          <Link
-            to="/login/nakes"
-            className={portal === 'clinician' ? 'auth-panel__portal-option auth-panel__portal-option--active' : 'auth-panel__portal-option'}
-          >
-            Nakes
-          </Link>
-          <Link
-            to="/login/admin"
-            className={portal === 'admin' ? 'auth-panel__portal-option auth-panel__portal-option--active' : 'auth-panel__portal-option'}
-          >
-            Admin
-          </Link>
-        </nav>
+        {!isNativePatientApp && (
+          <nav className="auth-panel__portal-switch" aria-label="Pilih jalur portal">
+            <Link
+              to="/login/ibu-hamil"
+              className={portal === 'patient' ? 'auth-panel__portal-option auth-panel__portal-option--active' : 'auth-panel__portal-option'}
+            >
+              Ibu Hamil
+            </Link>
+            <Link
+              to="/login/nakes"
+              className={portal === 'clinician' ? 'auth-panel__portal-option auth-panel__portal-option--active' : 'auth-panel__portal-option'}
+            >
+              Nakes
+            </Link>
+            <Link
+              to="/login/admin"
+              className={portal === 'admin' ? 'auth-panel__portal-option auth-panel__portal-option--active' : 'auth-panel__portal-option'}
+            >
+              Admin
+            </Link>
+          </nav>
+        )}
+
+        {isLocalAndroidBuild && (
+          <div className="auth-panel__local-test-note">
+            <p>{t('common.localApiHint')}</p>
+            <details className="auth-panel__local-api-settings" open>
+              <summary>{t('common.localApiSettings')}</summary>
+              <form onSubmit={handleLocalApiSubmit}>
+                <label htmlFor="local-api-address">{t('common.localApiAddress')}</label>
+                <div className="auth-panel__local-api-row">
+                  <input
+                    id="local-api-address"
+                    type="url"
+                    inputMode="url"
+                    value={localApiAddress}
+                    onChange={(event) => setLocalApiAddress(event.target.value)}
+                    placeholder="http://192.168.137.1:3020"
+                    required
+                  />
+                  <button type="submit">{t('common.save')}</button>
+                </div>
+                {localApiStatus && <small role="status">{localApiStatus}</small>}
+              </form>
+            </details>
+          </div>
+        )}
 
         <div
           className={config.allowRegister ? 'auth-panel__tabs' : 'auth-panel__tabs auth-panel__tabs--single'}

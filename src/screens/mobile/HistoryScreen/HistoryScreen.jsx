@@ -572,14 +572,52 @@ const HistoryScreen = () => {
     }
   };
 
-  // ── Bagikan ke klinik — belum tersedia ───────────────────────────────────
-  const handleShareToClinic = () => {
-    openModal({
-      title: t("patient.common.featureUnavailable"),
-      message: t("patient.history.shareUnavailableMessage"),
-      type: "info",
-      confirmText: t("patient.common.gotIt"),
+  // Bagikan ringkasan melalui share sheet perangkat atau clipboard.
+  const handleShareToClinic = async () => {
+    const completedSessions = sessions.filter((session) => session.status === "completed");
+    if (completedSessions.length === 0) {
+      openModal({
+        title: t("patient.history.shareEmptyTitle"),
+        message: t("patient.history.shareEmptyMessage"),
+        type: "info",
+        confirmText: t("patient.common.gotIt"),
+      });
+      return;
+    }
+
+    const newestSession = completedSessions[0];
+    const shareText = t("patient.history.shareText", {
+      count: completedSessions.length,
+      date: formatDateOnly(newestSession.start_time, locale),
     });
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: t("patient.history.shareTitle"),
+          text: shareText,
+        });
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText);
+        openModal({
+          title: t("patient.history.shareCopiedTitle"),
+          message: t("patient.history.shareCopiedMessage"),
+          type: "success",
+          confirmText: t("patient.common.gotIt"),
+        });
+        return;
+      }
+      throw new Error("share_unavailable");
+    } catch (shareError) {
+      if (shareError?.name === "AbortError") return;
+      openModal({
+        title: t("patient.history.shareFailedTitle"),
+        message: t("patient.history.shareFailedMessage"),
+        type: "error",
+        confirmText: t("patient.common.gotIt"),
+      });
+    }
   };
 
   // ── Render satu timeline item ─────────────────────────────────────────────

@@ -10,6 +10,7 @@ import { usePatientDevice } from "../../../context/usePatientDevice";
 import { usePatientMonitoring } from "../../../context/usePatientMonitoring";
 import { t } from "../../../i18n";
 import { useI18n } from "../../../i18n/useI18n";
+import PatientAIAnalysisPanel from "./PatientAIAnalysisPanel";
 import "./MonitoringScreen.css";
 
 const SIGNAL_VIEW_OPTIONS = ["all", "fhr", "contraction", "events"];
@@ -286,6 +287,7 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
     synced: t("patient.monitoring.persistenceSynced"),
     retrying: t("patient.monitoring.persistenceRetrying"),
     offline: t("patient.monitoring.persistenceOffline"),
+    wifi_required: t("patient.monitoring.persistenceWifiRequired"),
     rejected: t("patient.monitoring.persistenceRejected"),
     queue_full: t("patient.monitoring.persistenceQueueFull"),
   };
@@ -548,6 +550,11 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
           </div>
         )}
       </section>
+
+      <PatientAIAnalysisPanel
+        sessionId={activeSession?.id || null}
+        isSessionActive={isSessionActive}
+      />
 
       {isMonitoringActive && (
         <>

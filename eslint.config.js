@@ -12,6 +12,9 @@ export default defineConfig([
     'android/**/build/**',
     'android/app/src/main/assets/**',
     '.pytest_cache/**',
+    '.codex-qa/**',
+    '.agents/**',
+    '.codex/**',
   ]),
   {
     files: ['**/*.{js,jsx}'],
