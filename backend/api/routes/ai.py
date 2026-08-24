@@ -14,6 +14,7 @@ from core.authorization import (
     scoped_patient_or_404,
     scoped_patient_query,
 )
+from core.config import settings
 from core.realtime import enqueue_realtime_event
 from db.database import get_db
 from models.ai_analysis import AIAnalysisResult, AIAnalysisReview
@@ -27,7 +28,9 @@ from schemas.ai import (
     AIAnalysisReviewRequest,
     AIAnalysisReviewResponse,
     AIPredictRequest,
+    AIPredictResponse,
 )
+from services.ctg_cnn_lstm_adapter import predict_from_payload
 
 router = APIRouter()
 
@@ -131,8 +134,8 @@ def get_accessible_sensor_chunk(
     )
 
 
-@router.post("/predict")
-def predict_screening_stub(
+@router.post("/predict", response_model=AIPredictResponse)
+def predict_screening(
     request: AIPredictRequest,
     organization_id: str | None = Header(default=None, alias="X-Organization-ID"),
     db: Session = Depends(get_db),
@@ -144,13 +147,40 @@ def predict_screening_stub(
         current_user,
         organization_id,
     )
-    _ = chunk
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=(
-            "AI inference is not available. Signal processing, model validation, "
-            "and clinical review must be completed before this endpoint is enabled."
-        ),
+
+    if settings.AI_PIPELINE_MODE == "disabled":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "AI inference is not available. Signal processing, model validation, "
+                "and clinical review must be completed before this endpoint is enabled."
+            ),
+        )
+
+    try:
+        prediction = predict_from_payload(chunk.payload)
+    except Exception as exc:  # pragma: no cover - route intentionally fails closed on missing model payload.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "AI inference is not available. Signal processing, model validation, "
+                "and clinical review must be completed before this endpoint is enabled."
+            ),
+        ) from exc
+
+    overall_confidence = prediction["overall"]["confidence"]
+    risk_score = 0.0 if prediction["overall"]["status"] == "Normal" else min(1.0, max(0.55, overall_confidence))
+    classification = "Dalam Batas Normal" if prediction["overall"]["status"] == "Normal" else "Perlu Observasi"
+    return AIPredictResponse(
+        sensor_data_chunk_id=chunk.id,
+        fhr=prediction["fhr"],
+        mhr=prediction["mhr"],
+        uc=prediction["uc"],
+        overall=prediction["overall"],
+        risk_score=risk_score,
+        classification=classification,
+        message="Prediksi CTG CNN-LSTM dari window sensor yang tersedia.",
+        is_stub=False,
     )
 
 

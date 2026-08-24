@@ -1,0 +1,10 @@
+{
+  "seed": 42,
+  "total": 26500,
+  "train": 21200,
+  "validation": 2650,
+  "test": 2650,
+  "train_percentage": 0.8,
+  "validation_percentage": 0.1,
+  "test_percentage": 0.1
+}

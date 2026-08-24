@@ -30,11 +30,11 @@ MAX30105 max30102;
 // DOUT->GPIO13, DRDY->GPIO14, RST->GPIO15.
 // Modul yang dipakai TIDAK mengekspos pin SYNC;
 // sinkronisasi dilakukan dengan command SPI.
-#define ADS_CS_PIN    10
-#define ADS_MOSI_PIN  11
-#define ADS_SCLK_PIN  12
-#define ADS_MISO_PIN  13
-#define ADS_DRDY_PIN  14
+#define ADS_CS_PIN 10
+#define ADS_MOSI_PIN 11
+#define ADS_SCLK_PIN 12
+#define ADS_MISO_PIN 13
+#define ADS_DRDY_PIN 14
 #define ADS_RESET_PIN 15
 
 // =====================================================
@@ -184,17 +184,17 @@ unsigned long pressureDuration = 0;
 // nilai DC differential memang seharusnya dekat 0 mV.
 
 const uint8_t ADS_REG_STATUS = 0x00;
-const uint8_t ADS_REG_MUX    = 0x01;
-const uint8_t ADS_REG_ADCON  = 0x02;
-const uint8_t ADS_REG_DRATE  = 0x03;
+const uint8_t ADS_REG_MUX = 0x01;
+const uint8_t ADS_REG_ADCON = 0x02;
+const uint8_t ADS_REG_DRATE = 0x03;
 
-const uint8_t ADS_CMD_WAKEUP  = 0x00;
-const uint8_t ADS_CMD_RDATA   = 0x01;
-const uint8_t ADS_CMD_SDATAC  = 0x0F;
-const uint8_t ADS_CMD_RREG    = 0x10;
-const uint8_t ADS_CMD_WREG    = 0x50;
+const uint8_t ADS_CMD_WAKEUP = 0x00;
+const uint8_t ADS_CMD_RDATA = 0x01;
+const uint8_t ADS_CMD_SDATAC = 0x0F;
+const uint8_t ADS_CMD_RREG = 0x10;
+const uint8_t ADS_CMD_WREG = 0x50;
 const uint8_t ADS_CMD_SELFCAL = 0xF0;
-const uint8_t ADS_CMD_SYNC    = 0xFC;
+const uint8_t ADS_CMD_SYNC = 0xFC;
 
 // 7500 SPS @ 7.68 MHz.
 const uint8_t ADS_DRATE_7500 = 0xD0;
@@ -490,9 +490,9 @@ void resetMAXResultFilters()
 void updateHRFilter()
 {
   bool rawValid =
-    validHeartRateRaw &&
-    heartRateRaw >= HR_MIN_VALID &&
-    heartRateRaw <= HR_MAX_VALID;
+      validHeartRateRaw &&
+      heartRateRaw >= HR_MIN_VALID &&
+      heartRateRaw <= HR_MAX_VALID;
 
   if (!rawValid)
   {
@@ -526,8 +526,8 @@ void updateHRFilter()
   else
   {
     hrFiltered =
-      HR_ALPHA * hrMedian +
-      (1.0f - HR_ALPHA) * hrFiltered;
+        HR_ALPHA * hrMedian +
+        (1.0f - HR_ALPHA) * hrFiltered;
   }
 }
 
@@ -537,9 +537,9 @@ void updateHRFilter()
 void updateSpO2Filter()
 {
   bool rawValid =
-    validSPO2Raw &&
-    spo2Raw >= SPO2_MIN_VALID &&
-    spo2Raw <= SPO2_MAX_VALID;
+      validSPO2Raw &&
+      spo2Raw >= SPO2_MIN_VALID &&
+      spo2Raw <= SPO2_MAX_VALID;
 
   if (!rawValid)
   {
@@ -562,7 +562,7 @@ void updateSpO2Filter()
     spo2HistoryCount++;
 
   int spo2Median =
-    medianFromHistory(spo2History, spo2HistoryCount);
+      medianFromHistory(spo2History, spo2HistoryCount);
 
   if (!spo2FilteredReady)
   {
@@ -574,8 +574,8 @@ void updateSpO2Filter()
   else
   {
     spo2Filtered =
-      SPO2_ALPHA * spo2Median +
-      (1.0f - SPO2_ALPHA) * spo2Filtered;
+        SPO2_ALPHA * spo2Median +
+        (1.0f - SPO2_ALPHA) * spo2Filtered;
   }
 }
 
@@ -603,14 +603,14 @@ void updateFSR()
   else
   {
     fsrFilteredADC =
-      (FSR_ALPHA * fsrRawADC) +
-      ((1.0f - FSR_ALPHA) * fsrFilteredADC);
+        (FSR_ALPHA * fsrRawADC) +
+        ((1.0f - FSR_ALPHA) * fsrFilteredADC);
   }
 
   // Tegangan estimasi dari ADC 12-bit
   fsrVoltage =
-    fsrFilteredADC *
-    (3.3f / 4095.0f);
+      fsrFilteredADC *
+      (3.3f / 4095.0f);
 
   // ===================================================
   // KALIBRASI BASELINE
@@ -627,15 +627,14 @@ void updateFSR()
       fsrBaselineMax = fsrFilteredADC;
 
     if (
-      now - fsrCalibrationStart >=
-      FSR_CALIBRATION_TIME_MS
-    )
+        now - fsrCalibrationStart >=
+        FSR_CALIBRATION_TIME_MS)
     {
       if (fsrBaselineSamples > 0)
       {
         fsrBaseline =
-          fsrBaselineSum /
-          (float)fsrBaselineSamples;
+            fsrBaselineSum /
+            (float)fsrBaselineSamples;
       }
       else
       {
@@ -643,15 +642,15 @@ void updateFSR()
       }
 
       fsrBaselineNoise =
-        fsrBaselineMax -
-        fsrBaselineMin;
+          fsrBaselineMax -
+          fsrBaselineMin;
 
       // Threshold adaptif berdasarkan noise baseline
       fsrOnThresholdADC =
-        fsrBaselineNoise * 4.0f;
+          fsrBaselineNoise * 4.0f;
 
       fsrOffThresholdADC =
-        fsrBaselineNoise * 2.0f;
+          fsrBaselineNoise * 2.0f;
 
       if (fsrOnThresholdADC < FSR_MIN_ON_DELTA_ADC)
         fsrOnThresholdADC = FSR_MIN_ON_DELTA_ADC;
@@ -688,16 +687,16 @@ void updateFSR()
   // DELTA FSR
   // ===================================================
   fsrDeltaADC =
-    fsrFilteredADC -
-    fsrBaseline;
+      fsrFilteredADC -
+      fsrBaseline;
 
   // Untuk tekanan, kita hanya melihat kenaikan dari baseline
   if (fsrDeltaADC < 0.0f)
     fsrDeltaADC = 0.0f;
 
   fsrDeltaVoltage =
-    fsrDeltaADC *
-    (3.3f / 4095.0f);
+      fsrDeltaADC *
+      (3.3f / 4095.0f);
 
   // ===================================================
   // DETEKSI PENINGKATAN TEKANAN
@@ -715,8 +714,8 @@ void updateFSR()
   else
   {
     pressureDuration =
-      now -
-      pressureStartTime;
+        now -
+        pressureStartTime;
 
     if (fsrDeltaADC <= fsrOffThresholdADC)
     {
@@ -853,14 +852,14 @@ bool adsInit()
   // PENTING: read-back register. Kalau DOUT/MISO tidak benar, kode lama
   // bisa terlihat "OK" tetapi semua data 0. Sekarang kondisi itu ditolak.
   adsStatusReadback = adsReadRegister(ADS_REG_STATUS);
-  adsMuxReadback    = adsReadRegister(ADS_REG_MUX);
-  adsAdconReadback  = adsReadRegister(ADS_REG_ADCON);
-  adsDrateReadback  = adsReadRegister(ADS_REG_DRATE);
+  adsMuxReadback = adsReadRegister(ADS_REG_MUX);
+  adsAdconReadback = adsReadRegister(ADS_REG_ADCON);
+  adsDrateReadback = adsReadRegister(ADS_REG_DRATE);
 
   adsRegisterError =
-    ((adsMuxReadback & 0xFF) != 0x08) ||
-    ((adsAdconReadback & 0x07) != ADS_PGA_CODE) ||
-    (adsDrateReadback != ADS_DRATE_7500);
+      ((adsMuxReadback & 0xFF) != 0x08) ||
+      ((adsAdconReadback & 0x07) != ADS_PGA_CODE) ||
+      (adsDrateReadback != ADS_DRATE_7500);
 
   if (adsRegisterError)
     return false;
@@ -915,11 +914,12 @@ float adsCountsToMilliVolts(int32_t raw)
 
 float clampFloat(float value, float minimum, float maximum)
 {
-  if (value < minimum) return minimum;
-  if (value > maximum) return maximum;
+  if (value < minimum)
+    return minimum;
+  if (value > maximum)
+    return maximum;
   return value;
 }
-
 
 // =====================================================
 // RESET DETEKTOR FHR SAAT CHANNEL BERPINDAH
@@ -1035,14 +1035,14 @@ void calibratePiezos()
       float acMv = diffMv - piezoBaselineMv[ch];
 
       piezoHighPass[ch] =
-        HP_ALPHA *
-        (piezoHighPass[ch] + acMv - piezoPreviousInput[ch]);
+          HP_ALPHA *
+          (piezoHighPass[ch] + acMv - piezoPreviousInput[ch]);
 
       piezoPreviousInput[ch] = acMv;
 
       piezoBandPass[ch] =
-        LP_ALPHA * piezoHighPass[ch] +
-        (1.0f - LP_ALPHA) * piezoBandPass[ch];
+          LP_ALPHA * piezoHighPass[ch] +
+          (1.0f - LP_ALPHA) * piezoBandPass[ch];
 
       if (frame >= FILTER_WARMUP_FRAMES)
       {
@@ -1059,18 +1059,18 @@ void calibratePiezos()
   for (uint8_t ch = 0; ch < PIEZO_COUNT; ch++)
   {
     double varianceBP =
-      (nBP[ch] > 1) ? m2BP[ch] / (double)(nBP[ch] - 1) : 0.0;
+        (nBP[ch] > 1) ? m2BP[ch] / (double)(nBP[ch] - 1) : 0.0;
 
     piezoNoiseStdMv[ch] = (float)sqrt(varianceBP);
 
     float threshold =
-      piezoNoiseStdMv[ch] * THRESHOLD_NOISE_MULTIPLIER;
+        piezoNoiseStdMv[ch] * THRESHOLD_NOISE_MULTIPLIER;
 
     piezoThresholdMv[ch] =
-      clampFloat(threshold, MIN_THRESHOLD_MV, MAX_THRESHOLD_MV);
+        clampFloat(threshold, MIN_THRESHOLD_MV, MAX_THRESHOLD_MV);
 
     piezoNoiseAbsEMA[ch] =
-      (piezoNoiseStdMv[ch] > 0.03f) ? piezoNoiseStdMv[ch] : 0.03f;
+        (piezoNoiseStdMv[ch] > 0.03f) ? piezoNoiseStdMv[ch] : 0.03f;
 
     piezoDynamicThresholdMv[ch] = piezoThresholdMv[ch];
     piezoNormalized[ch] = 0.0f;
@@ -1148,19 +1148,19 @@ void processPiezoChannel(uint8_t ch, int32_t raw)
   if (fabsf(piezoACmV[ch]) < piezoThresholdMv[ch] * 0.50f)
   {
     piezoBaselineMv[ch] +=
-      BASELINE_TRACK_ALPHA *
-      (piezoDiffmV[ch] - piezoBaselineMv[ch]);
+        BASELINE_TRACK_ALPHA *
+        (piezoDiffmV[ch] - piezoBaselineMv[ch]);
   }
 
   piezoHighPass[ch] =
-    HP_ALPHA *
-    (piezoHighPass[ch] + piezoACmV[ch] - piezoPreviousInput[ch]);
+      HP_ALPHA *
+      (piezoHighPass[ch] + piezoACmV[ch] - piezoPreviousInput[ch]);
 
   piezoPreviousInput[ch] = piezoACmV[ch];
 
   piezoBandPass[ch] =
-    LP_ALPHA * piezoHighPass[ch] +
-    (1.0f - LP_ALPHA) * piezoBandPass[ch];
+      LP_ALPHA * piezoHighPass[ch] +
+      (1.0f - LP_ALPHA) * piezoBandPass[ch];
 
   const float absBP = fabsf(piezoBandPass[ch]);
 
@@ -1172,35 +1172,34 @@ void processPiezoChannel(uint8_t ch, int32_t raw)
   if (absBP < currentThreshold * 1.5f)
   {
     piezoNoiseAbsEMA[ch] =
-      RUNNING_NOISE_ALPHA * absBP +
-      (1.0f - RUNNING_NOISE_ALPHA) * piezoNoiseAbsEMA[ch];
+        RUNNING_NOISE_ALPHA * absBP +
+        (1.0f - RUNNING_NOISE_ALPHA) * piezoNoiseAbsEMA[ch];
   }
 
   float dynamicThreshold =
-    piezoNoiseAbsEMA[ch] * RUNNING_NOISE_MULTIPLIER;
+      piezoNoiseAbsEMA[ch] * RUNNING_NOISE_MULTIPLIER;
 
   const float calibrationFloor =
-    piezoThresholdMv[ch] * 0.65f;
+      piezoThresholdMv[ch] * 0.65f;
 
   if (dynamicThreshold < calibrationFloor)
     dynamicThreshold = calibrationFloor;
 
   piezoDynamicThresholdMv[ch] =
-    clampFloat(dynamicThreshold, MIN_THRESHOLD_MV, MAX_THRESHOLD_MV);
+      clampFloat(dynamicThreshold, MIN_THRESHOLD_MV, MAX_THRESHOLD_MV);
 
   piezoNormalized[ch] =
-    piezoBandPass[ch] / piezoDynamicThresholdMv[ch];
+      piezoBandPass[ch] / piezoDynamicThresholdMv[ch];
 
   const float absNorm = fabsf(piezoNormalized[ch]);
 
   piezoEnvelopeEMA[ch] =
-    PIEZO_ENVELOPE_ALPHA * absNorm +
-    (1.0f - PIEZO_ENVELOPE_ALPHA) * piezoEnvelopeEMA[ch];
+      PIEZO_ENVELOPE_ALPHA * absNorm +
+      (1.0f - PIEZO_ENVELOPE_ALPHA) * piezoEnvelopeEMA[ch];
 
   // Dimensionless score; lebih adil untuk channel dengan sensitivitas berbeda.
   piezoQuality[ch] = piezoEnvelopeEMA[ch];
 }
-
 
 // =====================================================
 // UPDATE PIEZO SELECTOR
@@ -1238,9 +1237,8 @@ void updatePiezoSelector()
   // MODE MANUAL
   // ---------------------------------------------------
   if (
-    MANUAL_PIEZO_CHANNEL >= 0 &&
-    MANUAL_PIEZO_CHANNEL < PIEZO_COUNT
-  )
+      MANUAL_PIEZO_CHANNEL >= 0 &&
+      MANUAL_PIEZO_CHANNEL < PIEZO_COUNT)
   {
     const int forcedPiezo = MANUAL_PIEZO_CHANNEL;
 
@@ -1283,10 +1281,10 @@ void updatePiezoSelector()
   // HANYA ketika sudah ada kandidat pertama.
   // Tidak mengganggu SEARCH normal dan tidak membuat detector susah aktif.
   const bool validationInProgress =
-    !fetalHRReady &&
-    consistentFHRBeats > 0 &&
-    lastFHRValidationMs != 0 &&
-    (nowMs - lastFHRValidationMs) <= FHR_VALIDATION_HOLD_MS;
+      !fetalHRReady &&
+      consistentFHRBeats > 0 &&
+      lastFHRValidationMs != 0 &&
+      (nowMs - lastFHRValidationMs) <= FHR_VALIDATION_HOLD_MS;
 
   if (validationInProgress)
   {
@@ -1319,24 +1317,16 @@ void updatePiezoSelector()
   const bool lockedMode = fetalHRReady;
 
   const unsigned long selectInterval =
-    lockedMode ?
-    LOCK_SELECT_INTERVAL_MS :
-    SEARCH_SELECT_INTERVAL_MS;
+      lockedMode ? LOCK_SELECT_INTERVAL_MS : SEARCH_SELECT_INTERVAL_MS;
 
   const unsigned long minHold =
-    lockedMode ?
-    LOCK_MIN_HOLD_MS :
-    SEARCH_MIN_HOLD_MS;
+      lockedMode ? LOCK_MIN_HOLD_MS : SEARCH_MIN_HOLD_MS;
 
   const float switchRatio =
-    lockedMode ?
-    LOCK_SWITCH_HYSTERESIS :
-    SEARCH_SWITCH_HYSTERESIS;
+      lockedMode ? LOCK_SWITCH_HYSTERESIS : SEARCH_SWITCH_HYSTERESIS;
 
   const byte winsRequired =
-    lockedMode ?
-    LOCK_WIN_REQUIRED :
-    SEARCH_WIN_REQUIRED;
+      lockedMode ? LOCK_WIN_REQUIRED : SEARCH_WIN_REQUIRED;
 
   if (nowMs - lastChannelSelectMs < selectInterval)
     return;
@@ -1358,11 +1348,11 @@ void updatePiezoSelector()
   // Saat SEARCH dan channel aktif hampir tidak punya sinyal,
   // izinkan pindah tanpa menuntut rasio yang terlalu besar.
   const bool activeVeryWeak =
-    (!lockedMode && activeQ < 0.75f);
+      (!lockedMode && activeQ < 0.75f);
 
   const bool clearlyBetter =
-    activeVeryWeak ||
-    (bestQ > activeQ * switchRatio);
+      activeVeryWeak ||
+      (bestQ > activeQ * switchRatio);
 
   if (!clearlyBetter)
   {
@@ -1383,12 +1373,11 @@ void updatePiezoSelector()
   }
 
   const bool holdExpired =
-    (nowMs - activePiezoSinceMs) >= minHold;
+      (nowMs - activePiezoSinceMs) >= minHold;
 
   if (
-    holdExpired &&
-    candidatePiezoWins >= winsRequired
-  )
+      holdExpired &&
+      candidatePiezoWins >= winsRequired)
   {
     activePiezo = candidatePiezo;
 
@@ -1460,7 +1449,7 @@ void updatePiezos()
   if (elapsed >= 1000)
   {
     piezoActualFsPerChannel =
-      (piezoFramesInRateWindow * 1000.0f) / (float)elapsed;
+        (piezoFramesInRateWindow * 1000.0f) / (float)elapsed;
     piezoFramesInRateWindow = 0;
     piezoRateWindowStartMs = nowMs;
   }
@@ -1476,25 +1465,22 @@ void calculateFHR()
   // SAMA seperti V6:
   // |Norm| = 1 berarti tepat di dynamic threshold.
   const float currentAbs =
-    fabsf(selectedPiezoNorm);
+      fabsf(selectedPiezoNorm);
 
   const float threshold = 1.0f;
 
   const bool localMaximum =
-    previousAbsPiezo >
-      prePreviousAbsPiezo &&
-    previousAbsPiezo >=
-      currentAbs;
+      previousAbsPiezo >
+          prePreviousAbsPiezo &&
+      previousAbsPiezo >=
+          currentAbs;
 
   if (
-    localMaximum &&
-    previousAbsPiezo >= threshold &&
-    (
-      lastPeakTime == 0 ||
-      now - lastPeakTime >=
-        REFRACTORY_TIME_MS
-    )
-  )
+      localMaximum &&
+      previousAbsPiezo >= threshold &&
+      (lastPeakTime == 0 ||
+       now - lastPeakTime >=
+           REFRACTORY_TIME_MS))
   {
     unsigned long peakTime = now;
 
@@ -1502,32 +1488,31 @@ void calculateFHR()
       peakTime -= 5;
 
     lastPeakAmplitude =
-      fabsf(selectedPiezo);
+        fabsf(selectedPiezo);
 
     detectedPeakCount++;
 
     if (lastPeakTime != 0)
     {
       lastPeakIntervalMs =
-        peakTime - lastPeakTime;
+          peakTime - lastPeakTime;
 
       const float candidateBPM =
-        60000.0f /
-        (float)lastPeakIntervalMs;
+          60000.0f /
+          (float)lastPeakIntervalMs;
 
       // =================================================
       // MECHANICAL BPM
       // =================================================
       // Tetap responsif seperti V6.
       if (
-        candidateBPM >=
-          MIN_MECHANICAL_BPM &&
-        candidateBPM <=
-          MAX_MECHANICAL_BPM
-      )
+          candidateBPM >=
+              MIN_MECHANICAL_BPM &&
+          candidateBPM <=
+              MAX_MECHANICAL_BPM)
       {
         mechanicalBPM =
-          candidateBPM;
+            candidateBPM;
       }
       else
       {
@@ -1538,58 +1523,54 @@ void calculateFHR()
       // FHR CANDIDATE
       // =================================================
       if (
-        candidateBPM >=
-          MIN_FETAL_BPM &&
-        candidateBPM <=
-          MAX_FETAL_BPM
-      )
+          candidateBPM >=
+              MIN_FETAL_BPM &&
+          candidateBPM <=
+              MAX_FETAL_BPM)
       {
         fetalBPM =
-          candidateBPM;
+            candidateBPM;
 
         // Kandidat pertama.
         if (
-          previousCandidateBPM <=
-          0.0f
-        )
+            previousCandidateBPM <=
+            0.0f)
         {
           previousCandidateBPM =
-            candidateBPM;
+              candidateBPM;
 
           consistentFHRBeats = 1;
           fhrMismatchStreak = 0;
 
           lastFHRValidationMs =
-            now;
+              now;
         }
         else
         {
           const float allowedJump =
-            previousCandidateBPM *
-            MAX_FHR_JUMP_FRACTION;
+              previousCandidateBPM *
+              MAX_FHR_JUMP_FRACTION;
 
           const bool consistent =
-            fabsf(
-              candidateBPM -
-              previousCandidateBPM
-            ) <=
-            allowedJump;
+              fabsf(
+                  candidateBPM -
+                  previousCandidateBPM) <=
+              allowedJump;
 
           if (consistent)
           {
             // Kandidat kedua cocok.
             previousCandidateBPM =
-              candidateBPM;
+                candidateBPM;
 
             fhrMismatchStreak = 0;
 
             lastFHRValidationMs =
-              now;
+                now;
 
             if (
-              consistentFHRBeats <
-              255
-            )
+                consistentFHRBeats <
+                255)
             {
               consistentFHRBeats++;
             }
@@ -1601,9 +1582,8 @@ void calculateFHR()
             // -------------------------------------------
             // SATU mismatch tidak langsung membuat Valid 1 hilang.
             if (
-              fhrMismatchStreak <
-              255
-            )
+                fhrMismatchStreak <
+                255)
             {
               fhrMismatchStreak++;
             }
@@ -1611,18 +1591,17 @@ void calculateFHR()
             // Baru setelah 2 mismatch berturut-turut,
             // kandidat lama dianggap memang tidak cocok.
             if (
-              fhrMismatchStreak >=
-              MAX_FHR_MISMATCH_STREAK
-            )
+                fhrMismatchStreak >=
+                MAX_FHR_MISMATCH_STREAK)
             {
               previousCandidateBPM =
-                candidateBPM;
+                  candidateBPM;
 
               consistentFHRBeats = 1;
               fhrMismatchStreak = 0;
 
               lastFHRValidationMs =
-                now;
+                  now;
             }
 
             // Kalau baru mismatch pertama:
@@ -1634,48 +1613,44 @@ void calculateFHR()
         // FHR FILTERED
         // =================================================
         if (
-          consistentFHRBeats >=
-          MIN_CONSISTENT_FHR_BEATS
-        )
+            consistentFHRBeats >=
+            MIN_CONSISTENT_FHR_BEATS)
         {
           if (
-            !fetalHRReady ||
-            fetalBPMFiltered <=
-              0.0f
-          )
+              !fetalHRReady ||
+              fetalBPMFiltered <=
+                  0.0f)
           {
             // Gunakan candidate terbaru yang sudah lolos validasi.
             fetalBPMFiltered =
-              previousCandidateBPM;
+                previousCandidateBPM;
           }
           else
           {
             fetalBPMFiltered =
-              BPM_FILTER_ALPHA *
-                previousCandidateBPM +
-              (1.0f -
-               BPM_FILTER_ALPHA) *
-                fetalBPMFiltered;
+                BPM_FILTER_ALPHA *
+                    previousCandidateBPM +
+                (1.0f -
+                 BPM_FILTER_ALPHA) *
+                    fetalBPMFiltered;
           }
 
           fetalHRReady = true;
           lastValidFHRTime =
-            peakTime;
+              peakTime;
 
           fetalNearMaternal =
-            false;
+              false;
 
           if (
-            hrFilteredReady &&
-            fabsf(
-              fetalBPMFiltered -
-              hrFiltered
-            ) <=
-              10.0f
-          )
+              hrFilteredReady &&
+              fabsf(
+                  fetalBPMFiltered -
+                  hrFiltered) <=
+                  10.0f)
           {
             fetalNearMaternal =
-              true;
+                true;
           }
         }
       }
@@ -1690,11 +1665,10 @@ void calculateFHR()
         fetalBPM = 0.0f;
 
         if (
-          consistentFHRBeats > 0 &&
-          lastFHRValidationMs != 0 &&
-          (now - lastFHRValidationMs) >
-            FHR_VALIDATION_HOLD_MS
-        )
+            consistentFHRBeats > 0 &&
+            lastFHRValidationMs != 0 &&
+            (now - lastFHRValidationMs) >
+                FHR_VALIDATION_HOLD_MS)
         {
           // Kandidat memang sudah terlalu lama tidak mendapat pasangan.
           consistentFHRBeats = 0;
@@ -1709,7 +1683,7 @@ void calculateFHR()
     // Tetap sama seperti V6:
     // peak yang lolos refractory menjadi reference interval berikutnya.
     lastPeakTime =
-      peakTime;
+        peakTime;
   }
 
   // ===================================================
@@ -1717,10 +1691,9 @@ void calculateFHR()
   // ===================================================
   // Angka lama jangan menggantung saat sudah tidak ada aktivitas.
   if (
-    lastPeakTime != 0 &&
-    now - lastPeakTime >
-      BPM_DISPLAY_STALE_MS
-  )
+      lastPeakTime != 0 &&
+      now - lastPeakTime >
+          BPM_DISPLAY_STALE_MS)
   {
     mechanicalBPM = 0.0f;
     fetalBPM = 0.0f;
@@ -1732,12 +1705,11 @@ void calculateFHR()
   // Kalau Valid=1 tidak pernah mendapat pasangan cukup lama,
   // barulah kembali ke pencarian dari nol.
   if (
-    !fetalHRReady &&
-    consistentFHRBeats > 0 &&
-    lastFHRValidationMs != 0 &&
-    now - lastFHRValidationMs >
-      FHR_VALIDATION_HOLD_MS
-  )
+      !fetalHRReady &&
+      consistentFHRBeats > 0 &&
+      lastFHRValidationMs != 0 &&
+      now - lastFHRValidationMs >
+          FHR_VALIDATION_HOLD_MS)
   {
     consistentFHRBeats = 0;
     previousCandidateBPM = 0.0f;
@@ -1749,20 +1721,19 @@ void calculateFHR()
   // FULL RESET
   // ===================================================
   if (
-    lastPeakTime != 0 &&
-    now - lastPeakTime >
-      3000
-  )
+      lastPeakTime != 0 &&
+      now - lastPeakTime >
+          3000)
   {
     resetFHRDetectorOnly();
   }
   else
   {
     prePreviousAbsPiezo =
-      previousAbsPiezo;
+        previousAbsPiezo;
 
     previousAbsPiezo =
-      currentAbs;
+        currentAbs;
   }
 }
 
@@ -1786,7 +1757,7 @@ bool readMAXSample(uint32_t &ir, uint32_t &red)
   }
 
   red = max30102.getFIFORed();
-  ir  = max30102.getFIFOIR();
+  ir = max30102.getFIFOIR();
 
   max30102.nextSample();
 
@@ -1831,27 +1802,24 @@ void resetMAXMeasurement()
 // ACTUAL FS MAX30102
 // =====================================================
 float calculateActualFs(
-  int numberOfSamples,
-  unsigned long elapsedMs
-)
+    int numberOfSamples,
+    unsigned long elapsedMs)
 {
   if (elapsedMs == 0)
     return 0.0f;
 
-  return
-    (numberOfSamples * 1000.0f) /
-    elapsedMs;
+  return (numberOfSamples * 1000.0f) /
+         elapsedMs;
 }
 
 // =====================================================
 // RAW MIN/MAX MAX30102
 // =====================================================
 void getMAXRawMinMax(
-  uint32_t &irMin,
-  uint32_t &irMax,
-  uint32_t &redMin,
-  uint32_t &redMax
-)
+    uint32_t &irMin,
+    uint32_t &irMax,
+    uint32_t &redMin,
+    uint32_t &redMax)
 {
   irMin = irBuffer[0];
   irMax = irBuffer[0];
@@ -1861,11 +1829,15 @@ void getMAXRawMinMax(
 
   for (int i = 1; i < FG_BUFFER_SIZE; i++)
   {
-    if (irBuffer[i] < irMin) irMin = irBuffer[i];
-    if (irBuffer[i] > irMax) irMax = irBuffer[i];
+    if (irBuffer[i] < irMin)
+      irMin = irBuffer[i];
+    if (irBuffer[i] > irMax)
+      irMax = irBuffer[i];
 
-    if (redBuffer[i] < redMin) redMin = redBuffer[i];
-    if (redBuffer[i] > redMax) redMax = redBuffer[i];
+    if (redBuffer[i] < redMin)
+      redMin = redBuffer[i];
+    if (redBuffer[i] > redMax)
+      redMax = redBuffer[i];
   }
 }
 
@@ -1875,14 +1847,13 @@ void getMAXRawMinMax(
 void calculateMAXResults()
 {
   maxim_heart_rate_and_oxygen_saturation(
-    irBuffer,
-    FG_BUFFER_SIZE,
-    redBuffer,
-    &spo2Raw,
-    &validSPO2Raw,
-    &heartRateRaw,
-    &validHeartRateRaw
-  );
+      irBuffer,
+      FG_BUFFER_SIZE,
+      redBuffer,
+      &spo2Raw,
+      &validSPO2Raw,
+      &heartRateRaw,
+      &validHeartRateRaw);
 
   updateHRFilter();
   updateSpO2Filter();
@@ -1959,38 +1930,40 @@ bool formatGatewayTimestamp(char *output, size_t outputSize, uint64_t epochMs)
 
   const unsigned int milliseconds = (unsigned int)(epochMs % 1000ULL);
   const int written = snprintf(
-    output,
-    outputSize,
-    "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ",
-    utcTime.tm_year + 1900,
-    utcTime.tm_mon + 1,
-    utcTime.tm_mday,
-    utcTime.tm_hour,
-    utcTime.tm_min,
-    utcTime.tm_sec,
-    milliseconds
-  );
+      output,
+      outputSize,
+      "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ",
+      utcTime.tm_year + 1900,
+      utcTime.tm_mon + 1,
+      utcTime.tm_mday,
+      utcTime.tm_hour,
+      utcTime.tm_min,
+      utcTime.tm_sec,
+      milliseconds);
   return written > 0 && (size_t)written < outputSize;
 }
 
 uint16_t quantizeADS1256To12Bit(int32_t raw)
 {
   int64_t bounded = raw;
-  if (bounded < -8388608LL) bounded = -8388608LL;
-  if (bounded > 8388607LL) bounded = 8388607LL;
+  if (bounded < -8388608LL)
+    bounded = -8388608LL;
+  if (bounded > 8388607LL)
+    bounded = 8388607LL;
   return (uint16_t)(((bounded + 8388608LL) * 4095LL) / 16777215LL);
 }
 
 void appendJsonNumberField(
-  String &json,
-  bool &hasField,
-  const char *name,
-  float value,
-  unsigned int decimals
-)
+    String &json,
+    bool &hasField,
+    const char *name,
+    float value,
+    unsigned int decimals)
 {
-  if (!isfinite(value)) return;
-  if (hasField) json += ',';
+  if (!isfinite(value))
+    return;
+  if (hasField)
+    json += ',';
   json += '\"';
   json += name;
   json += "\":";
@@ -2032,14 +2005,16 @@ String buildTelemetryFrame()
     json += "\"p\":[";
     for (byte channel = 0; channel < PIEZO_COUNT; channel++)
     {
-      if (channel > 0) json += ',';
+      if (channel > 0)
+        json += ',';
       json += String(quantizeADS1256To12Bit(piezoRaw[channel]));
     }
     json += ']';
     hasChannel = true;
   }
 
-  if (hasChannel) json += ',';
+  if (hasChannel)
+    json += ',';
   json += "\"fsr\":[";
   json += String(constrain(fsrRawADC, 0, 4095));
   json += ']';
@@ -2068,8 +2043,8 @@ void notifyTelemetryFrame(const String &frame)
   {
     const size_t remaining = frame.length() - offset;
     const size_t chunkSize = remaining < BLE_NOTIFY_CHUNK_BYTES
-      ? remaining
-      : BLE_NOTIFY_CHUNK_BYTES;
+                                 ? remaining
+                                 : BLE_NOTIFY_CHUNK_BYTES;
     bleTelemetryCharacteristic->setValue((uint8_t *)(bytes + offset), chunkSize);
     bleTelemetryCharacteristic->notify();
     // Beri waktu stack BLE mengirim setiap fragmen pada ATT MTU minimum.
@@ -2082,12 +2057,11 @@ void setupBLEGateway()
 {
   const uint64_t chipId = ESP.getEfuseMac();
   snprintf(
-    bleBootId,
-    sizeof(bleBootId),
-    "boot-%08lx-%08lx",
-    (unsigned long)(chipId & 0xFFFFFFFFULL),
-    (unsigned long)esp_random()
-  );
+      bleBootId,
+      sizeof(bleBootId),
+      "boot-%08lx-%08lx",
+      (unsigned long)(chipId & 0xFFFFFFFFULL),
+      (unsigned long)esp_random());
 
   BLEDevice::init(FG_DEVICE_UID);
   BLEDevice::setMTU(185);
@@ -2096,11 +2070,10 @@ void setupBLEGateway()
 
   BLEService *service = server->createService(FG_BLE_SERVICE_UUID);
   bleTelemetryCharacteristic = service->createCharacteristic(
-    FG_BLE_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY |
-    BLECharacteristic::PROPERTY_WRITE |
-    BLECharacteristic::PROPERTY_WRITE_NR
-  );
+      FG_BLE_CHARACTERISTIC_UUID,
+      BLECharacteristic::PROPERTY_NOTIFY |
+          BLECharacteristic::PROPERTY_WRITE |
+          BLECharacteristic::PROPERTY_WRITE_NR);
   bleTelemetryCharacteristic->addDescriptor(new BLE2902());
   bleTelemetryCharacteristic->setCallbacks(new FGBleTimeSyncCallbacks());
   service->start();
@@ -2143,9 +2116,8 @@ void printSystemStatus()
   unsigned long now = millis();
 
   if (
-    now - lastSystemPrint <
-    SYSTEM_PRINT_INTERVAL_MS
-  )
+      now - lastSystemPrint <
+      SYSTEM_PRINT_INTERVAL_MS)
     return;
 
   lastSystemPrint = now;
@@ -2174,21 +2146,20 @@ void printSystemStatus()
   else
   {
     bool samplingOK =
-      maxActualFs >= 22.0f &&
-      maxActualFs <= 28.0f;
+        maxActualFs >= 22.0f &&
+        maxActualFs <= 28.0f;
 
     uint32_t irMin, irMax, redMin, redMax;
 
     getMAXRawMinMax(
-      irMin,
-      irMax,
-      redMin,
-      redMax
-    );
+        irMin,
+        irMax,
+        redMin,
+        redMax);
 
     bool rawTooHigh =
-      irMax >= RAW_SATURATION_WARNING ||
-      redMax >= RAW_SATURATION_WARNING;
+        irMax >= RAW_SATURATION_WARNING ||
+        redMax >= RAW_SATURATION_WARNING;
 
     Serial.print("Status        : ");
 
@@ -2227,13 +2198,11 @@ void printSystemStatus()
 
     Serial.print("IR Raw        : ");
     Serial.println(
-      irBuffer[FG_BUFFER_SIZE - 1]
-    );
+        irBuffer[FG_BUFFER_SIZE - 1]);
 
     Serial.print("RED Raw       : ");
     Serial.println(
-      redBuffer[FG_BUFFER_SIZE - 1]
-    );
+        redBuffer[FG_BUFFER_SIZE - 1]);
 
     Serial.print("Actual Fs     : ");
     Serial.print(maxActualFs, 2);
@@ -2284,9 +2253,8 @@ void printSystemStatus()
 
       Serial.print(" | Durasi = ");
       Serial.print(
-        pressureDuration / 1000.0f,
-        1
-      );
+          pressureDuration / 1000.0f,
+          1);
       Serial.println(" s");
     }
     else
@@ -2358,10 +2326,9 @@ void printSystemStatus()
     else if (fetalHRReady)
       Serial.println("LOCK");
     else if (
-      consistentFHRBeats > 0 &&
-      lastFHRValidationMs != 0 &&
-      (millis() - lastFHRValidationMs) <= FHR_VALIDATION_HOLD_MS
-    )
+        consistentFHRBeats > 0 &&
+        lastFHRValidationMs != 0 &&
+        (millis() - lastFHRValidationMs) <= FHR_VALIDATION_HOLD_MS)
       Serial.println("VALIDATION HOLD");
     else
       Serial.println("SEARCH");
@@ -2440,11 +2407,10 @@ void printSystemStatus()
 
     Serial.print("Validation Hold: ");
     if (
-      !fetalHRReady &&
-      consistentFHRBeats > 0 &&
-      lastFHRValidationMs != 0 &&
-      (millis() - lastFHRValidationMs) <= FHR_VALIDATION_HOLD_MS
-    )
+        !fetalHRReady &&
+        consistentFHRBeats > 0 &&
+        lastFHRValidationMs != 0 &&
+        (millis() - lastFHRValidationMs) <= FHR_VALIDATION_HOLD_MS)
       Serial.println("AKTIF");
     else
       Serial.println("TIDAK");
@@ -2518,31 +2484,33 @@ void setup()
   {
     Serial.println("GAGAL: DRDY atau REGISTER SPI tidak valid");
     Serial.println(
-      "Periksa 5V, GND, SCLK GPIO12, DIN GPIO11, "
-      "DOUT GPIO13, DRDY GPIO14, CS GPIO10, RST GPIO15."
-    );
+        "Periksa 5V, GND, SCLK GPIO12, DIN GPIO11, "
+        "DOUT GPIO13, DRDY GPIO14, CS GPIO10, RST GPIO15.");
     Serial.println(
-      "MAX30102 dan FSR tetap dapat berjalan, tetapi Piezo tidak dibaca."
-    );
+        "MAX30102 dan FSR tetap dapat berjalan, tetapi Piezo tidak dibaca.");
   }
   else
   {
     Serial.println("TERDETEKSI + REGISTER READBACK OK");
 
     Serial.print("STATUS = 0x");
-    if (adsStatusReadback < 0x10) Serial.print("0");
+    if (adsStatusReadback < 0x10)
+      Serial.print("0");
     Serial.println(adsStatusReadback, HEX);
 
     Serial.print("MUX    = 0x");
-    if (adsMuxReadback < 0x10) Serial.print("0");
+    if (adsMuxReadback < 0x10)
+      Serial.print("0");
     Serial.println(adsMuxReadback, HEX);
 
     Serial.print("ADCON  = 0x");
-    if (adsAdconReadback < 0x10) Serial.print("0");
+    if (adsAdconReadback < 0x10)
+      Serial.print("0");
     Serial.println(adsAdconReadback, HEX);
 
     Serial.print("DRATE  = 0x");
-    if (adsDrateReadback < 0x10) Serial.print("0");
+    if (adsDrateReadback < 0x10)
+      Serial.print("0");
     Serial.println(adsDrateReadback, HEX);
 
     Serial.println("- P1=AN0, P2=AN1, P3=AN2, P4=AN3.");
@@ -2567,8 +2535,7 @@ void setup()
   {
     Serial.println("GAGAL");
     Serial.println(
-      "Periksa VCC, GND, SDA GPIO8, dan SCL GPIO9."
-    );
+        "Periksa VCC, GND, SDA GPIO8, dan SCL GPIO9.");
 
     while (1)
       delay(1000);
@@ -2577,21 +2544,18 @@ void setup()
   Serial.println("TERDETEKSI");
 
   max30102.setup(
-    LED_BRIGHTNESS,
-    SAMPLE_AVERAGE,
-    LED_MODE,
-    SAMPLE_RATE,
-    PULSE_WIDTH,
-    ADC_RANGE
-  );
+      LED_BRIGHTNESS,
+      SAMPLE_AVERAGE,
+      LED_MODE,
+      SAMPLE_RATE,
+      PULSE_WIDTH,
+      ADC_RANGE);
 
   max30102.setPulseAmplitudeRed(
-    LED_BRIGHTNESS
-  );
+      LED_BRIGHTNESS);
 
   max30102.setPulseAmplitudeIR(
-    LED_BRIGHTNESS
-  );
+      LED_BRIGHTNESS);
 
   max30102.setPulseAmplitudeGreen(0);
 
@@ -2660,10 +2624,9 @@ void loop()
       Serial.println(">>> Stabilisasi sekitar 2 detik...");
 
       for (
-        int i = 0;
-        i < FG_STABILIZE_SAMPLES;
-        i++
-      )
+          int i = 0;
+          i < FG_STABILIZE_SAMPLES;
+          i++)
       {
         if (!readMAXSample(ir, red))
         {
@@ -2681,21 +2644,19 @@ void loop()
       flushMAXFIFO();
 
       Serial.println(
-        ">>> Mengumpulkan 100 sample MAX30102..."
-      );
+          ">>> Mengumpulkan 100 sample MAX30102...");
     }
 
     // -----------------------------------------------
     // 100 sample awal MAX30102
     // -----------------------------------------------
     unsigned long startSampling =
-      millis();
+        millis();
 
     for (
-      int i = 0;
-      i < FG_BUFFER_SIZE;
-      i++
-    )
+        int i = 0;
+        i < FG_BUFFER_SIZE;
+        i++)
     {
       if (!readMAXSample(ir, red))
       {
@@ -2714,14 +2675,13 @@ void loop()
     }
 
     unsigned long elapsed =
-      millis() -
-      startSampling;
+        millis() -
+        startSampling;
 
     maxActualFs =
-      calculateActualFs(
-        FG_BUFFER_SIZE,
-        elapsed
-      );
+        calculateActualFs(
+            FG_BUFFER_SIZE,
+            elapsed);
 
     maxBufferReady = true;
 
@@ -2735,28 +2695,22 @@ void loop()
   // MAX30102 ROLLING BUFFER 75 + 25
   // ===================================================
   for (
-    int i = FG_UPDATE_SAMPLES;
-    i < FG_BUFFER_SIZE;
-    i++
-  )
+      int i = FG_UPDATE_SAMPLES;
+      i < FG_BUFFER_SIZE;
+      i++)
   {
-    irBuffer[
-      i - FG_UPDATE_SAMPLES
-    ] = irBuffer[i];
+    irBuffer[i - FG_UPDATE_SAMPLES] = irBuffer[i];
 
-    redBuffer[
-      i - FG_UPDATE_SAMPLES
-    ] = redBuffer[i];
+    redBuffer[i - FG_UPDATE_SAMPLES] = redBuffer[i];
   }
 
   unsigned long startSampling =
-    millis();
+      millis();
 
   for (
-    int i = FG_KEEP_SAMPLES;
-    i < FG_BUFFER_SIZE;
-    i++
-  )
+      int i = FG_KEEP_SAMPLES;
+      i < FG_BUFFER_SIZE;
+      i++)
   {
     if (!readMAXSample(ir, red))
     {
@@ -2777,14 +2731,13 @@ void loop()
   }
 
   unsigned long elapsed =
-    millis() -
-    startSampling;
+      millis() -
+      startSampling;
 
   maxActualFs =
-    calculateActualFs(
-      FG_UPDATE_SAMPLES,
-      elapsed
-    );
+      calculateActualFs(
+          FG_UPDATE_SAMPLES,
+          elapsed);
 
   calculateMAXResults();
   printSystemStatus();

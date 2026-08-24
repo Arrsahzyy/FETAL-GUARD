@@ -1,0 +1,21 @@
+[Unit]
+Description=CTG CNN-LSTM API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/ctg_cnn_lstm_merged
+Environment="PATH=/opt/ctg_cnn_lstm_merged/venv/bin"
+ExecStart=/opt/ctg_cnn_lstm_merged/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+# Cara pakai di VPS:
+#   sudo cp ctg-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ctg-api
+#   sudo journalctl -u ctg-api -f     # lihat log live

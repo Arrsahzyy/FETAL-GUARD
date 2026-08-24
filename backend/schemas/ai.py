@@ -14,12 +14,21 @@ class AIPredictRequest(BaseModel):
     sensor_data_chunk_id: str = Field(min_length=1)
 
 
+class AIPredictParamResult(BaseModel):
+    status: str
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
 class AIPredictResponse(BaseModel):
     sensor_data_chunk_id: str
-    risk_score: float = Field(ge=0.0, le=1.0)
-    classification: SafeAIClassification
-    message: str
-    is_stub: bool = True
+    fhr: AIPredictParamResult
+    mhr: AIPredictParamResult
+    uc: AIPredictParamResult
+    overall: AIPredictParamResult
+    risk_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    classification: str | None = None
+    message: str | None = None
+    is_stub: bool = False
 
 
 class AIQualityStatus(str, Enum):

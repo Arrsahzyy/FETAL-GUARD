@@ -22,14 +22,14 @@ FETAL-GUARD harus menjadi prototype wearable yang:
 
 ## 2. Roadmap 6 Tahap
 
-| Tahap | Fokus | Output Utama | Status |
-|---|---|---|---|
-| 1 | PoC sensor dan power | ESP32 membaca piezo/FSR/MAX30102, serial plot, power aman | Belum lengkap |
-| 2 | Akuisisi data dan dashboard dasar | Backend menerima sesi, dashboard pasien/nakes real contract | Berjalan |
-| 3 | Preprocessing dan deteksi sinyal | Filter, estimasi FHR awal, signal quality index | Belum lengkap |
-| 4 | Model AI awal | Rule layer + CNN-LSTM baseline dengan dataset publik | Belum lengkap |
-| 5 | Validasi referensi klinis | Perbandingan dengan CTG/Doppler/toco, ethical clearance | Belum mulai |
-| 6 | Integrasi wearable final | Sabuk V2, casing, PCB, demo end-to-end | Belum mulai |
+| Tahap | Fokus                             | Output Utama                                                | Status        |
+| ----- | --------------------------------- | ----------------------------------------------------------- | ------------- |
+| 1     | PoC sensor dan power              | ESP32 membaca piezo/FSR/MAX30102, serial plot, power aman   | Belum lengkap |
+| 2     | Akuisisi data dan dashboard dasar | Backend menerima sesi, dashboard pasien/nakes real contract | Berjalan      |
+| 3     | Preprocessing dan deteksi sinyal  | Filter, estimasi FHR awal, signal quality index             | Belum lengkap |
+| 4     | Model AI awal                     | Rule layer + CNN-LSTM baseline dengan dataset publik        | Belum lengkap |
+| 5     | Validasi referensi klinis         | Perbandingan dengan CTG/Doppler/toco, ethical clearance     | Belum mulai   |
+| 6     | Integrasi wearable final          | Sabuk V2, casing, PCB, demo end-to-end                      | Belum mulai   |
 
 Tahap aktif repository saat ini adalah Tahap 2 untuk software, dengan banyak pekerjaan Tahap 1 hardware yang masih harus dibuktikan.
 
