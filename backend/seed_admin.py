@@ -10,15 +10,25 @@ from core.config import settings
 from core.security import get_password_hash
 from core.tenancy import ensure_default_organization
 from db.database import Base, SessionLocal, engine
+from models.access_audit_event import AccessAuditEvent  # noqa: F401
 from models.admin_audit_log import AdminAuditLog  # noqa: F401
+from models.ai_analysis import (  # noqa: F401
+    AIAnalysisResult,
+    AIAnalysisReview,
+    AIInferenceJob,
+    AIModelVersion,
+)
+from models.alert_event import AlertEvent  # noqa: F401
 from models.auth_login_attempt import AuthLoginAttempt  # noqa: F401
 from models.auth_refresh_token import AuthRefreshToken  # noqa: F401
 from models.device import Device  # noqa: F401
+from models.device_assignment import DeviceAssignment  # noqa: F401
 from models.notification import Notification  # noqa: F401
 from models.organization import Organization  # noqa: F401
 from models.organization_membership import OrganizationMembership
 from models.patient import Patient  # noqa: F401
 from models.patient_clinician_assignment import PatientClinicianAssignment  # noqa: F401
+from models.realtime_event import RealtimeEvent, RealtimeEventCursor  # noqa: F401
 from models.sensor_data import SensorDataChunk  # noqa: F401
 from models.session import MonitoringSession  # noqa: F401
 from models.session_sensor_summary import SessionSensorSummary  # noqa: F401
