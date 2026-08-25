@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     # Database
     SQLALCHEMY_DATABASE_URI: str = f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}"
+    # Migrations must run as the table-owning role, which is disallowed at runtime
+    # by assert_postgresql_runtime_isolation. Falls back to SQLALCHEMY_DATABASE_URI
+    # when unset (dev/SQLite, or single-role deployments).
+    ALEMBIC_DATABASE_URI: str | None = None
     AUTO_CREATE_DB: bool = True
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
