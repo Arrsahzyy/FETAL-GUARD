@@ -8,9 +8,14 @@
     "build": "vite build",
     "build:android:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-local.ps1",
     "generate:android:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-android-icons.ps1",
+    "local": "node scripts/local-server.mjs",
+    "localserver": "node scripts/local-server.mjs",
+    "local:staff": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/provision-local-staff.ps1",
+    "local:device": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/provision-local-mobile-device.ps1",
+    "local:test": "node --test scripts/local-server.test.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:frontend": "node --test src/hooks/useBluetooth.test.js src/services/apiRuntimeConfig.test.js src/services/authSessionEpoch.test.js src/services/patientPreferences.test.js src/services/patientTelemetryQueue.test.js src/services/realtimeEventPoller.test.js src/services/webBluetoothClient.test.js src/utils/aiAnalysisModels.test.js src/utils/clinicianModels.test.js src/utils/patientHomeSummary.test.js"
+    "test:frontend": "node --test src/hooks/useBluetooth.test.js src/services/apiRuntimeConfig.test.js src/services/authSessionEpoch.test.js src/services/patientPreferences.test.js src/services/patientTelemetryQueue.test.js src/services/realtimeEventPoller.test.js src/services/webBluetoothClient.test.js src/utils/aiAnalysisModels.test.js src/utils/clinicianModels.test.js src/utils/patientHomeSummary.test.js src/utils/patientLiveReadings.test.js"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.1.3",

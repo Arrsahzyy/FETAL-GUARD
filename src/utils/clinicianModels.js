@@ -208,6 +208,19 @@ export function formatAggregateCount(value) {
   return Number.isSafeInteger(value) && value >= 0 ? String(value) : '—';
 }
 
+/**
+ * Computes a real, honest sensor-data-availability ratio from the patient
+ * rows already loaded on the dashboard (no fabricated/aggregate backend
+ * value is assumed). Used by both the operations strip and the reports tab
+ * so the two stay consistent.
+ */
+export function computeSensorCoverage(patientRows) {
+  const total = patientRows.length;
+  const ready = patientRows.filter((patient) => patient.hasSensorSummary).length;
+  const percent = total > 0 ? Math.round((ready / total) * 100) : null;
+  return { ready, total, percent };
+}
+
 export function getInitials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'FG';

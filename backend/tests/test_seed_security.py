@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 from sqlalchemy.orm import sessionmaker
 
@@ -6,6 +9,27 @@ import seed_clinician
 from core.security import verify_password
 from models.organization_membership import OrganizationMembership
 from models.user import User
+
+
+@pytest.mark.parametrize("module_name", ["seed_admin", "seed_clinician"])
+def test_seed_module_configures_all_mappers_in_a_clean_process(module_name):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                f"import {module_name}; "
+                "from sqlalchemy.orm import configure_mappers; "
+                "configure_mappers()"
+            ),
+        ],
+        cwd=".",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_clinician_seed_is_disabled_in_production(monkeypatch):

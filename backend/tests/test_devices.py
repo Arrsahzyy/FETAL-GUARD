@@ -66,6 +66,23 @@ def device_packet(device_uid, sequence_number, payload):
     }
 
 
+def device_packet_v2(device_uid, sequence_number, payload):
+    captured_at = datetime.now(timezone.utc).isoformat()
+    return {
+        "payload": {**payload, "t": int(datetime.fromisoformat(captured_at).timestamp() * 1000)},
+        "schema_version": 2,
+        "ingestion_id": f"v2-ingestion-{sequence_number}",
+        "boot_id": "boot-v2-test-0001",
+        "sequence_number": sequence_number,
+        "captured_at": captured_at,
+        "sample_rates_hz": {"p": 200, "fsr": 50, "hr_ir": 100, "hr_red": 100},
+        "channel_layout": {"p": 4},
+        "device_uid": device_uid,
+        "source": "ble",
+        "is_simulated": False,
+    }
+
+
 def get_current_user_id(client, headers):
     response = client.get("/auth/me", headers=headers)
     assert response.status_code == 200
@@ -159,6 +176,93 @@ def test_shared_esp32_golden_packet_is_stored_exactly_once(
     )
     assert len(records) == 1
     assert records[0].payload["samples"]["p"] == envelope["channels"]["p"]
+
+
+def test_telemetry_v2_golden_window_preserves_native_rates_and_layout(
+    client,
+    auth_headers,
+    db_session,
+):
+    fixture_path = (
+        Path(__file__).resolve().parents[2]
+        / "contracts"
+        / "telemetry"
+        / "v2"
+        / "golden-esp32-window.json"
+    )
+    envelope = json.loads(fixture_path.read_text(encoding="utf-8"))
+    patient_headers = auth_headers(email="golden-v2-patient@example.com", role="patient")
+    session_data = create_active_session(client, patient_headers, name="Golden ESP32 V2")
+    admin_headers = auth_headers(email="golden-v2-admin@example.com", role="admin")
+    register_device(
+        client,
+        admin_headers,
+        session_data["patient_id"],
+        device_uid=envelope["device_uid"],
+    )
+    captured_at = datetime.now(timezone.utc)
+    request_body = {
+        "payload": {
+            **envelope["channels"],
+            "t": int(captured_at.timestamp() * 1000),
+        },
+        "schema_version": 2,
+        "ingestion_id": "ble-golden-esp32-v2-sequence-7",
+        "boot_id": envelope["boot_id"],
+        "sequence_number": envelope["sequence_number"],
+        "captured_at": captured_at.isoformat(),
+        "sample_rates_hz": envelope["sample_rates_hz"],
+        "channel_layout": envelope["channel_layout"],
+        "device_uid": envelope["device_uid"],
+        "source": "ble",
+        "is_simulated": False,
+    }
+
+    response = client.post(
+        f"/sessions/{session_data['id']}/data",
+        headers=patient_headers,
+        json=request_body,
+    )
+
+    assert response.status_code == 201
+    stored = (
+        db_session.query(SensorDataChunk)
+        .filter(SensorDataChunk.session_id == session_data["id"])
+        .one()
+    )
+    assert stored.schema_version == 2
+    assert stored.payload["sample_rates_hz"] == envelope["sample_rates_hz"]
+    assert stored.payload["channel_layout"] == {"p": 4}
+    assert stored.payload["samples"]["p"] == envelope["channels"]["p"]
+
+
+def test_telemetry_v2_rejects_missing_rate_and_invalid_piezo_layout(
+    client,
+    auth_headers,
+):
+    patient_headers = auth_headers(email="invalid-v2-patient@example.com", role="patient")
+    session_data = create_active_session(client, patient_headers, name="Invalid ESP32 V2")
+    admin_headers = auth_headers(email="invalid-v2-admin@example.com", role="admin")
+    device = register_device(
+        client,
+        admin_headers,
+        session_data["patient_id"],
+        device_uid="FG-BELT-V2-INVALID",
+    )
+    body = device_packet_v2(
+        device["device_uid"],
+        1,
+        {"p": [1000, 1001, 1002], "fsr": [500], "hr_ir": [10000], "hr_red": [9000]},
+    )
+    body["sample_rates_hz"].pop("fsr")
+
+    response = client.post(
+        f"/sessions/{session_data['id']}/data",
+        headers=patient_headers,
+        json=body,
+    )
+
+    assert response.status_code == 422
 
 
 def test_device_registration_creates_authoritative_temporal_assignment(

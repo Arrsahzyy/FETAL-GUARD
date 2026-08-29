@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "device_uid": "FETAL-GUARD-001",
+  "boot_id": "boot-a1b2c3d4-00112233",
+  "sequence_number": 7,
+  "captured_at": "2026-08-24T10:15:30.000Z",
+  "sample_rates_hz": {
+    "p": 200.0,
+    "fsr": 50.0,
+    "hr_ir": 100.0,
+    "hr_red": 100.0
+  },
+  "channel_layout": {
+    "p": 4
+  },
+  "telemetry": {
+    "fhr": 142.0,
+    "motherHR": 82.0,
+    "spo2": 97.0,
+    "contractionLevel": 28.0,
+    "signalQuality": 76.0
+  },
+  "channels": {
+    "p": [2048, 2051, 2046, 2053, 2050, 2054, 2048, 2055],
+    "fsr": [812, 818],
+    "hr_ir": [50120, 50180],
+    "hr_red": [47210, 47260]
+  }
+}

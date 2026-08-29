@@ -551,6 +551,11 @@ const patients = {
     });
     return response.data;
   },
+
+  async getAIAvailability({ signal } = {}) {
+    const response = await apiClient.get('/ai/status', { signal });
+    return response.data;
+  },
 };
 
 const devices = {

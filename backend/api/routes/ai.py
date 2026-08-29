@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user
+from core.config import settings
 from core.audit import add_access_audit_event
 from core.authorization import (
     Principal,
@@ -26,10 +27,28 @@ from schemas.ai import (
     AIAnalysisResultResponse,
     AIAnalysisReviewRequest,
     AIAnalysisReviewResponse,
+    AIPatientAvailabilityResponse,
     AIPredictRequest,
 )
 
 router = APIRouter()
+
+
+@router.get("/status", response_model=AIPatientAvailabilityResponse)
+def read_patient_ai_availability(
+    current_user: User = Depends(get_current_user),
+) -> AIPatientAvailabilityResponse:
+    if current_user.role != "patient":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient AI availability is only accessible to patients",
+        )
+    return AIPatientAvailabilityResponse(
+        patient_results_enabled=(
+            settings.AI_PIPELINE_MODE == "clinician"
+            and bool(settings.AI_ACTIVE_MODEL_VERSION_ID)
+        )
+    )
 
 
 def build_analysis_response(

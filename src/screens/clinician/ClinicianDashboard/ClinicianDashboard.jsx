@@ -27,6 +27,7 @@ import {
   toPatientViewModel,
   toAlertViewModel,
   exportPatientCsv,
+  computeSensorCoverage,
 } from '../../../utils/clinicianModels';
 import {
   formatDateLong,
@@ -410,6 +411,22 @@ const ClinicianDashboard = () => {
     highRisk: null,
     alerts: null,
   };
+  const sensorCoverage = useMemo(() => computeSensorCoverage(patientRows), [patientRows]);
+  const sensorCoverageLabel = sensorCoverage.percent === null ? '—' : `${sensorCoverage.percent}%`;
+  const sensorCoverageDesc = t('clinician.dataCoverageDesc', {
+    ready: sensorCoverage.ready,
+    total: sensorCoverage.total,
+  });
+  const sensorReadinessStatus = sensorCoverage.total === 0 || sensorCoverage.ready === 0
+    ? 'warn'
+    : 'ok';
+  const sensorReadinessLabel = sensorCoverage.total === 0
+    ? t('clinician.notAvailable')
+    : sensorCoverage.ready === sensorCoverage.total
+      ? t('clinician.available')
+      : sensorCoverage.ready > 0
+        ? t('clinician.partiallyAvailable')
+        : t('clinician.notAvailable');
 
   const pageTitle = {
     patients: t('clinician.dashboard'),
@@ -666,8 +683,10 @@ const ClinicianDashboard = () => {
                 <div className="ops-card__icon"><Icon name="chart" /></div>
                 <div>
                   <span>{t('clinician.dataCoverage')}</span>
-                  <strong aria-label={t('clinician.notAvailable')}>—</strong>
-                  <small>{t('clinician.sensorSummaryUnavailable')}</small>
+                  <strong aria-label={sensorCoverage.total === 0 ? t('clinician.notAvailable') : undefined}>
+                    {sensorCoverageLabel}
+                  </strong>
+                  <small>{sensorCoverageDesc}</small>
                 </div>
               </article>
             </section>
@@ -851,8 +870,10 @@ const ClinicianDashboard = () => {
             <div className="report-grid">
               <article className="report-card">
                 <span>{t('clinician.signalReadiness')}</span>
-                <strong aria-label={t('clinician.notAvailable')}>—</strong>
-                <p>{t('clinician.signalReadinessDesc')}</p>
+                <strong aria-label={sensorCoverage.total === 0 ? t('clinician.notAvailable') : undefined}>
+                  {sensorCoverageLabel}
+                </strong>
+                <p>{sensorCoverageDesc}</p>
               </article>
               <article className="report-card">
                 <span>{t('clinician.activeAlertsReport')}</span>
@@ -888,8 +909,10 @@ const ClinicianDashboard = () => {
               </div>
               <div className="readiness-table__row">
                 <span>{t('clinician.sensorEstimate')}</span>
-                <strong className="status-text status-text--warn">{t('clinician.notAvailable')}</strong>
-                <span>{t('clinician.sensorEstimateNote')}</span>
+                <strong className={`status-text status-text--${sensorReadinessStatus}`}>
+                  {sensorReadinessLabel}
+                </strong>
+                <span>{sensorCoverageDesc}</span>
               </div>
             </div>
           </section>
@@ -975,6 +998,7 @@ const ClinicianDashboard = () => {
         selectedPatient={selectedPatient}
         setSelectedPatientId={setSelectedPatientId}
         openAlerts={prioritizedOpenAlerts}
+        activeTab={activeTab}
         setActiveTab={setActiveTab}
         handleCallPatient={handleCallPatient}
         handleOpenPatient={handleOpenPatient}

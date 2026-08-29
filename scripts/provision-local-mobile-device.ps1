@@ -1,13 +1,19 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [ValidatePattern('^[^\s@]+@[^\s@]+\.[^\s@]+$')]
-    [string]$PatientEmail,
+    [string]$PatientEmail = '',
 
     [ValidatePattern('^[A-Za-z0-9._:-]{3,80}$')]
     [string]$DeviceUid = 'FETAL-GUARD-001'
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($PatientEmail)) {
+    $PatientEmail = Read-Host 'Email akun pasien lokal yang akan memakai ESP32'
+}
+
+if ($PatientEmail -notmatch '^[^\s@]+@[^\s@]+\.[^\s@]+$') {
+    throw 'Email pasien tidak valid.'
+}
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $backendDirectory = Join-Path $repositoryRoot 'backend'

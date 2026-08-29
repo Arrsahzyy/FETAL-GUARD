@@ -46,10 +46,14 @@ const char *FG_DEVICE_UID = "FETAL-GUARD-001";
 const char *FG_BLE_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const char *FG_BLE_CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
-// Paket JSON dikirim satu kali per detik. Potongan 20 byte aman untuk
-// koneksi yang masih memakai ATT MTU minimum dan dirakit kembali oleh app.
+// Snapshot v1 tetap tersedia untuk browser. Aplikasi Android menegosiasikan
+// telemetry v2 agar satu jendela raw multi-rate dapat dikirim ke backend/AI.
 const unsigned long BLE_TELEMETRY_INTERVAL_MS = 1000;
-const size_t BLE_NOTIFY_CHUNK_BYTES = 20;
+const size_t BLE_MIN_NOTIFY_CHUNK_BYTES = 20;
+const size_t BLE_MAX_NOTIFY_CHUNK_BYTES = 180;
+const size_t BLE_PIEZO_FRAME_CAPACITY = 220;
+const size_t BLE_FSR_SAMPLE_CAPACITY = 60;
+const size_t BLE_PPG_SAMPLE_CAPACITY = 110;
 
 // =====================================================
 // MAX30102 - SETTING DIFREEZE / TIDAK DIUBAH
@@ -399,6 +403,15 @@ uint32_t bleMillisAtSync = 0;
 uint64_t bleSequenceNumber = 0;
 unsigned long lastBleTelemetryMs = 0;
 char bleBootId[40] = {0};
+bool bleTelemetryV2Enabled = false;
+size_t bleNotifyChunkBytes = BLE_MIN_NOTIFY_CHUNK_BYTES;
+uint16_t blePiezoSamples[BLE_PIEZO_FRAME_CAPACITY][PIEZO_COUNT];
+uint16_t bleFSRSamples[BLE_FSR_SAMPLE_CAPACITY];
+uint32_t bleIRSamples[BLE_PPG_SAMPLE_CAPACITY];
+uint32_t bleRedSamples[BLE_PPG_SAMPLE_CAPACITY];
+size_t blePiezoFrameCount = 0;
+size_t bleFSRSampleCount = 0;
+size_t blePPGSampleCount = 0;
 
 // =====================================================
 // FORWARD DECLARATION
@@ -411,6 +424,14 @@ void printSystemStatus();
 void updatePiezoSelector();
 void setupBLEGateway();
 void sendTelemetryIfDue();
+uint16_t quantizeADS1256To12Bit(int32_t raw);
+
+void resetBleRawWindow()
+{
+  blePiezoFrameCount = 0;
+  bleFSRSampleCount = 0;
+  blePPGSampleCount = 0;
+}
 
 // =====================================================
 // UTILITAS SORT
@@ -593,6 +614,11 @@ void updateFSR()
 
   // 1. Median filter 5 pembacaan ADC
   fsrRawADC = readFSRMedianADC();
+  if (
+    bleTelemetryV2Enabled && bleClientConnected && bleClockSynchronized &&
+    bleFSRSampleCount < BLE_FSR_SAMPLE_CAPACITY
+  )
+    bleFSRSamples[bleFSRSampleCount++] = (uint16_t)constrain(fsrRawADC, 0, 4095);
 
   // 2. EMA
   if (!fsrFilterInitialized)
@@ -1427,6 +1453,16 @@ void updatePiezos()
     processPiezoChannel(ch, raw);
   }
 
+  if (
+    bleTelemetryV2Enabled && bleClientConnected && bleClockSynchronized &&
+    blePiezoFrameCount < BLE_PIEZO_FRAME_CAPACITY
+  )
+  {
+    for (uint8_t ch = 0; ch < PIEZO_COUNT; ch++)
+      blePiezoSamples[blePiezoFrameCount][ch] = quantizeADS1256To12Bit(piezoRaw[ch]);
+    blePiezoFrameCount++;
+  }
+
   adsDRDYTimeout = false;
 
   if (allZero)
@@ -1790,6 +1826,16 @@ bool readMAXSample(uint32_t &ir, uint32_t &red)
 
   max30102.nextSample();
 
+  if (
+    bleTelemetryV2Enabled && bleClientConnected && bleClockSynchronized &&
+    blePPGSampleCount < BLE_PPG_SAMPLE_CAPACITY
+  )
+  {
+    bleIRSamples[blePPGSampleCount] = ir;
+    bleRedSamples[blePPGSampleCount] = red;
+    blePPGSampleCount++;
+  }
+
   updateFSR();
   updatePiezos();
 
@@ -1900,6 +1946,9 @@ class FGBleServerCallbacks : public BLEServerCallbacks
     (void)server;
     bleClientConnected = true;
     bleClockSynchronized = false;
+    bleTelemetryV2Enabled = false;
+    bleNotifyChunkBytes = BLE_MIN_NOTIFY_CHUNK_BYTES;
+    resetBleRawWindow();
     lastBleTelemetryMs = 0;
     Serial.println("[BLE] Gateway terhubung; menunggu sinkronisasi waktu.");
   }
@@ -1909,6 +1958,8 @@ class FGBleServerCallbacks : public BLEServerCallbacks
     (void)server;
     bleClientConnected = false;
     bleClockSynchronized = false;
+    bleTelemetryV2Enabled = false;
+    resetBleRawWindow();
     BLEDevice::startAdvertising();
     Serial.println("[BLE] Gateway terputus; advertising dimulai kembali.");
   }
@@ -1920,6 +1971,26 @@ class FGBleTimeSyncCallbacks : public BLECharacteristicCallbacks
   {
     String command = characteristic->getValue().c_str();
     command.trim();
+    if (command.startsWith("V2:"))
+    {
+      const long requestedChunkBytes = command.substring(3).toInt();
+      if (
+        !bleClockSynchronized ||
+        requestedChunkBytes < (long)BLE_MIN_NOTIFY_CHUNK_BYTES ||
+        requestedChunkBytes > (long)BLE_MAX_NOTIFY_CHUNK_BYTES
+      )
+      {
+        Serial.println("[BLE] Negosiasi telemetry v2 ditolak.");
+        return;
+      }
+      bleNotifyChunkBytes = (size_t)requestedChunkBytes;
+      bleTelemetryV2Enabled = true;
+      resetBleRawWindow();
+      lastBleTelemetryMs = millis();
+      Serial.print("[BLE] Telemetry v2 aktif; fragment bytes: ");
+      Serial.println((unsigned int)bleNotifyChunkBytes);
+      return;
+    }
     if (!command.startsWith("T") || command.length() < 14)
     {
       Serial.println("[BLE] Perintah gateway tidak dikenali.");
@@ -1939,6 +2010,9 @@ class FGBleTimeSyncCallbacks : public BLECharacteristicCallbacks
     bleEpochAtSyncMs = unixMs;
     bleMillisAtSync = millis();
     bleClockSynchronized = true;
+    bleTelemetryV2Enabled = false;
+    bleNotifyChunkBytes = BLE_MIN_NOTIFY_CHUNK_BYTES;
+    resetBleRawWindow();
     lastBleTelemetryMs = 0;
     Serial.println("[BLE] Waktu gateway tersinkronisasi.");
   }
@@ -2024,6 +2098,47 @@ String buildTelemetryFrame()
     appendJsonNumberField(json, hasTelemetryField, "motherHR", hrFiltered, 1);
   if (spo2FilteredReady)
     appendJsonNumberField(json, hasTelemetryField, "spo2", spo2Filtered, 1);
+  if (fsrBaselineReady)
+  {
+    // Indikator mekanik relatif terhadap baseline/threshold FSR perangkat.
+    // Nilai ini bukan kekuatan kontraksi klinis atau pengganti tocotransducer.
+    const float contractionScale = fmaxf(fsrOnThresholdADC * 4.0f, 1.0f);
+    const float contractionLevel = clampFloat(
+      (fsrDeltaADC / contractionScale) * 100.0f,
+      0.0f,
+      100.0f
+    );
+    appendJsonNumberField(
+      json,
+      hasTelemetryField,
+      "contractionLevel",
+      contractionLevel,
+      1
+    );
+  }
+  if (
+    adsReady &&
+    !adsDRDYTimeout &&
+    activePiezoInitialized &&
+    activePiezo >= 0 &&
+    activePiezo < PIEZO_COUNT
+  )
+  {
+    // Envelope ternormalisasi terhadap noise floor dipetakan ke indikator
+    // teknis 0-100. Ini bukan SQI yang sudah tervalidasi klinis.
+    const float signalQualityPercent = clampFloat(
+      piezoQuality[activePiezo] * 50.0f,
+      0.0f,
+      100.0f
+    );
+    appendJsonNumberField(
+      json,
+      hasTelemetryField,
+      "signalQuality",
+      signalQualityPercent,
+      1
+    );
+  }
   json += "},\"channels\":{";
 
   bool hasChannel = false;
@@ -2058,23 +2173,137 @@ String buildTelemetryFrame()
   return json;
 }
 
+String buildTelemetryV2Frame(unsigned long windowElapsedMs)
+{
+  if (windowElapsedMs == 0 || bleFSRSampleCount == 0)
+    return String();
+
+  char capturedAt[32];
+  const uint64_t capturedAtMs = currentGatewayEpochMs();
+  if (!formatGatewayTimestamp(capturedAt, sizeof(capturedAt), capturedAtMs))
+    return String();
+
+  String json;
+  json.reserve(12000);
+  json += "{\"schema_version\":2,\"device_uid\":\"";
+  json += FG_DEVICE_UID;
+  json += "\",\"boot_id\":\"";
+  json += bleBootId;
+  json += "\",\"sequence_number\":";
+  json += String((unsigned long)bleSequenceNumber);
+  json += ",\"captured_at\":\"";
+  json += capturedAt;
+  json += "\",\"sample_rates_hz\":{";
+
+  bool hasRate = false;
+  if (blePiezoFrameCount > 0)
+  {
+    appendJsonNumberField(
+      json, hasRate, "p",
+      (blePiezoFrameCount * 1000.0f) / (float)windowElapsedMs, 2
+    );
+  }
+  appendJsonNumberField(
+    json, hasRate, "fsr",
+    (bleFSRSampleCount * 1000.0f) / (float)windowElapsedMs, 2
+  );
+  if (blePPGSampleCount > 0)
+  {
+    const float ppgRate = (blePPGSampleCount * 1000.0f) / (float)windowElapsedMs;
+    appendJsonNumberField(json, hasRate, "hr_ir", ppgRate, 2);
+    appendJsonNumberField(json, hasRate, "hr_red", ppgRate, 2);
+  }
+  json += "},\"channel_layout\":{\"p\":4},\"telemetry\":{";
+
+  bool hasTelemetryField = false;
+  if (fetalHRReady && !fetalNearMaternal)
+    appendJsonNumberField(json, hasTelemetryField, "fhr", fetalBPMFiltered, 1);
+  if (hrFilteredReady)
+    appendJsonNumberField(json, hasTelemetryField, "motherHR", hrFiltered, 1);
+  if (spo2FilteredReady)
+    appendJsonNumberField(json, hasTelemetryField, "spo2", spo2Filtered, 1);
+  if (fsrBaselineReady)
+  {
+    const float contractionScale = fmaxf(fsrOnThresholdADC * 4.0f, 1.0f);
+    appendJsonNumberField(
+      json, hasTelemetryField, "contractionLevel",
+      clampFloat((fsrDeltaADC / contractionScale) * 100.0f, 0.0f, 100.0f), 1
+    );
+  }
+  if (
+    adsReady && !adsDRDYTimeout && activePiezoInitialized &&
+    activePiezo >= 0 && activePiezo < PIEZO_COUNT
+  )
+  {
+    appendJsonNumberField(
+      json, hasTelemetryField, "signalQuality",
+      clampFloat(piezoQuality[activePiezo] * 50.0f, 0.0f, 100.0f), 1
+    );
+  }
+  json += "},\"channels\":{";
+
+  bool hasChannel = false;
+  if (blePiezoFrameCount > 0)
+  {
+    json += "\"p\":[";
+    for (size_t frameIndex = 0; frameIndex < blePiezoFrameCount; frameIndex++)
+    {
+      for (uint8_t channel = 0; channel < PIEZO_COUNT; channel++)
+      {
+        if (frameIndex > 0 || channel > 0) json += ',';
+        json += String(blePiezoSamples[frameIndex][channel]);
+      }
+    }
+    json += ']';
+    hasChannel = true;
+  }
+  if (hasChannel) json += ',';
+  json += "\"fsr\":[";
+  for (size_t index = 0; index < bleFSRSampleCount; index++)
+  {
+    if (index > 0) json += ',';
+    json += String(bleFSRSamples[index]);
+  }
+  json += ']';
+
+  if (blePPGSampleCount > 0)
+  {
+    json += ",\"hr_ir\":[";
+    for (size_t index = 0; index < blePPGSampleCount; index++)
+    {
+      if (index > 0) json += ',';
+      json += String(bleIRSamples[index]);
+    }
+    json += "],\"hr_red\":[";
+    for (size_t index = 0; index < blePPGSampleCount; index++)
+    {
+      if (index > 0) json += ',';
+      json += String(bleRedSamples[index]);
+    }
+    json += ']';
+  }
+
+  json += "}}\n";
+  return json;
+}
+
 void notifyTelemetryFrame(const String &frame)
 {
   if (bleTelemetryCharacteristic == nullptr || frame.length() == 0)
     return;
 
   const uint8_t *bytes = reinterpret_cast<const uint8_t *>(frame.c_str());
-  for (size_t offset = 0; offset < frame.length(); offset += BLE_NOTIFY_CHUNK_BYTES)
+  for (size_t offset = 0; offset < frame.length(); offset += bleNotifyChunkBytes)
   {
     const size_t remaining = frame.length() - offset;
-    const size_t chunkSize = remaining < BLE_NOTIFY_CHUNK_BYTES
+    const size_t chunkSize = remaining < bleNotifyChunkBytes
       ? remaining
-      : BLE_NOTIFY_CHUNK_BYTES;
+      : bleNotifyChunkBytes;
     bleTelemetryCharacteristic->setValue((uint8_t *)(bytes + offset), chunkSize);
     bleTelemetryCharacteristic->notify();
     // Beri waktu stack BLE mengirim setiap fragmen pada ATT MTU minimum.
     // Pada interval frame 1 Hz, jeda ini lebih mengutamakan keutuhan frame.
-    delay(8);
+    delay(bleNotifyChunkBytes == BLE_MIN_NOTIFY_CHUNK_BYTES ? 8 : 2);
   }
 }
 
@@ -2124,13 +2353,19 @@ void sendTelemetryIfDue()
   const unsigned long now = millis();
   if (lastBleTelemetryMs != 0 && now - lastBleTelemetryMs < BLE_TELEMETRY_INTERVAL_MS)
     return;
+  const unsigned long elapsedMs = lastBleTelemetryMs == 0
+    ? BLE_TELEMETRY_INTERVAL_MS
+    : now - lastBleTelemetryMs;
   lastBleTelemetryMs = now;
-
-  const String frame = buildTelemetryFrame();
+  const String frame = bleTelemetryV2Enabled
+    ? buildTelemetryV2Frame(elapsedMs)
+    : buildTelemetryFrame();
   if (frame.length() == 0)
     return;
 
   notifyTelemetryFrame(frame);
+  if (bleTelemetryV2Enabled)
+    resetBleRawWindow();
   bleSequenceNumber++;
 }
 

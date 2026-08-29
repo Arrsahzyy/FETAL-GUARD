@@ -14,11 +14,35 @@ const DEFAULT_CONFIG = {
 const MAX_FRAME_BYTES = 64 * 1024;
 const MAX_TRANSPORT_PACKET_QUEUE = 512;
 
+export const getBluetoothScanErrorCode = (error) => {
+  switch (error?.name) {
+    case 'NotFoundError':
+      return 'scan_no_device_selected';
+    case 'SecurityError':
+      return 'scan_permission_denied';
+    case 'NotSupportedError':
+      return 'ble_unsupported';
+    case 'NotReadableError':
+      return 'ble_adapter_unavailable';
+    default:
+      return 'scan_failed';
+  }
+};
+
 export const createGatewayTimeSyncValue = (timestampMs = Date.now()) => {
   if (!Number.isSafeInteger(timestampMs) || timestampMs < 0) {
     throw new Error('invalid_time_sync');
   }
   const bytes = new TextEncoder().encode(`T${timestampMs}`);
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+};
+
+export const createGatewayTelemetryV2Value = (mtu = 185) => {
+  if (!Number.isInteger(mtu) || mtu < 23) throw new Error('invalid_mtu');
+  // Leave three bytes for the ATT header and cap the application fragment so
+  // the firmware does not depend on a controller accepting the maximum MTU.
+  const chunkBytes = Math.max(20, Math.min(mtu - 3, 180));
+  const bytes = new TextEncoder().encode(`V2:${chunkBytes}`);
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 };
 
@@ -41,7 +65,9 @@ export const validateTelemetryEnvelope = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('invalid_packet');
   }
-  if (value.schema_version !== 1) throw new Error('unsupported_schema');
+  if (value.schema_version !== 1 && value.schema_version !== 2) {
+    throw new Error('unsupported_schema');
+  }
   if (typeof value.device_uid !== 'string' || value.device_uid.trim().length < 3) {
     throw new Error('missing_device_uid');
   }
@@ -61,6 +87,28 @@ export const validateTelemetryEnvelope = (value) => {
     ? value.telemetry
     : value;
 
+  const rawChannels = value.channels && typeof value.channels === 'object'
+    && !Array.isArray(value.channels) ? value.channels : null;
+  const sampleRatesHz = {};
+  if (value.schema_version === 2) {
+    if (!value.sample_rates_hz || typeof value.sample_rates_hz !== 'object') {
+      throw new Error('missing_sample_rates');
+    }
+    for (const channel of ['p', 'fsr', 'hr_ir', 'hr_red']) {
+      if (rawChannels?.[channel] === undefined) continue;
+      sampleRatesHz[channel] = asFiniteNumber(
+        value.sample_rates_hz[channel],
+        `${channel}_sample_rate`,
+        0.1,
+        10000,
+      );
+      if (sampleRatesHz[channel] === null) throw new Error(`missing_${channel}_sample_rate`);
+    }
+    if (rawChannels?.p !== undefined && value.channel_layout?.p !== 4) {
+      throw new Error('invalid_piezo_layout');
+    }
+  }
+
   return {
     deviceUid: value.device_uid.trim().toUpperCase(),
     bootId: value.boot_id.trim(),
@@ -68,6 +116,8 @@ export const validateTelemetryEnvelope = (value) => {
     schemaVersion: value.schema_version,
     capturedAt: capturedAt.toISOString(),
     sampleRateHz: asFiniteNumber(value.sample_rate_hz, 'sample_rate', 0.1, 10000),
+    sampleRatesHz: value.schema_version === 2 ? sampleRatesHz : null,
+    channelLayout: value.schema_version === 2 ? { p: value.channel_layout?.p ?? null } : null,
     fhr: asFiniteNumber(telemetry.fhr, 'fhr', 30, 240),
     motherHR: asFiniteNumber(
       telemetry.motherHR ?? telemetry.maternal_heart_rate,
@@ -95,7 +145,7 @@ export const validateTelemetryEnvelope = (value) => {
       100,
     ),
     charging: asBoolean(telemetry.charging, 'charging'),
-    rawChannels: value.channels && typeof value.channels === 'object' ? value.channels : null,
+    rawChannels,
   };
 };
 
@@ -389,6 +439,15 @@ export function useBluetooth(config = {}) {
           cfg.characteristicUUID,
           createGatewayTimeSyncValue(),
         );
+        if (Capacitor.isNativePlatform() && typeof BleClient.getMtu === 'function') {
+          const negotiatedMtu = await BleClient.getMtu(deviceId);
+          await BleClient.write(
+            deviceId,
+            cfg.serviceUUID,
+            cfg.characteristicUUID,
+            createGatewayTelemetryV2Value(negotiatedMtu),
+          );
+        }
         if (!isCurrentAttempt() || disconnectedDuringSetup) {
           throw new Error('connect_superseded');
         }
@@ -497,7 +556,15 @@ export function useBluetooth(config = {}) {
       throw new Error('ble_unavailable');
     }
 
-    await stopScan();
+    // Web Bluetooth requestDevice() must be invoked while the original click
+    // still has transient user activation. Awaiting even an idempotent web
+    // stop call first can make Chrome reject the chooser with SecurityError.
+    if (Capacitor.isNativePlatform()) {
+      await stopScan();
+    } else {
+      clearScanTimer();
+      if (mountedRef.current) setIsScanning(false);
+    }
     setDevices([]);
     setError(null);
     setIsScanning(true);
@@ -532,10 +599,10 @@ export function useBluetooth(config = {}) {
     } catch (scanError) {
       await stopScan();
       setConnectionState('error');
-      setError('scan_failed');
+      setError(getBluetoothScanErrorCode(scanError));
       throw scanError;
     }
-  }, [cfg.deviceNamePrefix, cfg.scanTimeout, cfg.serviceUUID, stopScan]);
+  }, [cfg.deviceNamePrefix, cfg.scanTimeout, cfg.serviceUUID, clearScanTimer, stopScan]);
 
   const disconnect = useCallback(async () => {
     manualDisconnectRef.current = true;

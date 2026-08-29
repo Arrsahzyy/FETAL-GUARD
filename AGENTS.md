@@ -185,6 +185,30 @@ AI/ML:
 
 ## 11. Development Commands
 
+Menjalankan website lokal lengkap (migrasi database local-mobile, backend port 3020,
+dan frontend port 5173) cukup dengan:
+
+```powershell
+npm.cmd run local
+```
+
+Alias `npm.cmd run localserver` tersedia untuk perintah yang lebih eksplisit.
+
+Pasien dapat mendaftar melalui portal pasien. Akun admin dan nakes diprovisikan satu kali
+secara interaktif tanpa password hard-coded:
+
+```powershell
+npm.cmd run local:staff
+```
+
+Daftarkan UID ESP32 pengujian ke akun pasien lokal secara interaktif dengan:
+
+```powershell
+npm.cmd run local:device
+```
+
+Gunakan `Ctrl+C` pada terminal local server untuk menghentikan backend dan frontend bersama.
+
 Frontend:
 
 ```powershell

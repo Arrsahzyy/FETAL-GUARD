@@ -22,12 +22,14 @@ export default function PatientAIAnalysisPanel({ sessionId, isSessionActive }) {
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoadError, setHasLoadError] = useState(false);
+  const [patientResultsEnabled, setPatientResultsEnabled] = useState(null);
   const requestControllerRef = useRef(null);
 
   const fetchResults = useCallback(async ({ silent = false } = {}) => {
     requestControllerRef.current?.abort();
     if (!sessionId) {
       setResults([]);
+      setPatientResultsEnabled(null);
       setHasLoadError(false);
       setIsLoading(false);
       return;
@@ -37,12 +39,16 @@ export default function PatientAIAnalysisPanel({ sessionId, isSessionActive }) {
     requestControllerRef.current = controller;
     if (!silent) setIsLoading(true);
     try {
-      const page = await api.patients.listAIResults({
-        sessionId,
-        limit: RESULT_LIMIT,
-        signal: controller.signal,
-      });
+      const [availability, page] = await Promise.all([
+        api.patients.getAIAvailability({ signal: controller.signal }),
+        api.patients.listAIResults({
+          sessionId,
+          limit: RESULT_LIMIT,
+          signal: controller.signal,
+        }),
+      ]);
       if (controller.signal.aborted) return;
+      setPatientResultsEnabled(availability.patient_results_enabled === true);
       setResults(normalizeAIAnalysisPage(page));
       setHasLoadError(false);
     } catch (error) {
@@ -61,7 +67,7 @@ export default function PatientAIAnalysisPanel({ sessionId, isSessionActive }) {
   }, [fetchResults]);
 
   useEffect(() => {
-    if (!sessionId) return undefined;
+    if (!sessionId || patientResultsEnabled !== true) return undefined;
     const poller = createRealtimeEventPoller({
       fetchEvents: ({ cursor, signal }) => api.patients.listRealtimeEvents({
         afterCursor: cursor,
@@ -79,7 +85,7 @@ export default function PatientAIAnalysisPanel({ sessionId, isSessionActive }) {
     });
     poller.start();
     return () => poller.stop();
-  }, [fetchResults, sessionId]);
+  }, [fetchResults, patientResultsEnabled, sessionId]);
 
   const latest = results[0] || null;
   const readings = useMemo(() => getPatientAIReadings(latest), [latest]);
@@ -130,7 +136,17 @@ export default function PatientAIAnalysisPanel({ sessionId, isSessionActive }) {
         </div>
       )}
 
-      {sessionId && !latest && !isLoading && !hasLoadError && (
+      {sessionId && patientResultsEnabled === false && !latest && !isLoading && !hasLoadError && (
+        <div className="patient-ai-state" role="status">
+          <Icon className="material-symbols-outlined" name="model_training" />
+          <div>
+            <strong>{t('patient.monitoring.ai.unavailableTitle')}</strong>
+            <p>{t('patient.monitoring.ai.unavailableDesc')}</p>
+          </div>
+        </div>
+      )}
+
+      {sessionId && patientResultsEnabled !== false && !latest && !isLoading && !hasLoadError && (
         <div className="patient-ai-state" role="status">
           <Icon className="material-symbols-outlined" name="pending_actions" />
           <div>
