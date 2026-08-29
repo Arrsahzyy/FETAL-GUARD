@@ -79,7 +79,7 @@
 - [ ] Aplikasi (atau nRF Connect) bisa subscribe ke GATT characteristic dan mendapat stream data yang masuk akal (berubah saat sensor disentuh).
 - [ ] Tidak ada klaim diagnostik medis yang tercantum pada antarmuka aplikasi.
 - [ ] Suhu casing tidak panas saat beroperasi terus menerus selama 1 jam.
-- [x] Kode berhasil dikompilasi untuk `esp32:esp32:esp32s3` dengan ESP32 core 3.3.8.
+- [ ] Firmware telemetry v2 dikompilasi ulang untuk `esp32:esp32:esp32s3` setelah perubahan buffer multi-rate.
 
 ## 15. Implementasi Gateway Lokal v1
 
@@ -101,9 +101,27 @@ characteristic `FFE1`. Frame dipecah menjadi fragmen 20 byte agar tetap aman pad
 minimum, lalu dirakit kembali oleh aplikasi. Sesudah subscribe, aplikasi menulis perintah
 `T<unix_epoch_ms>` ke characteristic yang sama agar timestamp ESP32 berasal dari jam gateway.
 
-Payload 1 Hz ini adalah snapshot untuk membuktikan integrasi lokal. Payload belum menggantikan
-transport biner berkecepatan tinggi yang diperlukan untuk menyimpan bentuk gelombang penuh dan
-menjalankan pipeline AI berbasis window sinyal.
+Bagian `telemetry` membawa nilai live yang sudah tersedia dari firmware (`fhr`, `motherHR`,
+`spo2`, `contractionLevel`, dan `signalQuality`). `contractionLevel` adalah perubahan tekanan
+FSR relatif terhadap baseline/threshold perangkat, sedangkan `signalQuality` adalah indikator
+teknis envelope piezo terhadap noise floor. Keduanya bernilai 0-100 dan bukan pengukuran
+kontraksi atau SQI klinis. Aplikasi mengosongkan semua nilai live ketika sesi berhenti atau
+paket melewati batas freshness; angka terakhir tidak dipertahankan seolah-olah masih berjalan.
+
+Payload 1 Hz v1 ini tetap menjadi snapshot kompatibilitas untuk browser. Pada aplikasi Android
+native, gateway membaca ATT MTU yang sudah dinegosiasikan lalu mengirim perintah
+`V2:<fragment_bytes>`. Firmware kemudian mengirim jendela JSON v2 berakhiran newline dengan:
+
+- `sample_rates_hz.p` untuk frame piezo empat kanal;
+- `sample_rates_hz.fsr`, `hr_ir`, dan `hr_red` untuk laju native masing-masing sensor;
+- `channel_layout.p=4` untuk merekonstruksi array piezo interleaved;
+- raw ADC di `channels`, sementara nilai live tetap berada di `telemetry`.
+
+Kontrak dan fixture canonical v2 berada di
+`contracts/telemetry/v2/golden-esp32-window.json`. Fragmen native dibatasi maksimal 180 byte;
+browser yang tidak dapat membaca negotiated MTU tetap memakai snapshot v1 20 byte. Pengiriman
+v2 mempersiapkan penyimpanan window AI, tetapi latency, packet loss, dan kestabilan sampling
+selama notify tetap harus diukur pada ESP32 dan ponsel fisik.
 
 ## 16. Prosedur Uji Lokal End-to-End
 
@@ -117,23 +135,23 @@ Langkah uji:
 
 1. Pastikan `FG_DEVICE_UID` di sketch bernilai `FETAL-GUARD-001`, atau gunakan UID lain yang konsisten di firmware dan registry backend.
 2. Compile dan upload `fetalguard.ino`, lalu buka Serial Monitor pada 115200 baud.
-3. Jalankan backend dari folder `backend`:
+3. Jalankan backend dan frontend lokal dari root repository:
 
    ```powershell
-   .\venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000
+   npm.cmd run local
    ```
 
-4. Jalankan frontend dari root repository:
+4. Jika perangkat belum ditugaskan ke akun pasien, buka terminal kedua dan jalankan shortcut
+   interaktif berikut. UID bawaannya sama dengan firmware, yaitu `FETAL-GUARD-001`:
 
    ```powershell
-   npm.cmd run dev
+   npm.cmd run local:device
    ```
 
-5. Login sebagai admin, daftarkan perangkat dengan UID yang sama, lalu assign ke pasien penguji.
-6. Buka `http://localhost:5173` memakai Chrome atau Edge di komputer yang memiliki Bluetooth, lalu login sebagai pasien tersebut.
-7. Pada halaman monitoring, lakukan scan, pilih `FETAL-GUARD-001`, connect, kemudian mulai sesi monitoring.
-8. Pastikan Serial Monitor menampilkan `[BLE] Waktu gateway tersinkronisasi.` dan UI menerima data tanpa status stale.
-9. Pastikan upload berubah menjadi tersinkronisasi dan satu `boot_id + sequence_number` hanya membuat satu record walaupun paket dikirim ulang.
+5. Buka `http://127.0.0.1:5173` memakai Chrome atau Edge di komputer yang memiliki Bluetooth, lalu login sebagai pasien tersebut.
+6. Pada Beranda atau halaman Monitoring, lakukan scan, pilih `FETAL-GUARD-001`, tekan **Hubungkan**, kemudian mulai sesi monitoring.
+7. Pastikan Serial Monitor menampilkan `[BLE] Waktu gateway tersinkronisasi.` dan UI menerima data tanpa status stale.
+8. Pastikan upload berubah menjadi tersinkronisasi dan satu `boot_id + sequence_number` hanya membuat satu record walaupun paket dikirim ulang.
 
 Web Bluetooth membutuhkan secure context. `localhost` diterima untuk uji desktop, tetapi alamat
 HTTP LAN seperti `http://192.168.x.x:5173` pada browser HP umumnya tidak. Untuk uji Android,
@@ -144,12 +162,40 @@ Selain itu, `127.0.0.1` di HP menunjuk ke HP itu sendiri, bukan komputer backend
 
 - ESP32 advertising dengan UID yang terdaftar dan dapat dipilih dari aplikasi.
 - Sinkronisasi waktu diterima sebelum frame telemetry dikirim.
-- Fixture v1 yang sama lolos parser frontend dan contract ingestion backend.
+- Fixture v1 dan v2 lolos parser frontend dan contract ingestion backend.
+- Android mencatat telemetry `schema_version=2`, empat kanal piezo, dan laju native per modalitas.
 - Paket retry tersimpan tepat satu kali berdasarkan ingestion id.
 - Nilai yang tidak tersedia tetap kosong; sistem tidak membuat angka klinis pengganti.
 - Compile, flash, perubahan sensor fisik, latency, dan packet loss dibuktikan dengan perangkat nyata sebelum checklist hardware dinyatakan selesai.
 
-## 18. Build APK Android untuk Backend Lokal
+## 18. Jalur Backend dan AI Fail-Closed
+
+Aplikasi menyimpan paket BLE ke antrean lokal terlebih dahulu, membentuk ingestion ID deterministik
+dari device UID, boot ID, dan sequence number, lalu mengunggahnya ke endpoint sesi. Backend
+menolak rate yang hilang, layout piezo selain empat kanal, PPG IR/red yang tidak berpasangan,
+timestamp yang tidak konsisten, perangkat yang bukan milik pasien, dan paket out-of-order. Retry
+dengan identitas yang sama tidak membuat record kedua.
+
+Adapter `ai/src/fetal_guard_ai/telemetry.py` hanya menerima data hardware schema v2 non-simulasi.
+Adapter menolak boot ID campuran atau sequence gap, melakukan resampling eksplisit ke kontrak
+model (piezo 250 Hz, FSR 50 Hz, PPG ibu 100 Hz), dan membuat validity mask untuk cakupan yang
+hilang. Worker `backend/run_ai_inference_worker.py` memverifikasi SHA-256 manifest, kecocokan
+record model aktif, validation/deployment gate, lalu menjalankan CNN-LSTM dan safety layer.
+
+AI tetap nonaktif secara default. Untuk riset internal, siapkan environment terpisah dari
+`ai/requirements-ai.txt`, daftarkan manifest model yang sudah direview pada tabel model, dan
+gunakan mode `research` atau `shadow`. Jangan mengaktifkan mode `clinician` tanpa model
+`clinical_validated`; hasil pasien tetap memerlukan review nakes dan publication worker.
+
+```powershell
+cd backend
+python run_ai_inference_worker.py --once
+```
+
+Nama/path virtual environment di atas adalah contoh; interpreter wajib memiliki dependency AI
+dan backend. Worker PostgreSQL production wajib memakai role `fetal_guard_ai_worker`.
+
+## 19. Build APK Android untuk Backend Lokal
 
 APK debug lokal mempertahankan BLE native dan mengizinkan HTTP hanya ketika build memakai mode
 `android-local`, flag eksplisit, dan alamat API berada pada rentang IPv4 privat. Manifest

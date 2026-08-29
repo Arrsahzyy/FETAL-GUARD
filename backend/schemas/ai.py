@@ -31,6 +31,10 @@ class AIPredictResponse(BaseModel):
     is_stub: bool = False
 
 
+class AIPatientAvailabilityResponse(BaseModel):
+    patient_results_enabled: bool
+
+
 class AIQualityStatus(str, Enum):
     usable = "usable"
     limited = "limited"

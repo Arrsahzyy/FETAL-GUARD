@@ -5,7 +5,13 @@
   "sequence_number": 0,
   "captured_at": "2026-08-17T10:00:00.000Z",
   "sample_rate_hz": 1,
-  "telemetry": {},
+  "telemetry": {
+    "fhr": 142.0,
+    "motherHR": 82.0,
+    "spo2": 97.0,
+    "contractionLevel": 28.0,
+    "signalQuality": 76.0
+  },
   "channels": {
     "p": [2048, 2051, 2046, 2053],
     "fsr": [512],

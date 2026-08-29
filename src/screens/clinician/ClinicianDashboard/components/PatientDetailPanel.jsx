@@ -6,11 +6,13 @@ import RiskBadge from './RiskBadge';
 import DataAvailability from './DataAvailability';
 import { formatDateTime, formatDuration } from '../../../../utils/formatters';
 import ClinicianAIAnalysisPanel from './ClinicianAIAnalysisPanel';
+import PatientReportExport from './PatientReportExport';
 
 export default function PatientDetailPanel({
   selectedPatient,
   setSelectedPatientId,
   openAlerts,
+  activeTab,
   setActiveTab,
   handleCallPatient,
   handleOpenPatient,
@@ -63,6 +65,8 @@ export default function PatientDetailPanel({
                 <strong>{selectedPatient.sessions.length}</strong>
               </div>
             </div>
+
+            <PatientReportExport patient={selectedPatient} openModal={openModal} />
 
             <div className="detail-section">
               <h3>{t('clinician.screeningStatus')}</h3>
@@ -122,22 +126,12 @@ export default function PatientDetailPanel({
                   <Icon name="phone" />
                   {t('clinician.contact')}
                 </button>
-                <button type="button" onClick={() => handleOpenPatient(selectedPatient)}>
-                  <Icon name="eye" />
-                  {t('clinician.viewSession')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openModal({
-                    title: t('clinician.clinicianNotesTitle'),
-                    message: t('clinician.clinicianNotesMessage'),
-                    type: 'info',
-                    confirmText: t('clinician.understand'),
-                  })}
-                >
-                  <Icon name="file" />
-                  {t('clinician.notes')}
-                </button>
+                {activeTab !== 'patients' && (
+                  <button type="button" onClick={() => handleOpenPatient(selectedPatient)}>
+                    <Icon name="eye" />
+                    {t('clinician.viewSession')}
+                  </button>
+                )}
               </div>
             </div>
 

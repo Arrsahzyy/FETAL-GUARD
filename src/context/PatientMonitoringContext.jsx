@@ -575,7 +575,22 @@ export function PatientMonitoringProvider({ children }) {
         }
         continue;
       }
-      if (!Number.isFinite(packet.sampleRateHz) || packet.sampleRateHz <= 0) {
+      const hasV1SampleRate = packet.schemaVersion === 1
+        && Number.isFinite(packet.sampleRateHz)
+        && packet.sampleRateHz > 0;
+      const hasV2SampleRates = packet.schemaVersion === 2
+        && packet.sampleRatesHz
+        && Object.keys(normalizedChannels.payload).every((channel) => (
+          Number.isFinite(packet.sampleRatesHz[channel])
+          && packet.sampleRatesHz[channel] > 0
+        ));
+      const hasValidPiezoLayout = packet.schemaVersion !== 2
+        || normalizedChannels.payload.p === undefined
+        || (
+          packet.channelLayout?.p === 4
+          && normalizedChannels.payload.p.length % packet.channelLayout.p === 0
+        );
+      if ((!hasV1SampleRate && !hasV2SampleRates) || !hasValidPiezoLayout) {
         if (mountedRef.current && queueScopeRef.current === scopeKey) {
           recordRejectedPacket();
           setDataPersistenceState('rejected');
@@ -628,6 +643,8 @@ export function PatientMonitoringProvider({ children }) {
           sequence_number: packet.sequenceNumber,
           captured_at: packet.capturedAt,
           sample_rate_hz: packet.sampleRateHz,
+          sample_rates_hz: packet.sampleRatesHz,
+          channel_layout: packet.channelLayout,
           device_uid: packet.deviceUid,
           source: 'ble',
           is_simulated: false,

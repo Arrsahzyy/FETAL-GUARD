@@ -12,7 +12,8 @@ Folder ini berisi infrastruktur riset CNN-LSTM multimodal untuk membantu skrinin
 - loader dan executor satu-window yang memverifikasi input/mask lalu menjalankan artefak dalam inference mode;
 - split train/validation/test berbasis subjek untuk mencegah data leakage;
 - training runner, checkpoint, SHA-256 manifest, dan deployment validation gate;
-- backend job/result/review persistence, audit, RBAC, realtime event, retry terbatas, dan mode fail-closed.
+- adapter telemetry v2 yang merekonstruksi empat kanal piezo, FSR, dan PPG ibu dengan laju native, resampling eksplisit, continuity check, dan validity mask;
+- backend job/result/review persistence, inference worker, audit, RBAC, realtime event, retry terbatas, dan mode fail-closed.
 
 ## Kontrak dataset training
 
@@ -84,15 +85,27 @@ cd backend
 .\venv\Scripts\python.exe run_ai_publication_worker.py
 ```
 
-Proses tersebut belum menjalankan inference. Adapter window hardware dan inference worker end-to-end tetap wajib diselesaikan sebelum mode `clinician` digunakan.
+Worker inference juga dijalankan terpisah menggunakan environment yang memiliki dependency backend
+dan `ai/requirements-ai.txt`:
+
+```powershell
+cd backend
+python run_ai_inference_worker.py --once
+```
+
+Worker hanya menerima telemetry schema v2 non-simulasi dengan sequence kontinu. Manifest lokal,
+hash artefak, versi preprocessing, input schema, status validasi, dan record model aktif harus
+cocok. Data modalitas yang kurang ditahan oleh validity-mask gate sebagai
+`insufficient_signal`; tidak ada nilai pengganti yang dibuat. Pada PostgreSQL, worker wajib
+berjalan sebagai role `fetal_guard_ai_worker`.
 
 ## Yang masih wajib sebelum penggunaan klinis
 
-- payload hardware schema v2 dan adapter window multimodal nyata;
+- compile/flash firmware telemetry v2 dan uji window multimodal dengan hardware nyata;
 - dataset hardware berprovenance dengan ground truth tersinkron;
 - review label/protokol oleh nakes dan persetujuan etik;
 - analytical validation, external validation, calibration, dan subgroup analysis;
-- worker inference terisolasi beserta observability dan load/failure testing;
+- observability serta load/failure testing worker inference;
 - proses promosi model, rollback, drift monitoring, dan human review.
 
 Jangan mencantumkan akurasi, sensitivitas, spesifisitas, atau manfaat klinis sebelum tersedia bukti evaluasi yang sah.

@@ -93,6 +93,21 @@ class SensorChannels(BaseModel):
         return self
 
 
+class SensorSampleRates(BaseModel):
+    """Native sample rate for each raw channel in a telemetry v2 chunk."""
+
+    p: float | None = Field(default=None, gt=0, le=10_000)
+    fsr: float | None = Field(default=None, gt=0, le=10_000)
+    hr_ir: float | None = Field(default=None, gt=0, le=10_000)
+    hr_red: float | None = Field(default=None, gt=0, le=10_000)
+
+
+class SensorChannelLayout(BaseModel):
+    """Channel cardinality needed to reconstruct interleaved samples."""
+
+    p: int | None = Field(default=None, ge=1, le=8)
+
+
 class SensorDataChunkCreate(BaseModel):
     """Top-level schema for a sensor data chunk upload.
 
@@ -108,6 +123,8 @@ class SensorDataChunkCreate(BaseModel):
     sequence_number: int | None = Field(default=None, ge=0, le=2**63 - 1)
     captured_at: datetime | None = None
     sample_rate_hz: float | None = Field(default=None, gt=0, le=10_000)
+    sample_rates_hz: SensorSampleRates | None = None
+    channel_layout: SensorChannelLayout | None = None
     device_uid: str | None = Field(default=None, min_length=3, max_length=80)
     source: str | None = Field(default=None, max_length=32)
     is_simulated: bool | None = None
@@ -160,14 +177,41 @@ class SensorDataChunkCreate(BaseModel):
                 "boot_id": self.boot_id,
                 "sequence_number": self.sequence_number,
                 "captured_at": self.captured_at,
-                "sample_rate_hz": self.sample_rate_hz,
             }
+            if self.schema_version == 1:
+                required_fields["sample_rate_hz"] = self.sample_rate_hz
+            else:
+                required_fields["sample_rates_hz"] = self.sample_rates_hz
             missing = [
                 name for name, value in required_fields.items()
                 if (name == "ingestion_id" and name not in self.model_fields_set) or value is None
             ]
             if missing:
                 raise ValueError(f"Device uploads require packet metadata: {', '.join(missing)}")
+
+        if self.schema_version >= 2:
+            if self.sample_rate_hz is not None:
+                raise ValueError("Telemetry v2 must use sample_rates_hz instead of sample_rate_hz")
+            rates = self.sample_rates_hz.model_dump(exclude_none=True) if self.sample_rates_hz else {}
+            channels = self.payload.model_dump(exclude_none=True)
+            present_channels = {
+                name for name in ("p", "fsr", "hr_ir", "hr_red") if channels.get(name)
+            }
+            missing_rates = sorted(present_channels - set(rates))
+            if missing_rates:
+                raise ValueError(
+                    "Telemetry v2 requires a native sample rate for: "
+                    + ", ".join(missing_rates)
+                )
+            if "p" in present_channels:
+                if self.channel_layout is None or self.channel_layout.p != 4:
+                    raise ValueError("Telemetry v2 piezo data requires channel_layout.p=4")
+                if len(self.payload.p or []) % 4 != 0:
+                    raise ValueError("Telemetry v2 piezo samples must be interleaved in groups of four")
+            if ("hr_ir" in present_channels) != ("hr_red" in present_channels):
+                raise ValueError("Telemetry v2 maternal PPG requires paired hr_ir and hr_red channels")
+            if "hr_ir" in present_channels and len(self.payload.hr_ir or []) != len(self.payload.hr_red or []):
+                raise ValueError("Telemetry v2 maternal PPG channels must have equal lengths")
 
         if self.source == "mock" and self.is_simulated is not True:
             raise ValueError("Mock sensor uploads must set is_simulated=true")
@@ -199,6 +243,10 @@ class SensorDataChunkCreate(BaseModel):
             stored_payload["captured_at"] = self.captured_at.isoformat()
         if self.sample_rate_hz is not None:
             stored_payload["sample_rate_hz"] = self.sample_rate_hz
+        if self.sample_rates_hz is not None:
+            stored_payload["sample_rates_hz"] = self.sample_rates_hz.model_dump(exclude_none=True)
+        if self.channel_layout is not None:
+            stored_payload["channel_layout"] = self.channel_layout.model_dump(exclude_none=True)
         if self.device_uid:
             stored_payload["device_uid"] = self.device_uid
         return stored_payload

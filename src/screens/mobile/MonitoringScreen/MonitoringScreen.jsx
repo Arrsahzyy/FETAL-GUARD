@@ -10,16 +10,12 @@ import { usePatientDevice } from "../../../context/usePatientDevice";
 import { usePatientMonitoring } from "../../../context/usePatientMonitoring";
 import { t } from "../../../i18n";
 import { useI18n } from "../../../i18n/useI18n";
+import { getPatientLiveReadings } from "../../../utils/patientLiveReadings";
 import PatientAIAnalysisPanel from "./PatientAIAnalysisPanel";
 import "./MonitoringScreen.css";
 
 const SIGNAL_VIEW_OPTIONS = ["all", "fhr", "contraction", "events"];
 const HISTORY_LIMIT = 180;
-
-const getNumericValue = (value) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-};
 
 const appendHistoryValue = (history, value) => {
   if (value === null) return history;
@@ -78,9 +74,12 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
   // Sensor data hook — easy swap point for the hardware data provider later.
   // ============================================
   const {
+    availableDevices,
+    connectToDevice,
     connectionState,
     droppedPacketCount,
     hasRegisteredDevice,
+    isBleAvailable,
     isConnecting,
     isScanning,
     isTelemetryFresh,
@@ -129,15 +128,16 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
     return () => window.clearInterval(timer);
   }, [activeSession?.start_time, isMonitoringActive]);
 
-  const currentFHR = getNumericValue(telemetry.fhr);
-  const motherHeartRate = getNumericValue(telemetry.maternalHeartRate);
-  const spo2 = getNumericValue(telemetry.spo2);
-  const signalPercent = getNumericValue(telemetry.signalQuality);
-  const contractionIntensity = getNumericValue(telemetry.contractionLevel);
+  // Never keep presenting the last device reading as current after the
+  // authenticated session stops or telemetry becomes stale.
+  const liveReadings = getPatientLiveReadings(telemetry, isLiveTelemetry);
+  const currentFHR = liveReadings.fhr;
+  const motherHeartRate = liveReadings.maternalHeartRate;
+  const spo2 = liveReadings.spo2;
+  const signalPercent = liveReadings.signalQuality;
+  const contractionIntensity = liveReadings.contractionLevel;
   const signalQuality = getSignalLevelFromPercent(signalPercent);
-  const contraction = useMemo(() => ({
-    intensity: contractionIntensity ?? 0,
-  }), [contractionIntensity]);
+  const contractionIntensityDisplay = contractionIntensity ?? 0;
 
   useEffect(() => {
     if (!isLiveTelemetry) return undefined;
@@ -167,6 +167,9 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
   const isStartingSession = sessionState === "starting";
   const isStoppingSession = sessionState === "stopping";
   const syncError = sessionError || pairingError;
+  const syncErrorTitle = sessionError
+    ? t("patient.monitoring.syncFailed")
+    : t("patient.monitoring.deviceConnectionFailed");
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -339,7 +342,7 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
 
         {syncError && (
           <div className="monitoring-sync-panel monitoring-sync-panel--error">
-            <strong>{t("patient.monitoring.syncFailed")}</strong>
+            <strong>{syncErrorTitle}</strong>
             <p>{syncError}</p>
           </div>
         )}
@@ -388,6 +391,54 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
               {t("patient.common.backHome")}
             </button>
           </div>
+
+          {hasRegisteredDevice && availableDevices.length > 0 && (
+            <div
+              className="monitoring-device-results"
+              aria-label={t("patient.home.devicePickerFound", { count: availableDevices.length })}
+            >
+              <strong>
+                {t("patient.home.devicePickerFound", { count: availableDevices.length })}
+              </strong>
+              <div className="monitoring-device-results__list">
+                {availableDevices.map((device) => (
+                  <article key={device.deviceId} className="monitoring-device-result">
+                    <Icon className="material-symbols-outlined" name="sensors" />
+                    <div>
+                      <strong>{device.name}</strong>
+                      <span>
+                        {device.rssi !== null && device.rssi !== undefined
+                          ? t("patient.home.deviceSignal", { value: device.rssi })
+                          : t("patient.home.deviceReady")}
+                      </span>
+                      <small className={device.isRegistered ? "is-registered" : "is-unregistered"}>
+                        {device.isRegistered
+                          ? t("patient.home.deviceRegisteredForYou")
+                          : t("patient.home.deviceNotInRegistry")}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isConnecting || !device.isRegistered}
+                      onClick={() => {
+                        void connectToDevice(device);
+                      }}
+                    >
+                      {isConnecting
+                        ? t("patient.home.deviceConnecting")
+                        : t("patient.home.connectDevice")}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasRegisteredDevice && !isBleAvailable && (
+            <p className="monitoring-device-empty__hint" role="status">
+              {t("patient.home.bleUnavailableHint")}
+            </p>
+          )}
         </section>
       </div>
     );
@@ -430,7 +481,7 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
         >
           <strong>
             {syncError
-              ? t("patient.monitoring.syncFailed")
+              ? syncErrorTitle
               : isStoppingSession
                 ? t("patient.monitoring.closingSession")
                 : t("patient.monitoring.preparingSession")}
@@ -839,7 +890,7 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
                     {contractionIntensity !== null && (
                       <span className="monitoring-waveform__contraction-badge">
                         {t("patient.monitoring.fsrReading")}{" "}
-                        {contraction.intensity}%
+                        {contractionIntensityDisplay}%
                       </span>
                     )}
                   </div>

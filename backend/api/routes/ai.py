@@ -27,12 +27,29 @@ from schemas.ai import (
     AIAnalysisResultResponse,
     AIAnalysisReviewRequest,
     AIAnalysisReviewResponse,
+    AIPatientAvailabilityResponse,
     AIPredictRequest,
     AIPredictResponse,
 )
-from services.ctg_cnn_lstm_adapter import predict_from_payload
 
 router = APIRouter()
+
+
+@router.get("/status", response_model=AIPatientAvailabilityResponse)
+def read_patient_ai_availability(
+    current_user: User = Depends(get_current_user),
+) -> AIPatientAvailabilityResponse:
+    if current_user.role != "patient":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient AI availability is only accessible to patients",
+        )
+    return AIPatientAvailabilityResponse(
+        patient_results_enabled=(
+            settings.AI_PIPELINE_MODE == "clinician"
+            and bool(settings.AI_ACTIVE_MODEL_VERSION_ID)
+        )
+    )
 
 
 def build_analysis_response(
@@ -158,6 +175,8 @@ def predict_screening(
         )
 
     try:
+        from services.ctg_cnn_lstm_adapter import predict_from_payload
+
         prediction = predict_from_payload(chunk.payload)
     except Exception as exc:  # pragma: no cover - route intentionally fails closed on missing model payload.
         raise HTTPException(

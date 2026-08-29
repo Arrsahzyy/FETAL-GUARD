@@ -27,6 +27,8 @@ const EMPTY_TELEMETRY = Object.freeze({
   sequenceNumber: null,
   schemaVersion: null,
   sampleRateHz: null,
+  sampleRatesHz: null,
+  channelLayout: null,
   rawChannels: null,
 });
 
@@ -366,6 +368,8 @@ export function PatientDeviceProvider({ children }) {
         sequenceNumber: packet.sequenceNumber,
         schemaVersion: packet.schemaVersion,
         sampleRateHz: packet.sampleRateHz,
+        sampleRatesHz: packet.sampleRatesHz,
+        channelLayout: packet.channelLayout,
         rawChannels: packet.rawChannels,
       });
     }
@@ -408,6 +412,10 @@ export function PatientDeviceProvider({ children }) {
     if (!bluetoothError) return '';
     const messageKeys = {
       ble_unavailable: 'patient.deviceAlerts.bleUnavailable',
+      ble_unsupported: 'patient.deviceAlerts.bleUnsupported',
+      ble_adapter_unavailable: 'patient.deviceAlerts.bleAdapterUnavailable',
+      scan_no_device_selected: 'patient.deviceAlerts.scanNoDeviceSelected',
+      scan_permission_denied: 'patient.deviceAlerts.scanPermissionDenied',
       scan_failed: 'patient.deviceAlerts.scanFailed',
       connect_failed: 'patient.deviceAlerts.pairingFailed',
       reconnect_failed: 'patient.deviceAlerts.reconnectFailed',

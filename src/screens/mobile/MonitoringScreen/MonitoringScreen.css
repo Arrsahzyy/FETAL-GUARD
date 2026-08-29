@@ -306,6 +306,101 @@
     transform: none;
 }
 
+.monitoring-device-results {
+    display: grid;
+    gap: var(--spacing-3);
+    width: min(100%, 560px);
+    text-align: left;
+}
+
+.monitoring-device-results > strong {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.monitoring-device-results__list {
+    display: grid;
+    gap: var(--spacing-2);
+}
+
+.monitoring-device-result {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.82);
+}
+
+.monitoring-device-result > .material-symbols-outlined {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    color: var(--color-primary-blue-dark);
+    background: rgba(74, 163, 255, 0.1);
+}
+
+.monitoring-device-result > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.monitoring-device-result span,
+.monitoring-device-result small,
+.monitoring-device-empty__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+}
+
+.monitoring-device-result small.is-registered {
+    color: #178b82;
+}
+
+.monitoring-device-result small.is-unregistered {
+    color: var(--color-warning-dark, #9a6700);
+}
+
+.monitoring-device-result button {
+    min-height: 40px;
+    padding: 0 var(--spacing-3);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--gradient-primary);
+    color: #ffffff;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+}
+
+.monitoring-device-result button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.monitoring-device-empty__hint {
+    max-width: 520px;
+    margin: 0;
+}
+
+@media (max-width: 520px) {
+    .monitoring-device-result {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
+
+    .monitoring-device-result button {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}
+
 @keyframes monitoring-empty-pulse {
     0% {
         opacity: 0.72;

@@ -28,8 +28,10 @@ import models.alert_event  # noqa: F401, E402
 import models.realtime_event  # noqa: F401, E402
 import models.ai_analysis  # noqa: F401, E402
 
+migration_database_uri = settings.ALEMBIC_DATABASE_URI or settings.SQLALCHEMY_DATABASE_URI
+
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
+config.set_main_option("sqlalchemy.url", migration_database_uri)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -39,7 +41,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=settings.SQLALCHEMY_DATABASE_URI,
+        url=migration_database_uri,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
