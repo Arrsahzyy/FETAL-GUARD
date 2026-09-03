@@ -16,6 +16,7 @@ def production_settings(**overrides):
         "REFRESH_TOKEN_EXPIRE_DAYS": 14,
         "PATIENT_SELF_REGISTRATION_MODE": "disabled",
         "REQUIRE_POSTGRES_RLS": True,
+        "REQUIRE_DEVICE_PACKET_SIGNATURE": True,
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -42,6 +43,20 @@ def test_production_config_accepts_secure_baseline():
         ({"BACKEND_CORS_ORIGINS": ["https://*.example.test"]}, "must use HTTPS"),
         ({"BACKEND_CORS_ORIGINS": []}, "must use HTTPS"),
         ({"TRUSTED_HOSTS": ["*"]}, "must be explicit"),
+        ({"TRUSTED_HOSTS": []}, "must be explicit"),
+        ({"TRUSTED_HOSTS": ["   "]}, "must be explicit"),
+        (
+            {"TRUSTED_HOSTS": ["localhost", "127.0.0.1", "testserver"]},
+            "must not include the testserver host",
+        ),
+        (
+            {"TRUSTED_HOSTS": ["api.example.test", "testserver"]},
+            "must not include the testserver host",
+        ),
+        (
+            {"TRUSTED_HOSTS": ["localhost", "127.0.0.1"]},
+            "must name the deployment hostname",
+        ),
         ({"ACCESS_TOKEN_EXPIRE_MINUTES": 61}, "may not exceed 60 minutes"),
         ({"REFRESH_TOKEN_EXPIRE_DAYS": 31}, "may not exceed 30 days"),
         (
@@ -52,11 +67,21 @@ def test_production_config_accepts_secure_baseline():
             "PATIENT_REGISTRATION_ORGANIZATION_ID is required",
         ),
         ({"REQUIRE_POSTGRES_RLS": False}, "REQUIRE_POSTGRES_RLS must be true"),
+        (
+            {"REQUIRE_DEVICE_PACKET_SIGNATURE": False},
+            "REQUIRE_DEVICE_PACKET_SIGNATURE must be true",
+        ),
     ],
 )
 def test_production_config_rejects_unsafe_values(override, expected_message):
     with pytest.raises(ValidationError, match=expected_message):
         production_settings(**override)
+
+
+def test_production_allows_loopback_probe_host_alongside_the_deployment_host():
+    settings = production_settings(TRUSTED_HOSTS=["api.example.test", "127.0.0.1"])
+
+    assert "api.example.test" in settings.TRUSTED_HOSTS
 
 
 def test_production_allows_explicit_single_facility_patient_registration():

@@ -29,6 +29,10 @@ class SessionSensorSummary(Base):
             "signal_quality_index IS NULL OR (signal_quality_index >= 0 AND signal_quality_index <= 1)",
             name="ck_session_sensor_summaries_signal_quality_index",
         ),
+        CheckConstraint(
+            "derivation_status IN ('pending', 'derived', 'insufficient_signal', 'unsupported_schema')",
+            name="ck_session_sensor_summaries_derivation_status",
+        ),
         ForeignKeyConstraint(
             ["session_id", "organization_id"],
             ["sessions.id", "sessions.organization_id"],
@@ -64,6 +68,11 @@ class SessionSensorSummary(Base):
     signal_quality_index = Column(Float, nullable=True)
     contraction_indicator = Column(String(32), nullable=False, default="unknown")
     sample_count = Column(Integer, nullable=False, default=0)
+    # Clinical values above are derived by the backend from stored raw channels,
+    # never accepted from the uploading client. These two record when that last
+    # ran and why it produced nothing, so the UI can stay honest about which.
+    derived_at = Column(DateTime(timezone=True), nullable=True)
+    derivation_status = Column(String(32), nullable=False, default="pending", server_default="pending")
     source = Column(String(32), nullable=False, default="manual")
     is_simulated = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

@@ -126,6 +126,10 @@ class SensorDataChunkCreate(BaseModel):
     sample_rates_hz: SensorSampleRates | None = None
     channel_layout: SensorChannelLayout | None = None
     device_uid: str | None = Field(default=None, min_length=3, max_length=80)
+    # Lowercase hex HMAC-SHA256 produced by the device over its identity tuple and
+    # sample digest. Verified in the ingestion route against the device's
+    # provisioned secret; see core.device_auth.
+    packet_signature: str | None = Field(default=None, min_length=64, max_length=64)
     source: str | None = Field(default=None, max_length=32)
     is_simulated: bool | None = None
     summary: SensorSummaryCreate | None = None
@@ -145,6 +149,16 @@ class SensorDataChunkCreate(BaseModel):
         normalized = value.strip().lower()
         if normalized not in {"mock", "device", "ble", "mqtt", "manual"}:
             raise ValueError("Source must be one of: mock, device, ble, mqtt, manual")
+        return normalized
+
+    @field_validator("packet_signature")
+    @classmethod
+    def normalize_packet_signature(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        if len(normalized) != 64 or not all(character in "0123456789abcdef" for character in normalized):
+            raise ValueError("packet_signature must be a 64-character hexadecimal HMAC-SHA256 digest")
         return normalized
 
     @field_validator("ingestion_id", "boot_id")

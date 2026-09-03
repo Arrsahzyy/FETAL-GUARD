@@ -376,3 +376,54 @@ def test_clinician_cannot_acknowledge_unassigned_alert(client, auth_headers, db_
 
     assert response.status_code == 404
     assert status_response.status_code == 404
+
+
+def test_patient_detail_returns_session_history_for_trends(client, auth_headers):
+    """A single latest value cannot show a trend, so the detail view carries history."""
+    from tests.test_devices import (
+        assign_patient_to_clinician,
+        create_active_session,
+        get_current_user_id,
+    )
+
+    patient_headers = auth_headers(email="trend-patient@example.com", role="patient")
+    admin_headers = auth_headers(email="trend-admin@example.com", role="admin")
+    clinician_headers = auth_headers(email="trend-nakes@example.com", role="clinician")
+
+    first = create_active_session(client, patient_headers, name="Pasien Tren")
+    patient_id = first["patient_id"]
+    assert client.patch(
+        f"/sessions/{first['id']}", headers=patient_headers, json={"status": "completed"}
+    ).status_code == 200
+    second = client.post("/sessions", headers=patient_headers)
+    assert second.status_code == 201
+
+    assign_patient_to_clinician(
+        client, admin_headers, patient_id, get_current_user_id(client, clinician_headers)
+    )
+
+    detail = client.get(f"/clinician/patients/{patient_id}", headers=clinician_headers)
+    listing = client.get("/clinician/patients", headers=clinician_headers)
+
+    assert detail.status_code == 200
+    history = detail.json()["recent_sessions"]
+    assert [entry["id"] for entry in history] == [second.json()["id"], first["id"]], (
+        "history must be newest first"
+    )
+    # The list endpoint stays light: history is a detail-view concern only.
+    assert listing.json()["items"][0]["recent_sessions"] == []
+
+
+def test_patient_detail_history_stays_within_the_clinician_scope(client, auth_headers):
+    """History must obey the same assignment scoping as everything else."""
+    from tests.test_devices import create_active_session
+
+    patient_headers = auth_headers(email="trend-unassigned-patient@example.com", role="patient")
+    clinician_headers = auth_headers(email="trend-unassigned-nakes@example.com", role="clinician")
+    session_data = create_active_session(client, patient_headers, name="Pasien Tak Ditugaskan")
+
+    response = client.get(
+        f"/clinician/patients/{session_data['patient_id']}", headers=clinician_headers
+    )
+
+    assert response.status_code == 404

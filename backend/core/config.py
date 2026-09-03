@@ -10,6 +10,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_SQLITE_PATH = BASE_DIR / "fetal_guard.db"
 _DEV_SECRET_KEY = secrets.token_urlsafe(48)
+# Loopback/test hosts are the development default. A production deployment that
+# never sets TRUSTED_HOSTS would still pass an "explicit and non-wildcard" check
+# while TrustedHostMiddleware rejects every real Host header with 400, so
+# production must name at least one host outside this set.
+DEV_TRUSTED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 
 class Settings(BaseSettings):
@@ -26,6 +31,11 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_MAX_ATTEMPTS: int = 5
     LOGIN_RATE_LIMIT_WINDOW_MINUTES: int = 15
     LOGIN_RATE_LIMIT_LOCKOUT_MINUTES: int = 15
+    # Claim codes are short enough to guess without throttling, so failures are
+    # counted per caller and per targeted device UID.
+    DEVICE_CLAIM_RATE_LIMIT_MAX_ATTEMPTS: int = 5
+    DEVICE_CLAIM_RATE_LIMIT_WINDOW_MINUTES: int = 15
+    DEVICE_CLAIM_RATE_LIMIT_LOCKOUT_MINUTES: int = 15
 
     # Database
     SQLALCHEMY_DATABASE_URI: str = f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}"
@@ -45,11 +55,15 @@ class Settings(BaseSettings):
         "https://localhost",
         "capacitor://localhost",
     ]
-    TRUSTED_HOSTS: list[str] = ["localhost", "127.0.0.1", "testserver"]
+    TRUSTED_HOSTS: list[str] = list(DEV_TRUSTED_HOSTS)
     TRUSTED_PROXY_IPS: list[str] = []
     PATIENT_SELF_REGISTRATION_MODE: Literal["disabled", "single_facility"] = "single_facility"
     PATIENT_REGISTRATION_ORGANIZATION_ID: str | None = None
     REQUIRE_POSTGRES_RLS: bool = True
+    # When true, a telemetry chunk is only stored if it carries a valid HMAC from
+    # the device's provisioned secret. Kept opt-in for local bring-up so an
+    # unsigned bench device still works, but mandatory in production.
+    REQUIRE_DEVICE_PACKET_SIGNATURE: bool = False
     REALTIME_EVENT_RETENTION_HOURS: int = 72
     AI_PIPELINE_MODE: Literal["disabled", "research", "shadow", "clinician"] = "disabled"
     AI_ACTIVE_MODEL_VERSION_ID: str | None = None
@@ -120,6 +134,15 @@ class Settings(BaseSettings):
                 raise ValueError("Production CORS origins must use HTTPS and must be explicit")
         if not self.TRUSTED_HOSTS or "*" in self.TRUSTED_HOSTS:
             raise ValueError("Production TRUSTED_HOSTS must be explicit")
+        production_hosts = {host.strip().lower() for host in self.TRUSTED_HOSTS if host.strip()}
+        if not production_hosts:
+            raise ValueError("Production TRUSTED_HOSTS must be explicit")
+        if "testserver" in production_hosts:
+            raise ValueError("Production TRUSTED_HOSTS must not include the testserver host")
+        if production_hosts <= {host.lower() for host in DEV_TRUSTED_HOSTS}:
+            raise ValueError(
+                "Production TRUSTED_HOSTS must name the deployment hostname, not only loopback defaults"
+            )
         if self.ACCESS_TOKEN_EXPIRE_MINUTES > 60:
             raise ValueError("Production access tokens may not exceed 60 minutes")
         if self.REFRESH_TOKEN_EXPIRE_DAYS > 30:
@@ -133,6 +156,8 @@ class Settings(BaseSettings):
             )
         if not self.REQUIRE_POSTGRES_RLS:
             raise ValueError("REQUIRE_POSTGRES_RLS must be true in production")
+        if not self.REQUIRE_DEVICE_PACKET_SIGNATURE:
+            raise ValueError("REQUIRE_DEVICE_PACKET_SIGNATURE must be true in production")
         return self
 
     @property

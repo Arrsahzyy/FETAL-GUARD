@@ -31,10 +31,17 @@ from schemas.clinician import (
 router = APIRouter()
 
 
+# Enough sessions to show a trend without turning a detail read into an
+# unbounded scan. Only the detail endpoint asks for these; the patient list keeps
+# its per-row cost flat.
+RECENT_SESSION_TREND_LIMIT = 20
+
+
 def build_patient_summary(
     patient: Patient,
     latest_session: MonitoringSession | None,
     active_session: MonitoringSession | None,
+    recent_sessions: list[MonitoringSession] | None = None,
 ) -> PatientSummaryResponse:
     return PatientSummaryResponse(
         id=patient.id,
@@ -44,6 +51,7 @@ def build_patient_summary(
         gestational_age_weeks=patient.gestational_age_weeks,
         latest_session=latest_session,
         active_sessions=[active_session] if active_session else [],
+        recent_sessions=recent_sessions or [],
     )
 
 
@@ -391,7 +399,15 @@ def read_patient_for_clinician(
         )
         .first()
     )
-    response = build_patient_summary(patient, latest_session, active_session)
+    recent_sessions = (
+        db.query(MonitoringSession)
+        .options(joinedload(MonitoringSession.sensor_summary))
+        .filter(MonitoringSession.patient_id == patient.id)
+        .order_by(MonitoringSession.start_time.desc(), MonitoringSession.id.desc())
+        .limit(RECENT_SESSION_TREND_LIMIT)
+        .all()
+    )
+    response = build_patient_summary(patient, latest_session, active_session, recent_sessions)
     add_access_audit_event(
         db,
         action="clinical.patient_detail.read",

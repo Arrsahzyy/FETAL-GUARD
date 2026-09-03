@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -34,6 +35,7 @@ class Notification(Base):
             ondelete="RESTRICT",
         ),
         UniqueConstraint("id", "organization_id", name="uq_notifications_identity_scope"),
+        Index("ix_notifications_session_rule_code", "session_id", "rule_code"),
     )
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
@@ -50,6 +52,11 @@ class Notification(Base):
         nullable=False,
     )
     message = Column(String(500), nullable=False)
+    # Identifies the rule that produced this alert so re-evaluation can suppress
+    # duplicates by code rather than by matching translated message text.
+    # Null for alerts created before rule-based production existed. Indexed
+    # together with session_id in __table_args__, matching the dedup lookup.
+    rule_code = Column(String(64), nullable=True)
     risk_level = Column(String(32), nullable=False)
     status = Column(String(32), nullable=False, default="open")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

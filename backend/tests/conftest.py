@@ -45,6 +45,7 @@ def import_model_modules() -> None:
         "models.organization_membership",
         "models.user",
         "models.auth_login_attempt",
+        "models.device_claim_attempt",
         "models.auth_refresh_token",
         "models.admin_audit_log",
         "models.access_audit_event",

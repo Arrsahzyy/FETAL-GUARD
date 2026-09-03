@@ -29,6 +29,10 @@ class PatientSummaryResponse(BaseModel):
     gestational_age_weeks: int
     latest_session: SessionResponse | None = None
     active_sessions: list[SessionResponse] = Field(default_factory=list)
+    # Newest-first session history, populated only by the patient detail endpoint
+    # so a clinician can see how readings moved across sessions rather than only
+    # the latest value. Empty on the patient list, which stays deliberately light.
+    recent_sessions: list[SessionResponse] = Field(default_factory=list)
 
 
 class PatientListResponse(BaseModel):

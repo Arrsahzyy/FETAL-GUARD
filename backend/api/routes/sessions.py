@@ -7,8 +7,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.dependencies import get_current_user
 from core.config import settings
+from core.device_auth import build_signing_message, verify_packet_signature
 from core.realtime import enqueue_realtime_event
 from services.ai_pipeline import enqueue_ready_window
+from services.alerting import evaluate_session_alerts
+from services.vitals_derivation import derive_session_vitals
 from db.database import get_db
 from models.device import Device
 from models.device_assignment import DeviceAssignment
@@ -174,6 +177,56 @@ def enforce_production_ingestion_policy(chunk_in: SensorDataChunkCreate) -> None
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="payload.t does not match captured_at",
+        )
+
+
+def enforce_device_packet_authentication(
+    device: Device | None,
+    chunk_in: SensorDataChunkCreate,
+) -> None:
+    """Reject telemetry that cannot be proven to come from the provisioned belt.
+
+    A device UID travels in the clear and is reproducible by any BLE peripheral, so
+    it establishes which device a packet *claims* to be, never which device sent
+    it. Once a device has a provisioned secret, every packet must carry a matching
+    HMAC regardless of environment: silently accepting unsigned packets from a
+    device known to be capable of signing would defeat the control entirely.
+    """
+    if device is None:
+        return
+
+    secret = device.packet_secret
+    if not secret:
+        if settings.REQUIRE_DEVICE_PACKET_SIGNATURE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device has no provisioned signing key; re-provision the device before uploading",
+            )
+        return
+
+    if not chunk_in.packet_signature:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Telemetry from a provisioned device must be signed",
+        )
+    if chunk_in.boot_id is None or chunk_in.sequence_number is None or chunk_in.captured_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Signed telemetry requires boot_id, sequence_number, and captured_at",
+        )
+
+    message = build_signing_message(
+        device_uid=device.device_uid,
+        boot_id=chunk_in.boot_id,
+        sequence_number=chunk_in.sequence_number,
+        captured_at=chunk_in.captured_at,
+        schema_version=chunk_in.schema_version,
+        channels=chunk_in.payload.model_dump(exclude_none=True),
+    )
+    if not verify_packet_signature(secret, chunk_in.packet_signature, message):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Telemetry signature did not match the registered device key",
         )
 
 
@@ -376,6 +429,19 @@ def upsert_session_sensor_summary(
             summary.signal_quality_index = chunk_in.summary.signal_quality_index
         if chunk_in.summary.contraction_indicator is not None:
             summary.contraction_indicator = chunk_in.summary.contraction_indicator.value
+        return
+
+    # Device uploads cannot supply a summary at all (the schema rejects it), so
+    # their clinical values come from the server's own reading of the raw
+    # channels rather than from anything the phone computed.
+    db.flush()
+    rederived = derive_session_vitals(db, monitoring_session, summary)
+    # Alerts are raised only from those server-derived values, never from a
+    # client-supplied summary, and never for simulated sessions. Evaluating only
+    # on a fresh derivation keeps the dedup lookups off the packets in between,
+    # which change nothing the rules read.
+    if rederived and not summary.is_simulated:
+        evaluate_session_alerts(db, monitoring_session, summary)
 
 
 @router.get("/active", response_model=SessionResponse)
@@ -623,6 +689,7 @@ def create_sensor_data_chunk(
     # gives PostgreSQL a consistent lock order and serializes packets for one
     # physical device without relying on process-local locks.
     device, device_assignment = get_device_for_upload(db, patient, chunk_in)
+    enforce_device_packet_authentication(device, chunk_in)
     monitoring_session = get_owned_session(
         db,
         session_id,

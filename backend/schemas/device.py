@@ -71,8 +71,50 @@ class DeviceResponse(BaseModel):
     registered_at: datetime
     assigned_at: datetime | None = None
     last_seen_at: datetime | None = None
+    # Presence timestamps only. Neither the signing secret nor the claim code is
+    # readable again after its one-time disclosure at provisioning.
+    packet_secret_provisioned_at: datetime | None = None
+    claim_code_set_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class DeviceClaimRequest(BaseModel):
+    """A patient binding a belt to themselves by proving physical possession."""
+
+    device_uid: str = Field(min_length=3, max_length=80)
+    claim_code: str = Field(min_length=1, max_length=40)
+
+    @field_validator("device_uid")
+    @classmethod
+    def normalize_uid(cls, value: str) -> str:
+        return normalize_device_uid(value)
+
+
+class DeviceClaimCodeResponse(BaseModel):
+    """One-time disclosure of a claim code, for printing onto the device.
+
+    Not retrievable afterwards: print it now, or issue a new one, which
+    invalidates the previous code.
+    """
+
+    device_id: str
+    device_uid: str
+    claim_code: str
+    claim_code_set_at: datetime
+
+
+class DeviceSigningKeyResponse(BaseModel):
+    """One-time disclosure of a device signing key, shown to the provisioning admin.
+
+    The secret is not retrievable afterwards: flash it into the device firmware now
+    or rotate the key to obtain a new one.
+    """
+
+    device_id: str
+    device_uid: str
+    packet_secret: str
+    packet_secret_provisioned_at: datetime
 
 
 class DeviceListResponse(BaseModel):

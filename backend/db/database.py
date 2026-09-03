@@ -37,6 +37,7 @@ def init_db() -> None:
     import models.organization_membership  # noqa: F401
     import models.user  # noqa: F401
     import models.auth_login_attempt  # noqa: F401
+    import models.device_claim_attempt  # noqa: F401
     import models.auth_refresh_token  # noqa: F401
     import models.admin_audit_log  # noqa: F401
     import models.access_audit_event  # noqa: F401

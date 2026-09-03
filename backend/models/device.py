@@ -49,6 +49,16 @@ class Device(Base):
     hardware_revision = Column(String(80), nullable=True)
     firmware_version = Column(String(80), nullable=True)
     status = Column(String(32), nullable=False, default="registered", index=True)
+    # Symmetric HMAC secret flashed into firmware at provisioning time. A device
+    # without one predates packet signing and is only accepted outside production;
+    # see core.device_auth and enforce_device_packet_authentication.
+    packet_secret = Column(String(128), nullable=True)
+    packet_secret_provisioned_at = Column(DateTime(timezone=True), nullable=True)
+    # bcrypt hash of the claim code printed on the physical belt. Lets a patient
+    # bind the device to themselves by proving physical possession, with no admin
+    # in the loop; see core.device_claim. Never readable back through the API.
+    claim_code_hash = Column(String(128), nullable=True)
+    claim_code_set_at = Column(DateTime(timezone=True), nullable=True)
     registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     assigned_at = Column(DateTime(timezone=True), nullable=True)
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
