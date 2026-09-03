@@ -392,6 +392,27 @@
     line-height: 1.5;
 }
 
+/* Explains why the readings above are empty. Informational, not an alarm, so it
+   stays visually quieter than a warning. */
+.home-analysis-monitoring__status {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+    margin: var(--spacing-2) 0 0;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.home-analysis-monitoring__status .material-symbols-outlined {
+    flex-shrink: 0;
+    font-size: 18px;
+    line-height: 1.4;
+}
+
 .home-analysis-monitoring__meta > strong {
     font-size: var(--font-size-sm);
 }
@@ -891,6 +912,84 @@
 
 .home-device-picker__item > button:disabled,
 .home-device-picker__close:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
+/* The claim form opens under the device row it belongs to, so it spans every
+   column of the row's grid rather than sitting in the button cell. */
+.home-device-picker__claim {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: var(--spacing-2);
+    padding-top: var(--spacing-3);
+    border-top: 1px solid var(--color-border);
+}
+
+.home-device-picker__claim label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.home-device-picker__claim-hint {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+    color: var(--color-text-secondary);
+}
+
+.home-device-picker__claim input {
+    min-height: 44px;
+    padding: 0 var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.home-device-picker__claim input:focus-visible {
+    outline: 2px solid #0b4f6c;
+    outline-offset: 2px;
+}
+
+.home-device-picker__claim input[aria-invalid="true"] {
+    border-color: var(--color-danger, #b3261e);
+}
+
+.home-device-picker__claim-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+}
+
+.home-device-picker__claim-actions button {
+    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 0 var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-family: var(--font-family);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.home-device-picker__claim-actions button[type="button"] {
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-primary);
+}
+
+.home-device-picker__claim-actions button[type="submit"] {
+    border: 0;
+    background: #0b4f6c;
+    color: white;
+}
+
+.home-device-picker__claim-actions button:disabled {
     cursor: not-allowed;
     opacity: 0.58;
 }

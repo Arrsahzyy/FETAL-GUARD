@@ -74,6 +74,42 @@ test('web bluetooth scan errors retain an actionable cause', () => {
   assert.equal(getBluetoothScanErrorCode(new Error('unknown')), 'scan_failed');
 });
 
+test('device packet signatures are carried through the gateway unchanged', () => {
+  // The gateway cannot verify this HMAC -- only the backend holds the key -- so
+  // the contract it must honour is that the value reaches the upload untouched.
+  const v1 = validateTelemetryEnvelope(goldenEnvelope);
+  const v2 = validateTelemetryEnvelope(goldenV2Envelope);
+
+  assert.equal(v1.packetSignature, goldenEnvelope.packet_signature);
+  assert.equal(v2.packetSignature, goldenV2Envelope.packet_signature);
+  assert.match(v1.packetSignature, /^[0-9a-f]{64}$/);
+});
+
+test('an unprovisioned device omitting a signature still parses', () => {
+  const packet = validateTelemetryEnvelope(validEnvelope());
+
+  assert.equal(packet.packetSignature, null);
+});
+
+test('a malformed packet signature is rejected instead of forwarded', () => {
+  for (const signature of ['not-hex', '', 'ab'.repeat(31), 'ab'.repeat(33), 'g'.repeat(64), 123]) {
+    assert.throws(
+      () => validateTelemetryEnvelope({ ...validEnvelope(), packet_signature: signature }),
+      /invalid_packet_signature/,
+      `expected rejection for ${JSON.stringify(signature)}`,
+    );
+  }
+});
+
+test('signature casing is normalized so it still matches the backend digest', () => {
+  const packet = validateTelemetryEnvelope({
+    ...validEnvelope(),
+    packet_signature: `  ${'AB'.repeat(32)}  `,
+  });
+
+  assert.equal(packet.packetSignature, 'ab'.repeat(32));
+});
+
 test('telemetry v2 preserves per-modality sample rates and four-channel layout', () => {
   const packet = validateTelemetryEnvelope(goldenV2Envelope);
 

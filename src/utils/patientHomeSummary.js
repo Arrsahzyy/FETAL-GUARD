@@ -1,5 +1,14 @@
 const SESSION_STATUSES = new Set(['active', 'completed', 'error']);
 const CONTRACTION_INDICATORS = new Set(['unknown', 'none', 'mild', 'regular', 'strong']);
+// Why the clinical fields are empty. Carried through so the app can say "still
+// collecting" rather than rendering the same blank as "the signal was not good
+// enough" -- during a bench run those two need very different responses.
+const DERIVATION_STATUSES = new Set([
+  'pending',
+  'derived',
+  'insufficient_signal',
+  'unsupported_schema',
+]);
 
 const finiteOrNull = (value, minimum, maximum) => {
   if (value === null || value === undefined || value === '') return null;
@@ -46,6 +55,9 @@ export const normalizePatientHomeSession = (value) => {
           sampleCount: Number.isSafeInteger(summary.sample_count) && summary.sample_count >= 0
             ? summary.sample_count
             : 0,
+          derivationStatus: DERIVATION_STATUSES.has(summary.derivation_status)
+            ? summary.derivation_status
+            : 'pending',
           source: typeof summary.source === 'string' ? summary.source : null,
           isSimulated: summary.is_simulated === true,
           updatedAt: validDateOrNull(summary.updated_at),
@@ -70,5 +82,8 @@ export const getPatientHomeSessionReadings = (session) => {
     contractionIndicator: canShowMeasurements
       ? session.summary.contractionIndicator
       : 'unknown',
+    // Reported even for a simulated summary, whose measurements are withheld:
+    // the reason a value is absent is not itself a measurement.
+    derivationStatus: session?.summary?.derivationStatus ?? null,
   };
 };

@@ -563,6 +563,22 @@ const devices = {
     const response = await apiClient.get('/devices/me');
     return response.data;
   },
+
+  // Binds a belt to the signed-in patient using the code printed on it. The code
+  // proves physical possession; the backend verifies it and refuses a belt that
+  // someone else already holds.
+  async claim({ deviceUid, claimCode }) {
+    const response = await apiClient.post('/devices/claim', {
+      device_uid: deviceUid,
+      claim_code: claimCode,
+    });
+    return response.data;
+  },
+
+  async release(deviceId) {
+    const response = await apiClient.post(`/devices/me/${deviceId}/release`);
+    return response.data;
+  },
 };
 
 const sessions = {

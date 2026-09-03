@@ -61,6 +61,17 @@ const asBoolean = (value, field) => {
   return value;
 };
 
+// The gateway never validates this HMAC -- only the backend holds the device key.
+// It is carried through unchanged so a device that signs its packets stays
+// verifiable end to end; a device without a provisioned key omits the field.
+const asPacketSignature = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new Error('invalid_packet_signature');
+  const normalized = value.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) throw new Error('invalid_packet_signature');
+  return normalized;
+};
+
 export const validateTelemetryEnvelope = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('invalid_packet');
@@ -114,6 +125,7 @@ export const validateTelemetryEnvelope = (value) => {
     bootId: value.boot_id.trim(),
     sequenceNumber: value.sequence_number,
     schemaVersion: value.schema_version,
+    packetSignature: asPacketSignature(value.packet_signature),
     capturedAt: capturedAt.toISOString(),
     sampleRateHz: asFiniteNumber(value.sample_rate_hz, 'sample_rate', 0.1, 10000),
     sampleRatesHz: value.schema_version === 2 ? sampleRatesHz : null,

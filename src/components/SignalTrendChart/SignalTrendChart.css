@@ -1,0 +1,146 @@
+.signal-trend {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+}
+
+.signal-trend__caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+}
+
+.signal-trend__label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.signal-trend__reference {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.signal-trend__plot {
+    position: relative;
+    width: 100%;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+}
+
+.signal-trend__plot:focus-visible {
+    outline: 2px solid var(--color-primary-blue);
+    outline-offset: 2px;
+}
+
+.signal-trend__svg {
+    display: block;
+}
+
+.signal-trend__empty {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: var(--spacing-3);
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The reference range is context, not a reading, so it sits behind the trace as
+   a quiet band rather than competing with it. */
+.signal-trend__band {
+    fill: var(--color-success-bg);
+}
+
+.signal-trend__gridline {
+    stroke: var(--color-border-light);
+    stroke-width: 1;
+}
+
+.signal-trend__axis-label {
+    fill: var(--color-text-tertiary);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.signal-trend__line {
+    fill: none;
+    stroke: var(--color-primary-blue);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.signal-trend__point {
+    stroke: var(--color-bg-secondary);
+    stroke-width: 1.5;
+}
+
+.signal-trend__point--latest {
+    fill: var(--color-primary-blue);
+}
+
+/* Readings outside the reference band are the ones worth noticing, so they are
+   marked individually instead of relying on the reader to compare heights. */
+.signal-trend__point--outside {
+    fill: var(--color-warning);
+}
+
+.signal-trend__point--active {
+    fill: var(--color-text-primary);
+}
+
+.signal-trend__point--live {
+    animation: signal-trend-pulse 2s ease-in-out infinite;
+}
+
+@keyframes signal-trend-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .signal-trend__point--live {
+        animation: none;
+    }
+}
+
+.signal-trend__cursor {
+    stroke: var(--color-text-tertiary);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.signal-trend__tooltip {
+    position: absolute;
+    top: var(--spacing-2);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-md);
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+    font-size: var(--font-size-xs);
+    line-height: 1.3;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.signal-trend__tooltip strong {
+    font-variant-numeric: tabular-nums;
+}
+
+.signal-trend__tooltip span {
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+}

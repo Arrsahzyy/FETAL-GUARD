@@ -238,6 +238,8 @@ export function dedupeSessions(patient) {
   const sessions = [
     ...(patient.active_sessions || []),
     patient.latest_session,
+    // Present only on the patient detail response; the list endpoint omits it.
+    ...(patient.recent_sessions || []),
   ].filter(Boolean);
 
   const unique = new Map();
@@ -283,6 +285,26 @@ export function countOpenAlertsForSessions(sessionIds, alertsBySession) {
 
 export function findPatientForSession(sessionId, patients) {
   return patients.find((item) => dedupeSessions(item).some((session) => session.id === sessionId)) || null;
+}
+
+/**
+ * Turn a patient's sessions into an oldest-first series for one summary field.
+ *
+ * Sessions are held newest-first for the tables, but a trend has to run forward
+ * in time or the line reads backwards.
+ */
+export function buildSummaryTrend(sessions, field) {
+  return [...(sessions || [])]
+    .reverse()
+    .map((session) => {
+      const summary = session?.sensor_summary;
+      if (!summary || summary.is_simulated === true) return null;
+      const value = Number(summary[field]);
+      if (!Number.isFinite(value)) return null;
+      const timestamp = session.end_time || session.start_time;
+      return timestamp ? { value, timestamp } : null;
+    })
+    .filter(Boolean);
 }
 
 export function toPatientViewModel(patient, alertsBySession, locale = 'id') {
@@ -331,6 +353,11 @@ export function toPatientViewModel(patient, alertsBySession, locale = 'id') {
       ? copy.contraction[sensorSummary.contraction_indicator || 'unknown'] || copy.contraction.unknown
       : copy.dataUnavailable,
     sampleCount: sensorSummary?.sample_count || 0,
+    // Oldest-first series for the trend charts. Sessions whose derivation
+    // produced no value are skipped rather than plotted as a gap at zero, and a
+    // simulated summary is excluded so a bench run cannot read as a measurement.
+    fhrTrend: buildSummaryTrend(sessions, 'fhr_estimate_bpm'),
+    maternalHrTrend: buildSummaryTrend(sessions, 'maternal_hr_bpm'),
     sensorSource: sensorSummary?.source || null,
     isSensorSimulated: Boolean(sensorSummary?.is_simulated),
   };

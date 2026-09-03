@@ -150,6 +150,8 @@ export function PatientDeviceProvider({ children }) {
   const [pairedDevice, setPairedDevice] = useState(null);
   const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
   const [pairingState, setPairingState] = useState('idle');
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimError, setClaimError] = useState('');
   const [isDeviceRegistryLoading, setIsDeviceRegistryLoading] = useState(true);
   const [deviceRegistryError, setDeviceRegistryError] = useState('');
   const [pairingError, setPairingError] = useState('');
@@ -476,6 +478,55 @@ export function PatientDeviceProvider({ children }) {
     }
   }, [connectBluetooth, registeredDevices]);
 
+  const claimDevice = useCallback(async ({ deviceUid, claimCode }) => {
+    setClaimError('');
+    if (!deviceUid || !claimCode?.trim()) {
+      setClaimError(t('patient.deviceClaim.errorEmptyCode'));
+      return false;
+    }
+    setIsClaiming(true);
+    try {
+      await api.devices.claim({ deviceUid, claimCode: claimCode.trim() });
+      // The scan list is matched against the registry, so the freshly claimed
+      // belt only becomes connectable once the registry is re-read.
+      await refreshRegisteredDevices();
+      return true;
+    } catch (error) {
+      const status = error?.response?.status;
+      const messageKeys = {
+        404: 'patient.deviceClaim.errorCodeMismatch',
+        409: 'patient.deviceClaim.errorAlreadyPaired',
+        429: 'patient.deviceClaim.errorTooManyAttempts',
+      };
+      setClaimError(
+        messageKeys[status] ? t(messageKeys[status]) : getApiErrorMessage(error),
+      );
+      return false;
+    } finally {
+      setIsClaiming(false);
+    }
+  }, [refreshRegisteredDevices]);
+
+  const releaseDevice = useCallback(async (deviceId) => {
+    setClaimError('');
+    if (!deviceId) return false;
+    setIsClaiming(true);
+    try {
+      await api.devices.release(deviceId);
+      await refreshRegisteredDevices();
+      return true;
+    } catch (error) {
+      setClaimError(
+        error?.response?.status === 409
+          ? t('patient.deviceClaim.errorReleaseDuringSession')
+          : getApiErrorMessage(error),
+      );
+      return false;
+    } finally {
+      setIsClaiming(false);
+    }
+  }, [refreshRegisteredDevices]);
+
   const disconnectDevice = useCallback(async () => {
     pairingAttemptRef.current += 1;
     await disconnectBluetooth();
@@ -558,9 +609,17 @@ export function PatientDeviceProvider({ children }) {
     scanForDevice,
     connectToDevice,
     disconnectDevice,
+    claimDevice,
+    releaseDevice,
+    isClaiming,
+    claimError,
     markAlertHandled,
     refreshRegisteredDevices,
   }), [
+    claimDevice,
+    claimError,
+    isClaiming,
+    releaseDevice,
     activeAlerts,
     alerts,
     availableDevices,

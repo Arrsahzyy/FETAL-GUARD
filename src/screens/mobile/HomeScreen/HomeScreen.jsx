@@ -255,10 +255,64 @@ const DevicePanel = ({
   </section>
 );
 
+// Lets a patient bind a nearby belt to their own account by entering the code
+// printed on it. A belt is only connectable once it is bound, because the reading
+// has to land in the right medical record: nearby belts are indistinguishable
+// over BLE, and the printed code is what proves which one is actually in hand.
+const DeviceClaimForm = ({ claimError, deviceUid, isClaiming, onCancel, onClaim }) => {
+  const [code, setCode] = useState("");
+  const inputId = `device-claim-code-${deviceUid}`;
+
+  return (
+    <form
+      className="home-device-picker__claim"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void onClaim(code);
+      }}
+    >
+      <label htmlFor={inputId}>{t("patient.deviceClaim.codeLabel")}</label>
+      <p className="home-device-picker__claim-hint">{t("patient.deviceClaim.codeHint")}</p>
+      <input
+        id={inputId}
+        name="claimCode"
+        type="text"
+        inputMode="text"
+        autoComplete="off"
+        autoCapitalize="characters"
+        spellCheck="false"
+        maxLength={20}
+        value={code}
+        placeholder={t("patient.deviceClaim.codePlaceholder")}
+        onChange={(event) => setCode(event.target.value)}
+        disabled={isClaiming}
+        aria-invalid={claimError ? "true" : undefined}
+        aria-describedby={claimError ? `${inputId}-error` : undefined}
+      />
+      {claimError && (
+        <p className="home-device-picker__error" id={`${inputId}-error`} role="alert">
+          {claimError}
+        </p>
+      )}
+      <div className="home-device-picker__claim-actions">
+        <button type="button" onClick={onCancel} disabled={isClaiming}>
+          {t("patient.deviceClaim.cancel")}
+        </button>
+        <button type="submit" disabled={isClaiming || !code.trim()}>
+          {isClaiming ? t("patient.deviceClaim.submitting") : t("patient.deviceClaim.submit")}
+        </button>
+      </div>
+    </form>
+  );
+};
+
 const DevicePickerDialog = ({
   availableDevices,
+  claimDevice,
+  claimError,
   connectToDevice,
   isBleAvailable,
+  isClaiming,
   isConnecting,
   isOpen,
   isScanning,
@@ -266,6 +320,8 @@ const DevicePickerDialog = ({
   onScan,
   pairingError,
 }) => {
+  const [claimingDeviceId, setClaimingDeviceId] = useState(null);
+
   if (!isOpen) return null;
 
   return (
@@ -343,17 +399,47 @@ const DevicePickerDialog = ({
                     : t("patient.home.deviceNotInRegistry")}
                 </small>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  void connectToDevice(device);
-                }}
-                disabled={isConnecting || !device.isRegistered}
-              >
-                {isConnecting
-                  ? t("patient.home.deviceConnecting")
-                  : t("patient.home.connectDevice")}
-              </button>
+              {device.isRegistered ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void connectToDevice(device);
+                  }}
+                  disabled={isConnecting}
+                >
+                  {isConnecting
+                    ? t("patient.home.deviceConnecting")
+                    : t("patient.home.connectDevice")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setClaimingDeviceId(
+                    claimingDeviceId === device.deviceId ? null : device.deviceId,
+                  )}
+                  disabled={isConnecting || isClaiming}
+                  aria-expanded={claimingDeviceId === device.deviceId}
+                >
+                  {t("patient.deviceClaim.pairAction")}
+                </button>
+              )}
+              {claimingDeviceId === device.deviceId && (
+                <DeviceClaimForm
+                  claimError={claimError}
+                  deviceUid={device.deviceId}
+                  isClaiming={isClaiming}
+                  onCancel={() => setClaimingDeviceId(null)}
+                  onClaim={async (code) => {
+                    const claimed = await claimDevice({
+                      // Firmware advertises the belt under its registered UID, so
+                      // the scanned name is what the backend matches against.
+                      deviceUid: device.name || device.deviceId,
+                      claimCode: code,
+                    });
+                    if (claimed) setClaimingDeviceId(null);
+                  }}
+                />
+              )}
             </article>
           ))}
 
@@ -628,8 +714,11 @@ const HomeScreen = () => {
     activeAlerts,
     alerts,
     availableDevices,
+    claimDevice,
+    claimError,
     connectToDevice,
     connectionState,
+    isClaiming,
     disconnectDevice,
     deviceRegistryError,
     hasRegisteredDevice,
@@ -873,8 +962,11 @@ const HomeScreen = () => {
       </main>
       <DevicePickerDialog
         availableDevices={availableDevices}
+        claimDevice={claimDevice}
+        claimError={claimError}
         connectToDevice={handleConnectDevice}
         isBleAvailable={isBleAvailable}
+        isClaiming={isClaiming}
         isConnecting={isConnecting}
         isOpen={isDevicePickerOpen}
         isScanning={isScanning}

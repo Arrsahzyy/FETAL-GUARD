@@ -18,7 +18,21 @@
     "localApiAddress": "Alamat backend laptop",
     "localApiSaved": "Alamat tersimpan. Silakan coba daftar atau masuk kembali.",
     "localApiInvalid": "Gunakan alamat HTTP dengan IP lokal, misalnya http://192.168.137.1:3020.",
-    "save": "Simpan"
+    "save": "Simpan",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "retry": "Coba Lagi",
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "close": "Tutup",
+    "yes": "Ya",
+    "no": "Tidak",
+    "ok": "OK",
+    "success": "Berhasil",
+    "failed": "Gagal",
+    "offline": "Offline",
+    "online": "Online",
+    "syncing": "Menyinkronkan..."
   },
   "patient": {
     "nav": {
@@ -236,6 +250,11 @@
           "regular": "Pola berulang terindikasi",
           "strong": "Tekanan lebih kuat terindikasi"
         },
+        "derivation": {
+          "pending": "Sedang mengumpulkan data. Nilai muncul setelah rekaman cukup panjang.",
+          "insufficient_signal": "Sinyal belum cukup jelas untuk dihitung. Coba periksa posisi sabuk dan kurangi gerakan.",
+          "unsupported_schema": "Perangkat mengirim format data lama yang tidak dapat dihitung. Hubungi tenaga kesehatan atau admin."
+        },
         "monitoringNote": "DJJ, HR ibu, kualitas sinyal, dan tekanan FSR adalah ringkasan pemantauan perangkat. Nilai ini bukan diagnosis atau pengganti pemeriksaan nakes.",
         "refreshWarning": "Data yang tersimpan tetap ditampilkan, tetapi pembaruan terbaru belum dapat diambil."
       },
@@ -323,6 +342,29 @@
       "unregisteredDevice": "Perangkat ini belum terdaftar dan tidak dapat dihubungkan ke akun pasien.",
       "inactiveDevice": "Perangkat tidak aktif. Hubungi admin atau tenaga kesehatan untuk pemeriksaan."
     },
+    "chart": {
+      "empty": "Grafik muncul setelah data pemantauan masuk.",
+      "referenceBand": "Rentang rujukan {low}-{high} {unit}",
+      "summary": "Grafik {label}: {count} titik data, terendah {min}, tertinggi {max}, terakhir {latest}.",
+      "fhrTitle": "Tren DJJ",
+      "contractionTitle": "Tren indikator tekanan",
+      "maternalHrTitle": "Tren nadi ibu",
+      "hint": "Geser atau gunakan tombol panah untuk membaca nilai per titik."
+    },
+    "deviceClaim": {
+      "pairAction": "Tautkan perangkat",
+      "codeLabel": "Kode penautan perangkat",
+      "codeHint": "Masukkan kode yang tertera pada stiker di sabuk. Kode ini memastikan sabuk yang Anda pegang benar-benar tertaut ke akun Anda.",
+      "codePlaceholder": "Contoh: 4H7K-N2QP",
+      "submit": "Tautkan",
+      "submitting": "Menautkan...",
+      "cancel": "Batal",
+      "errorEmptyCode": "Masukkan kode penautan yang tertera pada sabuk.",
+      "errorCodeMismatch": "Kode penautan tidak cocok. Periksa kembali kode pada stiker sabuk Anda.",
+      "errorAlreadyPaired": "Sabuk ini sedang tertaut ke pasien lain. Minta pemilik sebelumnya melepas tautan, atau hubungi fasilitas kesehatan Anda.",
+      "errorTooManyAttempts": "Terlalu banyak percobaan. Tunggu beberapa menit sebelum mencoba lagi.",
+      "errorReleaseDuringSession": "Hentikan sesi pemantauan yang sedang berjalan sebelum melepas tautan perangkat."
+    },
     "monitoring": {
       "authChecking": "Memeriksa sesi akun...",
       "syncFailed": "Penyimpanan sesi gagal",
@@ -397,8 +439,8 @@
       "recommendedStable": "Lanjutkan pemantauan sesuai sesi dan tetap ikuti jadwal pemeriksaan.",
       "recommendedRepeat": "Ulangi pemasangan sabuk atau ulangi sesi bila kualitas data belum stabil.",
       "recommendedConsult": "Hubungi tenaga kesehatan atau fasilitas kesehatan untuk arahan lanjutan.",
-      "confidenceLabel": "Kualitas sinyal"
-      ,"liveNow": "Sesi aktif",
+      "confidenceLabel": "Kualitas sinyal",
+      "liveNow": "Sesi aktif",
       "sessionOverview": "Ringkasan sesi",
       "beltPosition": "Posisi sabuk",
       "fhrBaseline": "Baseline FHR",
@@ -1139,7 +1181,12 @@
     "available": "Tersedia",
     "partiallyAvailable": "Tersedia parsial",
     "sessionMonitoringNote": "Dashboard menampilkan sesi terbaru dan sesi yang sedang berlangsung.",
-    "sensorEstimate": "Estimasi DJJ dan kualitas sinyal",
+    "sensorEstimate": "Estimasi DJJ",
+    "trendTitle": "Tren antar sesi",
+    "fhrTrend": "Estimasi DJJ per sesi",
+    "maternalHrTrend": "Nadi ibu per sesi",
+    "trendNote": "Setiap titik adalah satu sesi pemantauan. Estimasi teknis dari sinyal perangkat, belum tervalidasi klinis.",
+    "fetalHr": "DJJ janin",
     "maternalHr": "Nadi ibu",
     "contractionIndicator": "Indikator kontraksi",
     "notAvailable": "Belum tersedia",
@@ -1176,23 +1223,6 @@
     "shared": "Dibagikan",
     "exported": "Diekspor",
     "acknowledged": "Ditangani"
-  },
-  "common": {
-    "loading": "Memuat...",
-    "error": "Terjadi kesalahan",
-    "retry": "Coba Lagi",
-    "save": "Simpan",
-    "cancel": "Batal",
-    "confirm": "Konfirmasi",
-    "close": "Tutup",
-    "yes": "Ya",
-    "no": "Tidak",
-    "ok": "OK",
-    "success": "Berhasil",
-    "failed": "Gagal",
-    "offline": "Offline",
-    "online": "Online",
-    "syncing": "Menyinkronkan..."
   },
   "errors": {
     "connectionFailed": "Gagal terhubung ke perangkat",

@@ -26,16 +26,11 @@ const FHRDisplay = ({
                 {normalizedValue ?? '--'}
             </div>
             <div className="fhr-display__unit">{unit}</div>
-            <div className="fhr-display__pulse">
-                <svg viewBox="0 0 100 40" className="fhr-display__pulse-svg">
-                    <path
-                        d="M0,20 L20,20 L25,5 L30,35 L35,15 L40,25 L45,20 L100,20"
-                        fill="none"
-                        strokeWidth="2"
-                        className="fhr-display__pulse-path"
-                    />
-                </svg>
-            </div>
+            {/* This used to carry a hardcoded ECG-shaped squiggle that animated
+                continuously and looked like a live trace, while being the same
+                fixed path at 140 bpm as at 90, and drawing even when the reading
+                was unavailable. The real signal is charted by SignalTrendChart;
+                an ornament that reads as data does not belong next to it. */}
         </div>
     );
 };

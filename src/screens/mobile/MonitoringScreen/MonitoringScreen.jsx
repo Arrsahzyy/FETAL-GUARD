@@ -4,7 +4,7 @@ import AuthScreen from "../../../components/AuthScreen/AuthScreen";
 import FHRDisplay from "../../../components/FHRDisplay/FHRDisplay";
 import Icon from "../../../components/Icon/Icon";
 import StatusBadge from "../../../components/StatusBadge/StatusBadge";
-import WaveformChart from "../../../components/WaveformChart/WaveformChart";
+import SignalTrendChart from "../../../components/SignalTrendChart/SignalTrendChart";
 import { useAuth } from "../../../context/useAuth";
 import { usePatientDevice } from "../../../context/usePatientDevice";
 import { usePatientMonitoring } from "../../../context/usePatientMonitoring";
@@ -15,6 +15,12 @@ import PatientAIAnalysisPanel from "./PatientAIAnalysisPanel";
 import "./MonitoringScreen.css";
 
 const SIGNAL_VIEW_OPTIONS = ["all", "fhr", "contraction", "events"];
+
+// Display reference range from AGENTS.md section 8. Presentation context only,
+// not a diagnostic threshold, and not to be changed without explicit approval.
+const FHR_REFERENCE_RANGE = [110, 160];
+// The FSR indicator is already normalised to a percentage of the device span.
+const CONTRACTION_DOMAIN = [0, 100];
 const HISTORY_LIMIT = 180;
 
 const appendHistoryValue = (history, value) => {
@@ -108,6 +114,21 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
   const isMonitoringActive = Boolean(pairedDevice) && isSessionActive;
   const isLiveTelemetry = isMonitoringActive && isTelemetryFresh;
 
+  // The trace and the baseline average belong to exactly one live session, so
+  // they are reset when the session changes. The key combines the id and the
+  // active flag because a session keeps its id once it completes, and a finished
+  // waveform must not stay on screen or be averaged into the next session's
+  // baseline. Adjusted during render rather than in an effect so the stale trace
+  // is never painted for a frame first.
+  const sessionTraceKey = `${activeSession?.id ?? "none"}:${isSessionActive}`;
+  const [renderedTraceKey, setRenderedTraceKey] = useState(sessionTraceKey);
+  if (renderedTraceKey !== sessionTraceKey) {
+    setRenderedTraceKey(sessionTraceKey);
+    setFhrHistory([]);
+    setContractionHistory([]);
+    setSessionDuration(0);
+  }
+
   // Reactive locale — memastikan re-render saat user ganti bahasa
   // eslint-disable-next-line no-unused-vars
   const { locale } = useI18n();
@@ -162,8 +183,6 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
     contractions: null,
   }), []);
   const hasLiveTelemetry = isLiveTelemetry;
-  const isAcceleration = false;
-  const isDeceleration = false;
   const isStartingSession = sessionState === "starting";
   const isStoppingSession = sessionState === "stopping";
   const syncError = sessionError || pairingError;
@@ -269,10 +288,8 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
       // STOP — tidak navigate, tetap di tab Pantau
       await stopSession();
     } else {
-      // RESUME
-      setFhrHistory([]);
-      setContractionHistory([]);
-      setSessionDuration(0);
+      // RESUME. History is reset by the session-scoped effect above, so it does
+      // not need clearing here as well.
       await startSession();
     }
   };
@@ -834,38 +851,28 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
                     <h3 className="monitoring-waveform__label">
                       {t("patient.monitoring.fhrWaveform")}
                     </h3>
-                    <span className="monitoring-waveform__live-chip">
-                      {t("patient.common.running")}
+                    {/* Labelling a frozen trace "running" would present a stalled
+                        feed as a live one, so the chip follows the telemetry. */}
+                    <span
+                      className={`monitoring-waveform__live-chip${
+                        isLiveTelemetry ? "" : " monitoring-waveform__live-chip--idle"
+                      }`}
+                    >
+                      {isLiveTelemetry
+                        ? t("patient.common.running")
+                        : t("patient.monitoring.waitingDeviceDataShort")}
                     </span>
                   </div>
-                  <WaveformChart
+                  <SignalTrendChart
                     data={fhrHistory}
+                    unit="bpm"
+                    referenceRange={FHR_REFERENCE_RANGE}
                     isLive={isLiveTelemetry}
                     height={180}
-                    showGrid={true}
-                    showMarkers={true}
-                    signalQuality={signalQuality}
-                    markers={[
-                      ...(isAcceleration
-                        ? [
-                            {
-                              position: fhrHistory.length - 5,
-                              type: "acceleration",
-                              label: "A",
-                            },
-                          ]
-                        : []),
-                      ...(isDeceleration
-                        ? [
-                            {
-                              position: fhrHistory.length - 5,
-                              type: "deceleration",
-                              label: "D",
-                            },
-                          ]
-                        : []),
-                    ]}
+                    label={t("patient.chart.fhrTitle")}
+                    emptyMessage={t("patient.monitoring.signalUnavailable")}
                   />
+                  <p className="monitoring-waveform__hint">{t("patient.chart.hint")}</p>
                   <div className="monitoring-waveform__legend">
                     <span>
                       <i className="monitoring-waveform__legend-dot monitoring-waveform__legend-dot--fhr" />
@@ -894,19 +901,18 @@ const MonitoringScreenContent = ({ navigate, patientData }) => {
                       </span>
                     )}
                   </div>
-                  <WaveformChart
+                  {/* Fixed 0-100 domain: the FSR indicator is already a
+                      percentage of the device's own span, so auto-scaling it
+                      would turn resting noise into an alarming-looking swing. */}
+                  <SignalTrendChart
                     data={contractionHistory}
+                    unit="%"
+                    domain={CONTRACTION_DOMAIN}
                     isLive={isLiveTelemetry}
-                    height={120}
-                    showGrid={true}
-                    showMarkers={false}
-                    signalQuality={signalQuality}
+                    height={140}
+                    label={t("patient.chart.contractionTitle")}
+                    emptyMessage={t("patient.monitoring.signalUnavailable")}
                   />
-                  <div className="monitoring-waveform__axis-label">
-                    <span>0%</span>
-                    <span>{t("patient.monitoring.fsrAxis")}</span>
-                    <span>100%</span>
-                  </div>
                   <div className="monitoring-waveform__legend">
                     <span>
                       <i className="monitoring-waveform__legend-dot monitoring-waveform__legend-dot--contraction" />

@@ -646,6 +646,9 @@ export function PatientMonitoringProvider({ children }) {
           sample_rates_hz: packet.sampleRatesHz,
           channel_layout: packet.channelLayout,
           device_uid: packet.deviceUid,
+          // Forwarded verbatim from the device. Only the backend can verify it,
+          // and a provisioned device whose signature is stripped here is rejected.
+          packet_signature: packet.packetSignature,
           source: 'ble',
           is_simulated: false,
         },

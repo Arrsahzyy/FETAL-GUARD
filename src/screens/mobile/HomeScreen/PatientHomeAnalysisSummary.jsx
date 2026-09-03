@@ -284,6 +284,15 @@ export default function PatientHomeAnalysisSummary({ onOpenMonitoring, onOpenHis
                   <strong>{t(`patient.home.analysis.contraction.${readings.contractionIndicator}`)}</strong>
                 </div>
               </div>
+              {/* An empty reading has several very different causes, and the
+                  right response differs for each. Saying which one applies is
+                  more useful than four identical blanks. */}
+              {readings.derivationStatus && readings.derivationStatus !== 'derived' && (
+                <p className="home-analysis-monitoring__status" role="status">
+                  <Icon className="material-symbols-outlined" name="info" />
+                  {t(`patient.home.analysis.derivation.${readings.derivationStatus}`)}
+                </p>
+              )}
               <p className="home-analysis-monitoring__note">
                 {t('patient.home.analysis.monitoringNote')}
               </p>

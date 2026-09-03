@@ -804,6 +804,18 @@
     font-weight: var(--font-weight-bold);
 }
 
+.monitoring-waveform__hint {
+    margin: var(--spacing-2) 0 0;
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+}
+
+/* A paused feed must not carry the same green "live" affordance as a running one. */
+.monitoring-waveform__live-chip--idle {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+}
+
 .monitoring-waveform__legend {
     display: flex;
     flex-wrap: wrap;

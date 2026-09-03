@@ -7,6 +7,11 @@ import DataAvailability from './DataAvailability';
 import { formatDateTime, formatDuration } from '../../../../utils/formatters';
 import ClinicianAIAnalysisPanel from './ClinicianAIAnalysisPanel';
 import PatientReportExport from './PatientReportExport';
+import SignalTrendChart from '../../../../components/SignalTrendChart/SignalTrendChart';
+
+// Display reference ranges from AGENTS.md section 8. Presentation context only.
+const FHR_REFERENCE_RANGE = [110, 160];
+const MATERNAL_HR_REFERENCE_RANGE = [60, 100];
 
 export default function PatientDetailPanel({
   selectedPatient,
@@ -91,6 +96,35 @@ export default function PatientDetailPanel({
                 status={selectedPatient.activeAlerts > 0 ? 'warn' : 'ok'}
               />
             </div>
+
+            {/* A single latest number cannot show whether a patient is drifting.
+                Charted against the reference band, the direction of travel is
+                readable at a glance. */}
+            {(selectedPatient.fhrTrend.length > 1
+              || selectedPatient.maternalHrTrend.length > 1) && (
+              <div className="detail-section detail-section--trends">
+                <h3>{t('clinician.trendTitle')}</h3>
+                {selectedPatient.fhrTrend.length > 1 && (
+                  <SignalTrendChart
+                    data={selectedPatient.fhrTrend}
+                    unit="bpm"
+                    referenceRange={FHR_REFERENCE_RANGE}
+                    label={t('clinician.fhrTrend')}
+                    height={160}
+                  />
+                )}
+                {selectedPatient.maternalHrTrend.length > 1 && (
+                  <SignalTrendChart
+                    data={selectedPatient.maternalHrTrend}
+                    unit="bpm"
+                    referenceRange={MATERNAL_HR_REFERENCE_RANGE}
+                    label={t('clinician.maternalHrTrend')}
+                    height={160}
+                  />
+                )}
+                <p className="detail-trend-note">{t('clinician.trendNote')}</p>
+              </div>
+            )}
 
             <div className="detail-section">
               <h3>{t('clinician.sessionTimeline')}</h3>
