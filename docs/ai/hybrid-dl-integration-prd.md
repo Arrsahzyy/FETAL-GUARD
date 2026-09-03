@@ -13,7 +13,7 @@
 1. **Model Adit layak dipakai?** Ya sebagai **artefak riset & template metodologi**, **tidak** sebagai mesin hybrid-DL produksi apa adanya. Metodologinya bagus dan jujur; datanya 100% sintetis; keunggulannya atas baseline sederhana (Random Forest) marginal; pendekatan pemodelannya berbeda dari paket `ai/src/fetal_guard_ai` milik kita.
 2. **Masalah utama sekarang bukan "model belum diintegrasikan" — tapi ada 3 badan kode AI yang tumpang tindih di repo** (paket `fetal_guard_ai` kita, model Adit yang sudah di-vendor di `ctg_cnn_lstm_merged/`, dan adapter `ctg_cnn_lstm_adapter.py`), plus lapisan signal-processing baru (`services/signal_processing.py`) yang menduplikasi lapisan DSP Adit. Ini persis sumber redundansi yang dikhawatirkan.
 3. **Rekomendasi:** satukan menjadi **satu pipeline** (paket `fetal_guard_ai` + worker terisolasi + gate artefak `AIModelVersion`). Jadikan model Adit sebagai **baseline pembanding** dan **resep training** untuk melatih model kita sendiri di atas kontrak telemetri kita. Hapus jalur ganda.
-4. **AI tetap `disabled` untuk pasien/nakes** sampai ada validasi terhadap data CTG nyata (CTU-UHB). Model Adit saat ini hanya memenuhi syarat slot `research`.
+4. **AI tetap `disabled` untuk pasien/nakes** sampai ada validasi terhadap data CTG nyata (JNU-CTG / CTU-UHB / fPCG PhysioNet — lihat §4b). Model Adit saat ini hanya memenuhi syarat slot `research`.
 
 ---
 
@@ -78,7 +78,7 @@ Poin yang benar dan jarang dilakukan mahasiswa:
 
 | # | Temuan | Dampak |
 |---|--------|--------|
-| T1 | Training data 100% sintetis; `external_validation.py` masih **skeleton** (butuh unduh CTU-UHB, atasi ketiadaan kanal MHR, mapping UC mmHg→count) | **Blocker validasi.** Tidak boleh `analytical_validated`. |
+| T1 | Training data 100% sintetis; `external_validation.py` masih **skeleton** (butuh unduh JNU-CTG + CTU-UHB, atasi ketiadaan kanal MHR, mapping UC tekanan→count — lihat §4b) | **Blocker validasi.** Tidak boleh `analytical_validated`. |
 | T2 | `torch.load(..., weights_only=False)` di `app/ai/inference.py` | Eksekusi kode arbitrer saat load checkpoint. Harus `weights_only=True` / safetensors sebelum masuk gate artefak kita. |
 | T3 | `main.py` = FastAPI standalone: state buffer **in-memory per-device** (`_windows`, `_latest_by_device`), `allow_origins=["*"]`, **tanpa auth** | Prototipe riset, bukan service. Jangan deploy sebagai service terpisah. |
 | T4 | Input model butuh `uc_per_10min` (hitungan kontraksi) | Pipeline kita hanya meng-*klasifikasi* kontraksi (none/mild/regular/strong), **tidak menghitung**. Perlu estimator baru. |
@@ -189,7 +189,7 @@ ESP32 belt --(telemetri v2, HMAC-signed)--> POST /sessions/{id}/data
 | I6 | Vendor **hanya** model + inference + definisi label + skrip training Adit ke `ai/vendor/ctg_cnn_lstm/` (bukan `app/signal_processing/`, bukan `main.py`, bukan `aiService.js`). Update dari GitHub terbaru. `torch.load(weights_only=True)`. | repo | S |
 | I7 | Model card wajib untuk tiap `AIModelVersion` (`ai/model-cards/*.md`): data training, intended use, batasan, metrik validasi | repo | S |
 | I8 | Persistensi deret nilai turunan **opsional** — worker sudah bisa derive on-demand dari raw chunk; hanya perlu tabel `session_vitals_series` kalau mau chart tren per-window (bukan per-sesi) | backend | M (defer) |
-| I9 | `training/external_validation.py` Adit diselesaikan terhadap CTU-UHB (kolaborasi dengan Adit) | model repo | L |
+| I9 | Validasi tier-2 ke JNU-CTG + CTU-UHB, tier-1 ke IIScFHSDB + SUFHSDB (§4b); selesaikan `external_validation.py` (kolaborasi dengan Adit) | model repo | L |
 | I10 | Latih `fetal_guard_ai` (model multimodal kita) — butuh data window telemetri v2 nyata/semi-nyata + label. Pakai resep Adit (split sesi, CV, baseline). | ai/ | L |
 
 Ukuran: S = <1 hari, M = 1–3 hari, L = >1 minggu / butuh data eksternal.
@@ -224,25 +224,51 @@ Ukuran: S = <1 hari, M = 1–3 hari, L = >1 minggu / butuh data eksternal.
 
 ---
 
+## 4b. Dataset publik untuk training & validasi nyata
+
+**Model Adit sekarang dilatih 0% data nyata** (100% generator sintetis). Keempat dataset di bawah adalah yang tepat, dipetakan ke dua tingkat pipeline:
+
+| Dataset | Isi | Sinyal | Label / ground-truth | Tingkat | Lisensi |
+|---|---|---|---|---|---|
+| **IIScFHSDB** — physionet.org/content/fetalheartsounddata/1.0 | 60 rekaman fPCG, ~8 mnt, 2 kHz, `.wav` | Bunyi jantung janin (stetoskop elektronik, perut bawah) — sepadan kanal **piezo** | FHR dari catatan pasien "bila ada", tidak sistematis | **Tier 1** (sinyal→FHR) | ODC-BY 1.0, tanpa login |
+| **SUFHSDB** — physionet.org/content/sufhsdb/1.0.1 | 119 fPCG janin + 92 bunyi jantung ibu, ~90 dtk, 16 kHz, WFDB | fPCG janin **+ maternal** | FHR CTG per window 10 dtk untuk sebagian subjek | **Tier 1** + referensi **HR ibu** | ODC-BY 1.0, tanpa login |
+| **JNU-CTG** — zenodo.org/records/21800730 | **20.769** rekaman CTG, 30 mnt, 4 Hz | Trace FHR + UC turunan | **Anotasi pola CTG oleh ahli + Apgar 1/5/10 + diagnosis asfiksia neonatal** + demografi + 100+ fitur precomputed | **Tier 2** (vitals→skrining) — dataset utama | CC-BY-4.0 |
+| **CTU-UHB** — physionet.org/content/ctu-uhb-ctgdb/1.0.0 | 552 rekaman CTG intrapartum, 4 Hz, WFDB | Trace FHR + UC | pH tali pusat, BDecf, Apgar (outcome, bukan label pola) | **Tier 2** — benchmark klasik, kecil | Open, perlu akun PhysioNet gratis |
+
+**Pemetaan:**
+
+- **Tier 1 — sinyal mentah → FHR/MHR** (`services/signal_processing.py` + branch CNN `fetal_guard_ai`): dilatih/divalidasi pada **IIScFHSDB + SUFHSDB**. Ini yang belt benar-benar "dengar" (piezo ≈ fPCG). SUFHSDB memberi referensi HR ibu yang CTU-UHB tidak punya.
+- **Tier 2 — deret vitals → skrining pola** (model Adit / screening-head kita): dilatih/divalidasi pada **JNU-CTG (utama) + CTU-UHB (benchmark)**. JNU-CTG jauh lebih besar dan punya label pola ahli + outcome asfiksia — ini yang membuat "hybrid DL" bermakna klinis, bukan sekadar meniru ambang.
+
+**Risiko & catatan yang harus dicantumkan di model card:**
+
+- **Gap domain sensor.** fPCG klinis direkam stetoskop elektronik; belt kita piezo film. Kopling akustik & respons frekuensi berbeda — model tier-1 yang dilatih fPCG klinis **belum tentu transfer** ke piezo tanpa set kalibrasi piezo kecil (rekaman belt sendiri + referensi Doppler). Ini blocker transfer, bukan sekadar catatan.
+- Model Adit **tidak bisa** langsung memakai IIScFHSDB/SUFHSDB (minta angka FHR/MHR/UC, bukan audio) — estimator bpm tier-1 harus jalan dulu.
+- CTU-UHB & JNU-CTG: tidak ada kanal MHR terpisah → head MHR tidak bisa divalidasi di sini (pakai SUFHSDB untuk itu).
+- UC: CTU-UHB & JNU-CTG dalam satuan tekanan toco, bukan "kontraksi/10 menit" — perlu deteksi puncak kontraksi untuk memetakan ke `label_uc()`.
+- fPCG DB pendek (8 mnt / 90 dtk) & kecil (60 / 119 subjek) — cukup untuk validasi/tuning estimator tier-1, **marginal untuk melatih deep model tier-1 dari nol**; pertimbangkan pretraining + fine-tune, atau tetap pakai DSP klasik untuk tier-1 dan simpan DL untuk tier-2.
+- Semua dataset butuh sitasi; JNU-CTG & fPCG DB tanpa proses kredensial, CTU-UHB perlu akun PhysioNet gratis. Catat provenance + versi + tanggal unduh di `docs/ai/dataset-provenance.md`.
+
 ## 5. Gate validasi (non-negotiable — dari `AGENTS.md` §8)
 
 | Slot | Syarat masuk | Yang boleh dilihat |
 |------|--------------|--------------------|
 | `research` | model terdaftar sebagai `AIModelVersion`, artefak hash tercatat, model card ada | Tidak ada UI. Log & metrik internal saja. **Model Adit sekarang di sini.** |
-| `shadow` | `validation_status = analytical_validated` = dievaluasi pada **data CTG nyata held-out** (CTU-UHB / PhysioNet), MAE FHR + confusion matrix + provenance data terdokumentasi di model card | Feed di dashboard nakes, **berlabel SHADOW**, untuk dikumpulkan review-nya. Tidak memicu alert. Tidak ke pasien. |
+| `shadow` | `validation_status = analytical_validated` = dievaluasi pada **data CTG nyata held-out** (tier-2: JNU-CTG + CTU-UHB; tier-1: SUFHSDB, §4b), MAE FHR + confusion matrix + provenance data terdokumentasi di model card | Feed di dashboard nakes, **berlabel SHADOW**, untuk dikumpulkan review-nya. Tidak memicu alert. Tidak ke pasien. |
 | `clinician` | `validation_status = clinical_validated` = perbandingan terhadap CTG/Doppler/toco pada subjek nyata + **ethical clearance** + sign-off nakes/dokter | Boleh menambah reason-code / memicu "perlu observasi" — **selalu** lewat review nakes. |
 | pasien-facing | slot `clinician` **dan** review nakes non-dismissed per hasil | Baru boleh muncul di app pasien, bahasa skrining. |
 
-**Model Adit sekarang: `experimental` → hanya `research`.** Untuk naik ke `shadow` butuh item I9 (validasi CTU-UHB).
+**Model Adit sekarang: `experimental` → hanya `research`.** Untuk naik ke `shadow` butuh item I9 (validasi ke JNU-CTG/CTU-UHB/fPCG, §4b).
 
 ---
 
 ## 6. Blocker & TODO untuk Adit (kolaborasi)
 
-1. **Selesaikan `training/external_validation.py`** terhadap CTU-UHB Intrapartum Cardiotocography Database (PhysioNet):
-   - Unduh dataset, catat provenance & lisensi.
-   - Resolusi ketiadaan kanal MHR di CTU-UHB (opsi: latih ulang tanpa head MHR untuk validasi eksternal, atau pakai proxy).
-   - Mapping UC (mmHg toco) → skema "kontraksi/10 menit" yang dipakai `label_uc()` (butuh deteksi puncak kontraksi).
+1. **Selesaikan validasi ke data nyata** (lihat §4b untuk detail dataset):
+   - **Tier 2 (model Adit):** validasi ke **JNU-CTG** (utama, 20.769 rekaman + label pola ahli + asfiksia) dan **CTU-UHB** (benchmark). Selesaikan `training/external_validation.py`.
+   - Resolusi ketiadaan kanal MHR di CTU-UHB/JNU-CTG (validasi head MHR pakai SUFHSDB, atau latih ulang tanpa head MHR untuk data ini).
+   - Mapping UC (tekanan toco) → "kontraksi/10 menit" `label_uc()` — butuh deteksi puncak kontraksi.
+   - **Pertimbangkan melatih ulang** model tier-2 langsung di JNU-CTG (label pola nyata) alih-alih sintetis — ini yang membuatnya bermakna klinis.
    - Laporkan akurasi/MAE pada data nyata, **bandingkan dengan kurva ablation noise sintetis** untuk menunjukkan seberapa representatif data sintetis.
 2. **`torch.load(weights_only=False)` → `weights_only=True`** atau ekspor ke `safetensors`. Pisahkan bobot dari kode.
 3. **Publikasikan spec preprocessing + scaler sebagai versi eksplisit** (mirip `ai/src/fetal_guard_ai/model_spec.py`), supaya backend bisa memverifikasi kontrak input.
@@ -273,7 +299,7 @@ Ukuran: S = <1 hari, M = 1–3 hari, L = >1 minggu / butuh data eksternal.
 
 ### Fase 2 — Validasi (paralel, butuh Adit + data)
 
-- [ ] I9 — Adit selesaikan validasi CTU-UHB → model card diperbarui → `validation_status=analytical_validated` bila lolos
+- [ ] I9 — Adit selesaikan validasi JNU-CTG + CTU-UHB (+ SUFHSDB untuk head MHR) → model card diperbarui → `validation_status=analytical_validated` bila lolos
 - [ ] I10 — mulai latih `fetal_guard_ai` (model multimodal kita) dengan resep Adit
 - [ ] Bandingkan: model Adit (3-fitur turunan) vs model kita (multimodal mentah) vs rule-based, pada data validasi yang sama
 
