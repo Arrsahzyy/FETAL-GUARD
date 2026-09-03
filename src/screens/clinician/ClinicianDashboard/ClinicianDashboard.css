@@ -707,9 +707,20 @@
   border-collapse: collapse;
 }
 
+/* Width hints for auto layout: keep the patient column from eating the row
+   while the status columns keep enough room for one-line chips. Auto layout
+   still grows a column past its hint when its content needs it. */
+.patient-table col.col--patient { width: 24%; }
+.patient-table col.col--gestation { width: 9%; }
+.patient-table col.col--session { width: 14%; }
+.patient-table col.col--signal { width: 18%; }
+.patient-table col.col--risk { width: 15%; }
+.patient-table col.col--alert { width: 6%; }
+.patient-table col.col--action { width: 10%; }
+
 .patient-table th,
 .patient-table td {
-  padding: 13px 14px;
+  padding: 13px 12px;
   text-align: left;
   vertical-align: middle;
   border-bottom: 1px solid var(--clinic-border);
@@ -747,6 +758,20 @@
 .patient-cell small,
 .table-muted {
   display: block;
+}
+
+/* The col width hints squeeze cells enough that short values and chips would
+   wrap mid-word without this. They stay on one line; the cell grows instead. */
+.patient-table td > strong,
+.session-pill,
+.risk-badge,
+.signal-stack span,
+.signal-stack small {
+  white-space: nowrap;
+}
+
+.patient-cell small {
+  overflow-wrap: anywhere;
 }
 
 .patient-cell strong {
@@ -1254,8 +1279,17 @@ tr.is-selected .row-selector {
 }
 
 .data-availability__value {
-  color: var(--clinic-amber);
+  color: var(--clinic-text);
+  font-weight: 700;
   text-align: right;
+}
+
+/* "not available yet" is the resting state of a fresh patient, not a fault -
+   four amber rows made an idle panel look like it was raising alarms. Keep it
+   quiet; reserve colour for ok/warn. */
+.data-availability__value--missing {
+  color: var(--clinic-subtle);
+  font-weight: 600;
 }
 
 .data-availability__value--ok {
@@ -1865,11 +1899,11 @@ tr.is-selected .row-selector {
   font-size: 0.74rem;
 }
 
-/* Three columns need 232px sidebar + 360px rail + ~735px for the patient
-   table's seven columns. Below ~1400px that does not fit, and the table was
-   the part that lost - it scrolled sideways and hid the Aksi column. Drop to
-   two columns instead and give the table the full width. */
-@media (max-width: 1400px) {
+/* Three columns need 232px sidebar + 360px rail + ~850px for a comfortable
+   seven-column patient table plus padding and gaps (~1500px). Below that the
+   table is the part that loses - it scrolls sideways and hides the Aksi
+   column - so drop to two columns and give the table the full width. */
+@media (max-width: 1500px) {
   .clinician-dashboard {
     grid-template-columns: 220px minmax(0, 1fr);
   }

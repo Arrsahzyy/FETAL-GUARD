@@ -739,6 +739,15 @@ const ClinicianDashboard = () => {
 
               <div className="patient-table-wrapper">
                 <table className="patient-table">
+                  <colgroup>
+                    <col className="col--patient" />
+                    <col className="col--gestation" />
+                    <col className="col--session" />
+                    <col className="col--signal" />
+                    <col className="col--risk" />
+                    <col className="col--alert" />
+                    <col className="col--action" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>{t('clinician.thPatient')}</th>
@@ -771,19 +780,24 @@ const ClinicianDashboard = () => {
                         </td>
                         <td>
                           <strong>{patient.gestationalAgeLabel}</strong>
-                          <small className="table-muted">{t('clinician.gestationCaption')}</small>
                         </td>
                         <td>
                           <span className={`session-pill ${patient.isActiveMonitoring ? 'session-pill--active' : ''}`}>
                             {patient.monitoringStatus}
                           </span>
-                          <small className="table-muted">{patient.lastSessionTime}</small>
+                          {patient.sessions.length > 0 && (
+                            <small className="table-muted">{patient.lastSessionTime}</small>
+                          )}
                         </td>
                         <td>
-                          <div className="signal-stack">
-                            <span>{patient.signalLabel}</span>
-                            <small>{clinicianCopy.estimatedFhr}: {patient.fhrLabel}</small>
-                          </div>
+                          {patient.hasSensorSummary ? (
+                            <div className="signal-stack">
+                              <span>{clinicianCopy.signalQualityPercent}: {patient.signalLabel}</span>
+                              <small>{clinicianCopy.estimatedFhr}: {patient.fhrLabel}</small>
+                            </div>
+                          ) : (
+                            <span className="table-muted">{clinicianCopy.dataUnavailable}</span>
+                          )}
                         </td>
                         <td>
                           <RiskBadge risk={patient.currentRisk} />
