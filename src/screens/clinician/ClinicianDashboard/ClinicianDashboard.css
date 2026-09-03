@@ -699,7 +699,11 @@
 
 .patient-table {
   width: 100%;
-  min-width: 900px;
+  /* The seven columns measure 731px at min-content. The old 900px floor was
+     169px wider than the table ever needs, so the wrapper scrolled sideways -
+     and hid the Aksi column - on every viewport below ~1540px. The wrapper
+     keeps overflow-x:auto as the genuinely-too-narrow fallback. */
+  min-width: 720px;
   border-collapse: collapse;
 }
 
@@ -1861,7 +1865,11 @@ tr.is-selected .row-selector {
   font-size: 0.74rem;
 }
 
-@media (max-width: 1320px) {
+/* Three columns need 232px sidebar + 360px rail + ~735px for the patient
+   table's seven columns. Below ~1400px that does not fit, and the table was
+   the part that lost - it scrolled sideways and hid the Aksi column. Drop to
+   two columns instead and give the table the full width. */
+@media (max-width: 1400px) {
   .clinician-dashboard {
     grid-template-columns: 220px minmax(0, 1fr);
   }
@@ -1966,6 +1974,17 @@ tr.is-selected .row-selector {
     width: 100%;
     padding-left: 0;
     border-left: 0;
+  }
+
+  /* Tighter cells buy back the ~16px the seven columns were short of on a
+     tablet, so the table reads without a scrollbar for the sake of a sliver. */
+  .patient-table {
+    min-width: 660px;
+  }
+
+  .patient-table th,
+  .patient-table td {
+    padding: 12px 9px;
   }
 
   .panel-heading,
