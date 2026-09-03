@@ -51,6 +51,7 @@ RLS_REQUIRED_POLICIES = frozenset(
         ("patients", "patients_self_insert"),
         ("patients", "patients_self_update"),
         ("patients", "patients_staff_select"),
+        ("patients", "patients_staff_update"),
         ("patient_clinician_assignments", "assignments_staff_select"),
         ("patient_clinician_assignments", "assignments_admin_insert"),
         ("patient_clinician_assignments", "assignments_admin_update"),
