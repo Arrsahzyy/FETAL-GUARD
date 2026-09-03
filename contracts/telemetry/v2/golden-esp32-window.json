@@ -4,6 +4,7 @@
   "boot_id": "boot-a1b2c3d4-00112233",
   "sequence_number": 7,
   "captured_at": "2026-08-24T10:15:30.000Z",
+  "packet_signature": "43281fed6645d3267e1c9b8c99c73cee0934f10400e85b5dca2b21f3ec68ee11",
   "sample_rates_hz": {
     "p": 200.0,
     "fsr": 50.0,

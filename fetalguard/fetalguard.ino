@@ -7,6 +7,7 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <mbedtls/md.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
 
@@ -43,6 +44,18 @@ MAX30105 max30102;
 // Nilai ini harus sama persis dengan device_uid yang didaftarkan admin.
 // Tidak mengandung password, token pasien, atau secret backend.
 const char *FG_DEVICE_UID = "FETAL-GUARD-001";
+
+// Kunci penandatangan paket khusus perangkat ini.
+//
+// device_uid adalah label publik: peripheral BLE mana pun bisa menirunya, jadi
+// UID saja tidak pernah membuktikan paket berasal dari sabuk yang benar. Kunci
+// di bawah dihasilkan backend lewat POST /devices/{id}/signing-key dan hanya
+// ditampilkan sekali; salin ke sini sebelum flash. Backend menolak paket yang
+// tanda tangannya tidak cocok.
+//
+// Biarkan kosong hanya untuk bring-up bench sebelum perangkat diprovisikan.
+// Deployment production menolak perangkat tanpa kunci.
+const char *FG_DEVICE_PACKET_SECRET = "";
 const char *FG_BLE_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const char *FG_BLE_CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
@@ -2027,6 +2040,128 @@ uint16_t quantizeADS1256To12Bit(int32_t raw)
   return (uint16_t)(((bounded + 8388608LL) * 4095LL) / 16777215LL);
 }
 
+// =====================================================
+// TANDA TANGAN PAKET (HMAC-SHA256)
+// =====================================================
+// Pesan yang ditandatangani dibangun dari nilai terurai, bukan dari teks JSON,
+// sehingga tetap sama walaupun gateway ponsel menyusun ulang JSON-nya:
+//   FGSIG1|<uid>|<boot_id>|<seq>|<captured_at_ms>|<schema>|<digest>
+// digest = SHA-256 atas "p:<v,..>|fsr:<v,..>|hr_ir:<v,..>|hr_red:<v,..>".
+// Kanal yang tidak dikirim tetap ikut sebagai bagian kosong agar menghilangkan
+// satu kanal mengubah digest, bukan menghasilkan hash yang sama.
+
+// String hanya punya konstruktor unsigned long long di core Arduino yang lebih
+// baru, jadi nilai 64-bit diformat eksplisit agar sketch tetap portabel.
+String uint64ToString(uint64_t value)
+{
+  char buffer[21];
+  snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long)value);
+  return String(buffer);
+}
+
+String toHexString(const unsigned char *bytes, size_t length)
+{
+  static const char digits[] = "0123456789abcdef";
+  String hex;
+  hex.reserve(length * 2);
+  for (size_t index = 0; index < length; index++)
+  {
+    hex += digits[(bytes[index] >> 4) & 0x0F];
+    hex += digits[bytes[index] & 0x0F];
+  }
+  return hex;
+}
+
+String sha256Hex(const String &input)
+{
+  unsigned char digest[32];
+  const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (info == nullptr)
+    return String();
+
+  mbedtls_md_context_t context;
+  mbedtls_md_init(&context);
+  bool ok = mbedtls_md_setup(&context, info, 0) == 0 &&
+            mbedtls_md_starts(&context) == 0 &&
+            mbedtls_md_update(&context, (const unsigned char *)input.c_str(), input.length()) == 0 &&
+            mbedtls_md_finish(&context, digest) == 0;
+  mbedtls_md_free(&context);
+
+  return ok ? toHexString(digest, sizeof(digest)) : String();
+}
+
+String hmacSha256Hex(const char *key, const String &message)
+{
+  unsigned char digest[32];
+  const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (info == nullptr || key == nullptr)
+    return String();
+
+  mbedtls_md_context_t context;
+  mbedtls_md_init(&context);
+  bool ok = mbedtls_md_setup(&context, info, 1) == 0 &&
+            mbedtls_md_hmac_starts(&context, (const unsigned char *)key, strlen(key)) == 0 &&
+            mbedtls_md_hmac_update(&context, (const unsigned char *)message.c_str(), message.length()) == 0 &&
+            mbedtls_md_hmac_finish(&context, digest) == 0;
+  mbedtls_md_free(&context);
+
+  return ok ? toHexString(digest, sizeof(digest)) : String();
+}
+
+// Melengkapi digest dengan kanal-kanal yang tidak terkirim agar urutan dan
+// jumlah bagiannya selalu sama dengan yang dihitung ulang backend.
+void appendMissingDigestChannels(String &canonical, byte emittedChannels)
+{
+  static const char *order[] = {"p", "fsr", "hr_ir", "hr_red"};
+  for (byte index = emittedChannels; index < 4; index++)
+  {
+    if (index > 0)
+      canonical += '|';
+    canonical += order[index];
+    canonical += ':';
+  }
+}
+
+// Menambahkan field packet_signature ke frame yang sedang dibangun.
+// Perangkat yang belum diprovisikan mengirim frame tanpa tanda tangan; backend
+// non-production masih menerimanya, production menolaknya.
+void appendPacketSignature(
+    String &json,
+    const String &canonicalChannels,
+    uint64_t capturedAtMs,
+    int schemaVersion)
+{
+  if (FG_DEVICE_PACKET_SECRET == nullptr || strlen(FG_DEVICE_PACKET_SECRET) == 0)
+    return;
+
+  const String digest = sha256Hex(canonicalChannels);
+  if (digest.length() == 0)
+    return;
+
+  String message;
+  message.reserve(160);
+  message += "FGSIG1|";
+  message += FG_DEVICE_UID;
+  message += '|';
+  message += bleBootId;
+  message += '|';
+  message += uint64ToString(bleSequenceNumber);
+  message += '|';
+  message += uint64ToString(capturedAtMs);
+  message += '|';
+  message += String(schemaVersion);
+  message += '|';
+  message += digest;
+
+  const String signature = hmacSha256Hex(FG_DEVICE_PACKET_SECRET, message);
+  if (signature.length() == 0)
+    return;
+
+  json += ",\"packet_signature\":\"";
+  json += signature;
+  json += '\"';
+}
+
 void appendJsonNumberField(
     String &json,
     bool &hasField,
@@ -2114,37 +2249,70 @@ String buildTelemetryFrame()
   }
   json += "},\"channels\":{";
 
+  // Dibangun bersamaan dengan JSON supaya digest selalu mencerminkan sampel yang
+  // benar-benar dikirim pada frame ini.
+  String canonical;
+  canonical.reserve(160);
+  byte digestChannels = 0;
+
   bool hasChannel = false;
   if (adsReady && !adsDRDYTimeout)
   {
     json += "\"p\":[";
+    canonical += "p:";
     for (byte channel = 0; channel < PIEZO_COUNT; channel++)
     {
       if (channel > 0)
+      {
         json += ',';
-      json += String(quantizeADS1256To12Bit(piezoRaw[channel]));
+        canonical += ',';
+      }
+      const String sample = String(quantizeADS1256To12Bit(piezoRaw[channel]));
+      json += sample;
+      canonical += sample;
     }
     json += ']';
     hasChannel = true;
   }
+  else
+  {
+    canonical += "p:";
+  }
+  digestChannels = 1;
 
   if (hasChannel)
     json += ',';
-  json += "\"fsr\":[";
-  json += String(constrain(fsrRawADC, 0, 4095));
-  json += ']';
+  {
+    const String sample = String(constrain(fsrRawADC, 0, 4095));
+    json += "\"fsr\":[";
+    json += sample;
+    json += ']';
+    canonical += "|fsr:";
+    canonical += sample;
+  }
   hasChannel = true;
+  digestChannels = 2;
 
   if (fingerPresent && maxBufferReady)
   {
+    const String irSample = String(irBuffer[FG_BUFFER_SIZE - 1]);
+    const String redSample = String(redBuffer[FG_BUFFER_SIZE - 1]);
     json += ",\"hr_ir\":[";
-    json += String(irBuffer[FG_BUFFER_SIZE - 1]);
+    json += irSample;
     json += "],\"hr_red\":[";
-    json += String(redBuffer[FG_BUFFER_SIZE - 1]);
+    json += redSample;
     json += ']';
+    canonical += "|hr_ir:";
+    canonical += irSample;
+    canonical += "|hr_red:";
+    canonical += redSample;
+    digestChannels = 4;
   }
 
-  json += "}}\n";
+  json += '}';
+  appendMissingDigestChannels(canonical, digestChannels);
+  appendPacketSignature(json, canonical, capturedAtMs, 1);
+  json += "}\n";
   return json;
 }
 
@@ -2217,7 +2385,12 @@ String buildTelemetryV2Frame(unsigned long windowElapsedMs)
   }
   json += "},\"channels\":{";
 
+  String canonical;
+  canonical.reserve(1024);
+  byte digestChannels = 0;
+
   bool hasChannel = false;
+  canonical += "p:";
   if (blePiezoFrameCount > 0)
   {
     json += "\"p\":[";
@@ -2225,40 +2398,74 @@ String buildTelemetryV2Frame(unsigned long windowElapsedMs)
     {
       for (uint8_t channel = 0; channel < PIEZO_COUNT; channel++)
       {
-        if (frameIndex > 0 || channel > 0) json += ',';
-        json += String(blePiezoSamples[frameIndex][channel]);
+        if (frameIndex > 0 || channel > 0)
+        {
+          json += ',';
+          canonical += ',';
+        }
+        const String sample = String(blePiezoSamples[frameIndex][channel]);
+        json += sample;
+        canonical += sample;
       }
     }
     json += ']';
     hasChannel = true;
   }
+  digestChannels = 1;
+
   if (hasChannel) json += ',';
   json += "\"fsr\":[";
+  canonical += "|fsr:";
   for (size_t index = 0; index < bleFSRSampleCount; index++)
   {
-    if (index > 0) json += ',';
-    json += String(bleFSRSamples[index]);
+    if (index > 0)
+    {
+      json += ',';
+      canonical += ',';
+    }
+    const String sample = String(bleFSRSamples[index]);
+    json += sample;
+    canonical += sample;
   }
   json += ']';
+  digestChannels = 2;
 
   if (blePPGSampleCount > 0)
   {
     json += ",\"hr_ir\":[";
+    canonical += "|hr_ir:";
     for (size_t index = 0; index < blePPGSampleCount; index++)
     {
-      if (index > 0) json += ',';
-      json += String(bleIRSamples[index]);
+      if (index > 0)
+      {
+        json += ',';
+        canonical += ',';
+      }
+      const String sample = String(bleIRSamples[index]);
+      json += sample;
+      canonical += sample;
     }
     json += "],\"hr_red\":[";
+    canonical += "|hr_red:";
     for (size_t index = 0; index < blePPGSampleCount; index++)
     {
-      if (index > 0) json += ',';
-      json += String(bleRedSamples[index]);
+      if (index > 0)
+      {
+        json += ',';
+        canonical += ',';
+      }
+      const String sample = String(bleRedSamples[index]);
+      json += sample;
+      canonical += sample;
     }
     json += ']';
+    digestChannels = 4;
   }
 
-  json += "}}\n";
+  json += '}';
+  appendMissingDigestChannels(canonical, digestChannels);
+  appendPacketSignature(json, canonical, capturedAtMs, 2);
+  json += "}\n";
   return json;
 }
 

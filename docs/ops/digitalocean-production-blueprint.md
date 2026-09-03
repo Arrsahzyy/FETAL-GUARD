@@ -46,6 +46,7 @@ Catatan penting:
 - `AUTO_CREATE_DB=false` di production.
 - `SECRET_KEY` production diset sebagai secret environment variable.
 - `BACKEND_CORS_ORIGINS` diisi domain frontend staging/production.
+- `TRUSTED_HOSTS` diisi hostname backend sebenarnya (bukan default loopback).
 - `VITE_API_BASE_URL` diarahkan ke domain backend.
 - Migration Alembic sudah jalan di PostgreSQL.
 - Seed admin hanya dipakai sebagai bootstrap awal.
@@ -61,6 +62,7 @@ Backend:
 | `SQLALCHEMY_DATABASE_URI` | `postgresql+psycopg://...` | Connection string PostgreSQL |
 | `AUTO_CREATE_DB` | `false` | Hindari `create_all` di production |
 | `BACKEND_CORS_ORIGINS` | `["https://app.fetalguard.id","https://staging-app.fetalguard.id"]` | Format JSON list |
+| `TRUSTED_HOSTS` | `["api.fetalguard.id"]` | Wajib. Harus menyebut hostname backend sebenarnya; jika dibiarkan default, API tetap start tetapi menolak semua request dengan 400 |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Bisa disesuaikan |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `14` | Sesuai policy session |
 | `AI_PIPELINE_MODE` | `disabled` | Gunakan `clinician` hanya setelah worker siap dan model clinical_validated aktif |

@@ -11,6 +11,8 @@ export default defineConfig([
     'backend/**',
     'android/**/build/**',
     'android/app/src/main/assets/**',
+    // Local build output; gitignored, but flat config does not read .gitignore.
+    'artifacts/**',
     '.pytest_cache/**',
     '.codex-qa/**',
     '.agents/**',

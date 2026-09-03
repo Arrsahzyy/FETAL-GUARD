@@ -13,9 +13,10 @@
     "local:staff": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/provision-local-staff.ps1",
     "local:device": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/provision-local-mobile-device.ps1",
     "local:test": "node --test scripts/local-server.test.mjs",
+    "simulate:belt": "node scripts/simulate-belt-telemetry.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:frontend": "node --test src/hooks/useBluetooth.test.js src/services/apiRuntimeConfig.test.js src/services/authSessionEpoch.test.js src/services/patientPreferences.test.js src/services/patientTelemetryQueue.test.js src/services/realtimeEventPoller.test.js src/services/webBluetoothClient.test.js src/utils/aiAnalysisModels.test.js src/utils/clinicianModels.test.js src/utils/patientHomeSummary.test.js src/utils/patientLiveReadings.test.js"
+    "test:frontend": "node --test src/components/SignalTrendChart/SignalTrendChart.test.js src/i18n/i18n.test.js src/hooks/useBluetooth.test.js src/services/apiRuntimeConfig.test.js src/services/authSessionEpoch.test.js src/services/patientPreferences.test.js src/services/patientTelemetryQueue.test.js src/services/realtimeEventPoller.test.js src/services/webBluetoothClient.test.js src/utils/aiAnalysisModels.test.js src/utils/clinicianModels.test.js src/utils/patientHomeSummary.test.js src/utils/patientLiveReadings.test.js"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.1.3",

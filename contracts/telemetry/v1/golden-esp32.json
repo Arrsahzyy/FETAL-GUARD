@@ -5,6 +5,7 @@
   "sequence_number": 0,
   "captured_at": "2026-08-17T10:00:00.000Z",
   "sample_rate_hz": 1,
+  "packet_signature": "0081396af156c6cc5e04432895c1a324d1bf41c8cfc599b28bb4c7628837e7ed",
   "telemetry": {
     "fhr": 142.0,
     "motherHR": 82.0,
