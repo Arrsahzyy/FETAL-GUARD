@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:android:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-local.ps1",
+    "build:android:staging": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-staging.ps1",
     "generate:android:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-android-icons.ps1",
     "local": "node scripts/local-server.mjs",
     "localserver": "node scripts/local-server.mjs",
