@@ -345,10 +345,11 @@
 /* ── Reveal Animation ─────────────────────────────────────────────────────── */
 [data-reveal] {
     opacity: 0;
-    transform: translateY(28px);
+    transform: translateY(16px);
     transition:
-        opacity 580ms cubic-bezier(0.22, 1, 0.36, 1),
-        transform 580ms cubic-bezier(0.22, 1, 0.36, 1);
+        opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
 }
 
 [data-reveal].is-visible {
@@ -1944,20 +1945,34 @@
     transform: rotate(180deg);
 }
 
+/* max-height collapse rather than grid 0fr/1fr: the fr technique never
+   expanded in this layout (the body stayed clamped at the inner's padding
+   height whether open or closed, so every answer showed a permanent sliver).
+   The cap comfortably exceeds the longest answer even when it wraps on a
+   narrow phone; max-height only ever caps, so real height drives the box. */
 .fg-faq__body {
-    display: grid;
-    grid-template-rows: 0fr;
+    max-height: 0;
     overflow: hidden;
-    transition: grid-template-rows 320ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: max-height 340ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fg-faq__item.is-open .fg-faq__body {
-    grid-template-rows: 1fr;
+    max-height: 520px;
 }
 
 .fg-faq__body-inner {
-    min-height: 0;
-    padding: 0 24px 22px;
+    padding: 4px 24px 22px;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition:
+        opacity 220ms ease,
+        transform 260ms ease;
+}
+
+.fg-faq__item.is-open .fg-faq__body-inner {
+    opacity: 1;
+    transform: none;
+    transition-delay: 90ms;
 }
 
 .fg-faq__body-inner p {
@@ -2333,6 +2348,7 @@
     }
 
     .fg-faq__body,
+    .fg-faq__body-inner,
     .fg-faq__chevron {
         transition: none;
     }

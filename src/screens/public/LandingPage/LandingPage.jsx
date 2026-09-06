@@ -647,6 +647,17 @@ function LandingPage() {
       items.forEach((el) => el.classList.add("is-visible"));
       return undefined;
     }
+    // Reveal anything already within (or just below) the first viewport
+    // synchronously on mount. The IntersectionObserver callback is async, so
+    // relying on it alone leaves above-the-fold content — the hero itself —
+    // invisible for a frame or more, which reads as a blank page on load,
+    // especially on mobile.
+    const viewportHeight = window.innerHeight || 0;
+    items.forEach((el) => {
+      if (el.getBoundingClientRect().top < viewportHeight * 0.92) {
+        el.classList.add("is-visible");
+      }
+    });
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -658,7 +669,9 @@ function LandingPage() {
       },
       { threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
     );
-    items.forEach((el) => observer.observe(el));
+    items.forEach((el) => {
+      if (!el.classList.contains("is-visible")) observer.observe(el);
+    });
     const fallback = window.setTimeout(
       () => items.forEach((el) => el.classList.add("is-visible")),
       2000,
