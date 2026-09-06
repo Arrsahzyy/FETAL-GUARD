@@ -754,7 +754,6 @@ function LandingPage() {
             e.preventDefault();
             scrollTo("beranda");
           }}
-          aria-label="FETAL-GUARD beranda"
         >
           <img
             className="fg-brand__logo"
@@ -1148,7 +1147,9 @@ function LandingPage() {
                 <button
                   type="button"
                   role="tab"
+                  id={`fg-flow-tab-${index}`}
                   aria-selected={activeStage === index}
+                  aria-controls="fg-flow-panel"
                   className={`fg-flow-card${activeStage === index ? " is-active" : ""}`}
                   onClick={() => setActiveStage(index)}
                 >
@@ -1167,17 +1168,20 @@ function LandingPage() {
               </div>
             ))}
           </div>
-          <article
+          <div
             className="fg-flow__detail"
             role="tabpanel"
+            id="fg-flow-panel"
+            aria-labelledby={`fg-flow-tab-${activeStage}`}
             aria-live="polite"
+            tabIndex={0}
           >
             <span className="fg-flow__detail-badge">
               Tahap {activeStage + 1} — {SYSTEM_FLOW[activeStage].label}
             </span>
             <h3>{SYSTEM_FLOW[activeStage].title}</h3>
             <p>{SYSTEM_FLOW[activeStage].detail}</p>
-          </article>
+          </div>
         </div>
       </section>
 
@@ -1199,7 +1203,9 @@ function LandingPage() {
               data-reveal
               style={{ animationDelay: `${i * 100}ms` }}
             >
-              <div className="fg-howto-card__step">{step.step}</div>
+              <div className="fg-howto-card__step" aria-hidden="true">
+                {step.step}
+              </div>
               <div className="fg-howto-card__icon">
                 <Icon name={step.icon} size={22} />
               </div>

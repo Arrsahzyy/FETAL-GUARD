@@ -12,6 +12,7 @@
     --fg-blue: #1597e8;
     --fg-blue-dark: #0c5f93;
     --fg-rose: #f43882;
+    --fg-rose-dark: #c81e63; /* AA text on white (5.5:1) — used for rose-tinted labels */
     --fg-rose-light: #ffe4ef;
     --fg-teal: #20b8b0;
     --fg-teal-light: #e0faf9;
@@ -997,7 +998,7 @@
 }
 
 .fg-source a {
-    color: var(--fg-blue);
+    color: var(--fg-blue-dark);
     text-decoration: underline;
 }
 
@@ -1708,7 +1709,7 @@
 }
 
 .fg-portal-card--rose .fg-portal-card__eyebrow {
-    color: var(--fg-rose);
+    color: var(--fg-rose-dark);
 }
 .fg-portal-card--blue .fg-portal-card__eyebrow {
     color: var(--fg-blue-dark);
@@ -2059,7 +2060,7 @@
     justify-content: space-between;
     padding: 20px 0;
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .fg-footer__portal-links {

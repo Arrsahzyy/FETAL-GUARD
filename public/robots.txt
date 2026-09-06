@@ -1,0 +1,8 @@
+# FETAL-GUARD — public marketing site
+# App routes (/patient, /clinician, /admin) are auth-gated SPA shells with no
+# indexable content, so we point crawlers at the landing page and the sitemap.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://pkmkcfetalguard.app/sitemap.xml
