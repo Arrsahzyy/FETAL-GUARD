@@ -1587,24 +1587,31 @@
     background: var(--fg-amber);
 }
 
-.fg-howto-card__step {
+/* Decorative step ordinal. Rendered as generated content (from data-step) so
+   it stays out of the accessibility tree and is not a color-contrast target —
+   it is pure decoration; step order is carried by DOM order + the section
+   heading ("Empat langkah..."). */
+.fg-howto-card::before {
+    content: attr(data-step);
+    display: block;
     font-size: 2rem;
     font-weight: 900;
     line-height: 1;
     margin-bottom: 16px;
     opacity: 0.12;
+    color: var(--fg-ink);
 }
 
-.fg-howto-card--rose .fg-howto-card__step {
+.fg-howto-card--rose::before {
     color: var(--fg-rose);
 }
-.fg-howto-card--blue .fg-howto-card__step {
+.fg-howto-card--blue::before {
     color: var(--fg-blue);
 }
-.fg-howto-card--teal .fg-howto-card__step {
+.fg-howto-card--teal::before {
     color: var(--fg-teal);
 }
-.fg-howto-card--amber .fg-howto-card__step {
+.fg-howto-card--amber::before {
     color: var(--fg-amber);
 }
 

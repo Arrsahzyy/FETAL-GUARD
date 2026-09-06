@@ -1200,12 +1200,10 @@ function LandingPage() {
             <article
               className={`fg-howto-card fg-howto-card--${step.color}`}
               key={step.step}
+              data-step={step.step}
               data-reveal
               style={{ animationDelay: `${i * 100}ms` }}
             >
-              <div className="fg-howto-card__step" aria-hidden="true">
-                {step.step}
-              </div>
               <div className="fg-howto-card__icon">
                 <Icon name={step.icon} size={22} />
               </div>
