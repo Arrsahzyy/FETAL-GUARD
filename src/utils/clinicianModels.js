@@ -20,6 +20,7 @@ const CLINICIAN_COPY = {
     ageShort: 'th',
     weekUnit: 'minggu',
     weekShort: 'mg',
+    postTerm: 'lewat waktu',
     estimatedFhr: 'Estimasi DJJ',
     maternalHr: 'Nadi ibu',
     signalQualityPercent: 'Kualitas sinyal',
@@ -94,6 +95,7 @@ const CLINICIAN_COPY = {
     ageShort: 'yr',
     weekUnit: 'weeks',
     weekShort: 'wk',
+    postTerm: 'post-term',
     estimatedFhr: 'Estimated FHR',
     maternalHr: 'Maternal pulse',
     signalQualityPercent: 'Signal quality',
@@ -317,7 +319,10 @@ export function toPatientViewModel(patient, alertsBySession, locale = 'id') {
   const activeAlerts = countOpenAlertsForSessions(sessionIds, alertsBySession);
   const isActiveMonitoring = sessions.some((session) => session.status === 'active');
   const hasSession = Boolean(latestSession);
+  // The backend advances gestational_age_weeks to today on every read;
+  // is_post_term flags >42 completed weeks so the label can say so.
   const gestationalAge = patient.gestational_age_weeks;
+  const isPostTerm = Boolean(patient.is_post_term);
 
   return {
     id: patient.id,
@@ -327,7 +332,10 @@ export function toPatientViewModel(patient, alertsBySession, locale = 'id') {
     ageLabel: patient.age ? `${patient.age} ${copy.ageUnit}` : copy.dataUnavailable,
     initials: getInitials(patient.name),
     gestationalAge,
-    gestationalAgeLabel: gestationalAge ? `${gestationalAge} ${copy.weekUnit}` : copy.dataUnavailable,
+    isPostTerm,
+    gestationalAgeLabel: gestationalAge
+      ? `${gestationalAge} ${copy.weekUnit}${isPostTerm ? ` · ${copy.postTerm}` : ''}`
+      : copy.dataUnavailable,
     lastSession: formatSessionLabel(latestSession, locale),
     lastSessionTime: formatDateTime(latestSession?.start_time, locale),
     lastSessionDuration: latestSession

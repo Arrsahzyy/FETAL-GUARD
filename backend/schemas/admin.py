@@ -72,6 +72,8 @@ class AdminPatientSummary(BaseModel):
     name: str
     age: int
     gestational_age_weeks: int
+    gestational_age_weeks_recorded: int | None = None
+    is_post_term: bool = False
     created_at: datetime
     assigned_clinicians: list[AdminAssignedClinicianSummary] = Field(default_factory=list)
 

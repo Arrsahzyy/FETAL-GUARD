@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from core.authorization import Principal, get_current_staff_principal, require_permission
+from core.gestation import gestation_view
 from core.realtime import enqueue_realtime_event
 from core.refresh_tokens import revoke_all_refresh_tokens
 from core.security import get_password_hash
@@ -164,6 +165,7 @@ def require_single_facility_identity_management(
 
 
 def build_admin_patient_summary(patient: Patient) -> AdminPatientSummary:
+    gestation = gestation_view(patient)
     return AdminPatientSummary(
         id=patient.id,
         patient_code=patient.patient_code,
@@ -171,7 +173,9 @@ def build_admin_patient_summary(patient: Patient) -> AdminPatientSummary:
         user_id=patient.user_id,
         name=patient.name,
         age=patient.age,
-        gestational_age_weeks=patient.gestational_age_weeks,
+        gestational_age_weeks=gestation.current_weeks or patient.gestational_age_weeks,
+        gestational_age_weeks_recorded=gestation.recorded_weeks,
+        is_post_term=gestation.is_post_term,
         created_at=patient.created_at,
         assigned_clinicians=[
             AdminAssignedClinicianSummary(

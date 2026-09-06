@@ -27,6 +27,8 @@ class PatientSummaryResponse(BaseModel):
     name: str
     age: int
     gestational_age_weeks: int
+    gestational_age_weeks_recorded: int | None = None
+    is_post_term: bool = False
     latest_session: SessionResponse | None = None
     active_sessions: list[SessionResponse] = Field(default_factory=list)
     # Newest-first session history, populated only by the patient detail endpoint

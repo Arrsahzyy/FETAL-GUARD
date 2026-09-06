@@ -101,7 +101,9 @@ const ProfileScreen = ({ onSave, patientData, initialData }) => {
                 throw createFormError(t('patient.profile.nameRequired'), 'fullName', 'biodata');
             }
 
-            if (!pregnancyWeek || pregnancyWeek < 1 || pregnancyWeek > 42) {
+            // 45 not 42: the value carried in the form can be the calendar-
+            // advanced current week, which legitimately passes term.
+            if (!pregnancyWeek || pregnancyWeek < 1 || pregnancyWeek > 45) {
                 throw createFormError(t('patient.profile.weekInvalid'), 'pregnancyWeek', 'pregnancy');
             }
             if (formData.nik && !/^\d{16}$/.test(formData.nik.trim())) {

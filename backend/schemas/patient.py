@@ -3,6 +3,12 @@ import re
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from core.gestation import (
+    current_gestational_age_weeks,
+    estimated_due_date as derive_estimated_due_date,
+    is_post_term,
+)
+
 
 _PHONE_PATTERN = re.compile(r"^\+?[0-9]{8,20}$")
 _BLOOD_TYPES = {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"}
@@ -129,7 +135,9 @@ class PatientUpdate(PatientProfileFields):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     age: int | None = Field(default=None, ge=10, le=60)
-    gestational_age_weeks: int | None = Field(default=None, ge=1, le=42)
+    # Wider than PatientCreate's 42: an update can re-anchor a pregnancy that
+    # has genuinely gone post-term. core.gestation clamps display at 45.
+    gestational_age_weeks: int | None = Field(default=None, ge=1, le=45)
     medical_history: str | None = Field(default=None, max_length=2000)
 
     @field_validator("name")
@@ -149,7 +157,13 @@ class PatientResponse(BaseModel):
     user_id: str
     name: str
     age: int
+    # Advanced to today: `gestational_age_weeks` carries the *current* value so
+    # every existing consumer is correct without change. `_recorded` keeps the
+    # raw intake number for the edit form and provenance.
     gestational_age_weeks: int
+    gestational_age_weeks_recorded: int | None = None
+    gestational_age_recorded_at: date | None = None
+    is_post_term: bool = False
     medical_history: str | None = None
     national_id: str | None = None
     birth_date: date | None = None
@@ -179,6 +193,30 @@ class PatientResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def _derive_current_gestation(self):
+        # Idempotent: `_recorded` is unset on the first pass (it is not an ORM
+        # column) and set afterwards, so re-validating an already-derived
+        # instance does not advance the value a second time.
+        if self.gestational_age_weeks_recorded is not None:
+            return self
+        # At this point every field holds the raw ORM value.
+        recorded = self.gestational_age_weeks
+        current = current_gestational_age_weeks(
+            last_menstrual_period=self.last_menstrual_period,
+            recorded_weeks=recorded,
+            recorded_on=self.gestational_age_recorded_at or self.created_at,
+        )
+        self.gestational_age_weeks_recorded = recorded
+        if current is not None:
+            self.gestational_age_weeks = current
+        self.is_post_term = is_post_term(self.gestational_age_weeks)
+        if self.estimated_due_date is None:
+            self.estimated_due_date = derive_estimated_due_date(
+                last_menstrual_period=self.last_menstrual_period,
+            )
+        return self
 
 
 class PatientNotificationResponse(BaseModel):

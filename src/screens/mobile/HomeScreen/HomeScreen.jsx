@@ -100,8 +100,9 @@ const estimateRemainingSession = (battery) => {
 };
 
 /** Kembalikan label trimester + konteks singkat berdasarkan minggu kehamilan */
-const getTrimesterLabel = (week) => {
+const getTrimesterLabel = (week, isPostTerm = false) => {
   if (!week) return t("patient.home.trimesterUnknown");
+  if (isPostTerm || week > 42) return t("patient.home.postTerm");
   if (week <= 12) return t("patient.home.trimesterFirst");
   if (week <= 27) return t("patient.home.trimesterSecond");
   return t("patient.home.trimesterThird");
@@ -533,7 +534,7 @@ const AlertRow = ({ tone, title, message, action }) => (
  * – Saat pregnancyWeek ada → ring terisi sesuai proporsi minggu/40
  * – Saat pregnancyWeek null  → half-ring + shimmer animation
  */
-const PregnancyHero = ({ pregnancyWeek }) => {
+const PregnancyHero = ({ pregnancyWeek, isPostTerm = false }) => {
   const isNull = pregnancyWeek === null;
   // Null → tampilkan setengah ring agar ada konten visual
   const progress = isNull ? 0.5 : Math.min(pregnancyWeek / 40, 1);
@@ -645,7 +646,7 @@ const PregnancyHero = ({ pregnancyWeek }) => {
               : `-- ${t("patient.home.weekUnit")}`}
           </strong>
           <p className="home-pregnancy-hero__sub">
-            {getTrimesterLabel(pregnancyWeek)}
+            {getTrimesterLabel(pregnancyWeek, isPostTerm)}
           </p>
         </div>
       </div>
@@ -816,7 +817,7 @@ const HomeScreen = () => {
           onOpenHistory={() => navigate("/patient/history")}
         />
 
-        <PregnancyHero pregnancyWeek={pregnancyWeek} />
+        <PregnancyHero pregnancyWeek={pregnancyWeek} isPostTerm={patientProfile?.is_post_term} />
 
         {/* 3 ─ Daily Tips Card (BARU) */}
         <WeeklyEducationCard

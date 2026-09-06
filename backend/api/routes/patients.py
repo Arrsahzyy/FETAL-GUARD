@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
@@ -49,6 +49,7 @@ def create_patient_profile(
     patient = Patient(
         user_id=current_user.id,
         organization_id=organization.id,
+        gestational_age_recorded_at=date.today(),
         **patient_in.model_dump(),
     )
     db.add(patient)
@@ -126,6 +127,9 @@ def update_my_patient_profile(
 
     for field, value in update_data.items():
         setattr(patient, field, value)
+    # Re-anchor the calendar advance whenever the number itself is re-entered.
+    if "gestational_age_weeks" in update_data:
+        patient.gestational_age_recorded_at = date.today()
     patient.updated_at = datetime.now(timezone.utc)
 
     db.add(patient)

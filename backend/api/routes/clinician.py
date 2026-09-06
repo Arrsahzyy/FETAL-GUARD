@@ -5,6 +5,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from core.audit import add_access_audit_event
+from core.gestation import gestation_view
 from core.realtime import enqueue_realtime_event
 from core.authorization import (
     Principal,
@@ -43,12 +44,15 @@ def build_patient_summary(
     active_session: MonitoringSession | None,
     recent_sessions: list[MonitoringSession] | None = None,
 ) -> PatientSummaryResponse:
+    gestation = gestation_view(patient)
     return PatientSummaryResponse(
         id=patient.id,
         patient_code=patient.patient_code,
         name=patient.name,
         age=patient.age,
-        gestational_age_weeks=patient.gestational_age_weeks,
+        gestational_age_weeks=gestation.current_weeks or patient.gestational_age_weeks,
+        gestational_age_weeks_recorded=gestation.recorded_weeks,
+        is_post_term=gestation.is_post_term,
         latest_session=latest_session,
         active_sessions=[active_session] if active_session else [],
         recent_sessions=recent_sessions or [],

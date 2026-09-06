@@ -47,6 +47,10 @@ class Patient(Base):
     emergency_contact_phone = Column(String(24), nullable=True)
     last_menstrual_period = Column(Date, nullable=True)
     estimated_due_date = Column(Date, nullable=True)
+    # Stamped only when gestational_age_weeks is written, so core.gestation can
+    # advance the intake value by the calendar without a later edit to some
+    # unrelated field rewinding the clock. Null on rows predating this column.
+    gestational_age_recorded_at = Column(Date, nullable=True)
     gravida = Column(Integer, nullable=True)
     para = Column(Integer, nullable=True)
     abortus = Column(Integer, nullable=True)
