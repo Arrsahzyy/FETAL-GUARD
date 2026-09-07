@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -39,8 +40,29 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Bluetooth LE for the FETAL-GUARD belt.
+         The @capacitor-community/bluetooth-le plugin merges BLUETOOTH_SCAN
+         without neverForLocation and pulls in unbounded ACCESS_*_LOCATION, which
+         makes Android 12+ demand a Location grant for a health app. We only ever
+         scan for one known belt and never derive location, so:
+           - BLUETOOTH_SCAN carries neverForLocation (no location prompt on 12+)
+           - ACCESS_COARSE_LOCATION is dropped entirely
+           - ACCESS_FINE_LOCATION is capped at API 30 (Android <= 11 BLE scan
+             genuinely needs it) and replaces the plugin's unbounded node
+         Paired with BleClient.initialize({ androidNeverForLocation: true }). -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30"
+        tools:node="replace" />
 </manifest>

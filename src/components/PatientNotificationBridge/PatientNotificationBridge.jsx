@@ -11,11 +11,15 @@ import {
 } from '../../services/patientPreferences';
 import {
   playPatientNotificationSound,
+  requestNotificationPermission,
   showPatientNotification,
   triggerPatientHaptic,
 } from '../../services/nativePatientFeatures';
 
 const seenStorageKey = (userId) => `fetal_guard_seen_patient_alerts_v1:${encodeURIComponent(userId)}`;
+const permissionPromptedKey = (userId) => (
+  `fetal_guard_notif_permission_prompted_v1:${encodeURIComponent(userId)}`
+);
 
 const readSeenIds = (userId) => {
   try {
@@ -93,6 +97,30 @@ const PatientNotificationBridge = () => {
       }
     }
     persistSeenIds(userId, seenIdsRef.current);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    // Ask for OS notification permission once per patient, the first time the app
+    // runs with them signed in — so alert pushes work without a detour through
+    // Settings. If they deny, showPatientNotification degrades silently and the
+    // in-app notification list still works.
+    let alreadyPrompted = false;
+    try {
+      alreadyPrompted = localStorage.getItem(permissionPromptedKey(userId)) === '1';
+    } catch {
+      alreadyPrompted = false;
+    }
+    if (alreadyPrompted) return;
+    void requestNotificationPermission()
+      .catch(() => false)
+      .finally(() => {
+        try {
+          localStorage.setItem(permissionPromptedKey(userId), '1');
+        } catch {
+          // A blocked storage just means we may re-prompt next launch; harmless.
+        }
+      });
   }, [userId]);
 
   useEffect(() => {

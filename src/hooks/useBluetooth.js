@@ -517,7 +517,7 @@ export function useBluetooth(config = {}) {
       try {
         if (Capacitor.isNativePlatform()) {
           const { BleClient } = await import('@capacitor-community/bluetooth-le');
-          await BleClient.initialize({ androidNeverForLocation: false });
+          await BleClient.initialize({ androidNeverForLocation: true });
           bleClientRef.current = BleClient;
         } else {
           const webClient = createWebBluetoothClient();
