@@ -17,12 +17,18 @@
 //
 // Board: ESP32-S3 (Arduino core). Tidak perlu sensor terpasang.
 //
-// Langkah pakai:
-//   1. Provision perangkat:  python backend/provision_devices.py --count 1 \
-//        --prefix FG-BENCH --hardware bench-demo --out batch.csv
-//   2. Salin device_uid dan packet_secret dari CSV ke dua konstanta di bawah.
-//   3. Flash sketch ini.
-//   4. Di aplikasi pasien: scan, tautkan dengan claim code dari CSV, mulai sesi.
+// Langkah pakai (runbook lengkap: docs/ops/esp32-synthetic-e2e-runbook.md):
+//   1. Portal admin -> panel "Perangkat" -> Daftarkan perangkat
+//        UID  : FETAL-GUARD-BENCH-02  (lihat aturan penamaan di bawah)
+//        Tautkan ke pasien bench, status: Aktif
+//   2. Baris perangkat -> "Terbitkan claim code"  -> catat (untuk aplikasi)
+//                       -> "Rotasi signing key"   -> catat (untuk sketch ini)
+//   3. Salin device_uid dan packet_secret ke dua konstanta di bawah, flash.
+//   4. Di aplikasi pasien: masukkan claim code, scan, tautkan, mulai sesi.
+//
+// ATURAN PENAMAAN UID: harus diawali "FETAL-GUARD". Aplikasi memindai BLE
+// dengan filter namePrefix "FETAL-GUARD" (src/hooks/useBluetooth.js), jadi
+// perangkat bernama "FG-BENCH-02" tidak akan pernah muncul di hasil scan.
 //
 // =====================================================
 
@@ -37,10 +43,12 @@
 #include <time.h>
 
 // ===== WAJIB DIISI SEBELUM FLASH =====================
-// Harus sama persis dengan device_uid yang terdaftar di backend.
-const char *FG_DEVICE_UID = "FG-BENCH-001";
-// Kunci penandatanganan dari provision_devices.py. Biarkan kosong hanya jika
-// perangkat belum diprovisikan dan backend belum mewajibkan tanda tangan.
+// Harus sama persis dengan device_uid yang terdaftar di backend, dan harus
+// diawali "FETAL-GUARD" (lihat ATURAN PENAMAAN UID di header).
+const char *FG_DEVICE_UID = "FETAL-GUARD-BENCH-02";
+// Kunci penandatanganan dari panel admin "Perangkat" -> Rotasi signing key,
+// ditampilkan sekali. Biarkan kosong hanya jika perangkat belum diprovisikan
+// dan backend belum mewajibkan tanda tangan (production staging mewajibkannya).
 const char *FG_DEVICE_PACKET_SECRET = "";
 // =====================================================
 
@@ -109,10 +117,14 @@ bool formatGatewayTimestamp(char *output, size_t outputSize, uint64_t epochMs)
 }
 
 // ===== TANDA TANGAN PAKET =============================
-// Skema identik dengan backend/core/device_auth.py dan firmware asli:
+// Skema identik dengan backend/core/device_auth.py, firmware asli
+// (fetalguard/fetalguard.ino), simulator Node (scripts/simulate-belt-telemetry.mjs),
+// dan fixture di contracts/telemetry/README.md:
 //   FGSIG1|<uid>|<boot_id>|<seq>|<captured_at_ms>|<schema>|<digest>
 // digest = SHA-256 atas "p:<v,..>|fsr:<v,..>|hr_ir:<v,..>|hr_red:<v,..>",
 // selalu memuat keempat kanal agar kanal yang hilang mengubah digest.
+// String yang ditandatangani dibangun dari nilai yang di-parse, bukan teks JSON,
+// jadi tahan terhadap re-serialisasi oleh gateway ponsel.
 
 // Arduino's String gained an unsigned-long-long constructor only in newer cores,
 // so 64-bit values are formatted explicitly to keep this sketch portable.

@@ -3,6 +3,12 @@
 Panduan membuktikan jalur ESP32-S3 → BLE → aplikasi pasien → backend → dashboard
 nakes bekerja, sebelum sensor fisik selesai dirancang.
 
+> **Untuk uji dengan ESP32-S3 asli + APK di HP asli, pakai
+> `docs/ops/esp32-synthetic-e2e-runbook.md`** (versi terkini, memakai panel
+> admin "Perangkat"). Dokumen ini masih berguna untuk **Tahap 0** — membuktikan
+> backend + dashboard hidup lewat `npm run simulate:belt`, tanpa hardware sama
+> sekali. Tahap 1 di bawah digantikan oleh runbook itu.
+
 **Yang diuji:** transport, penautan perangkat, ingestion, derivasi vital, alert,
 dan tampilan di kedua sisi.
 

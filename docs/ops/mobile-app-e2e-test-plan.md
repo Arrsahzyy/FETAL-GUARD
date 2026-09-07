@@ -1,8 +1,18 @@
 # Mobile App — Audit & Rencana Uji End-to-End (Hardware ↔ Apps ↔ Azure)
 
-**Tanggal:** 2026-09-06
+**Tanggal:** 2026-09-06 (diperbarui 2026-09-07)
 **Cakupan:** aplikasi Capacitor Android (`com.fetalguard.app`), jalur BLE ESP32 → app → backend Azure → dashboard nakes
 **Status backend/frontend:** staging live di `https://pkmkcfetalguard.app` / `https://api.pkmkcfetalguard.app`
+
+> **Untuk eksekusi Fase C–E dengan ESP32-S3 asli + data sintetis, ikuti
+> `docs/ops/esp32-synthetic-e2e-runbook.md`** — runbook itu menggabungkan
+> Fase C–E + bench-connectivity-test.md jadi satu langkah-per-langkah yang
+> memakai panel admin "Perangkat" (tanpa curl / tanpa `provision_devices.py`).
+>
+> **Sudah selesai sejak dokumen ini:** M1 (`build-android-staging.ps1`),
+> M3 (provisioning perangkat kini lewat UI admin), M4 (`neverForLocation` +
+> `androidNeverForLocation: true` → scan BLE tanpa prompt lokasi di Android 12+),
+> M5 (izin notifikasi diminta sekali otomatis di `PatientNotificationBridge`).
 
 ---
 
