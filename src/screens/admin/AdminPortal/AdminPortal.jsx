@@ -7,6 +7,7 @@ import api, {
   isRequestCanceled,
   setStoredOrganizationId,
 } from '../../../services/api';
+import DevicesPanel from './DevicesPanel';
 import './AdminPortal.css';
 
 const PAGE_SIZE = 10;
@@ -828,6 +829,12 @@ const AdminPortal = () => {
           </>
         )}
       </section>
+
+      <DevicesPanel
+        patients={patients}
+        patientsLoading={isPatientLoading}
+        organizationId={selectedOrganizationId}
+      />
 
       <section className="admin-panel admin-table-panel">
         <div className="admin-panel__header admin-panel__header--row">

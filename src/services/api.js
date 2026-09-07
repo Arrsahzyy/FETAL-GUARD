@@ -784,8 +784,9 @@ const admin = {
     return response.data;
   },
 
-  async listDevices({ q, patientId, status, limit = 25, offset = 0 } = {}) {
+  async listDevices({ q, patientId, status, limit = 25, offset = 0, signal } = {}) {
     const response = await apiClient.get('/devices', {
+      signal,
       params: {
         q: q || undefined,
         patient_id: patientId || undefined,
@@ -804,6 +805,16 @@ const admin = {
 
   async updateDevice(deviceId, data) {
     const response = await apiClient.patch(`/devices/${deviceId}`, data);
+    return response.data;
+  },
+
+  async provisionDeviceClaimCode(deviceId) {
+    const response = await apiClient.post(`/devices/${deviceId}/claim-code`);
+    return response.data;
+  },
+
+  async provisionDeviceSigningKey(deviceId) {
+    const response = await apiClient.post(`/devices/${deviceId}/signing-key`);
     return response.data;
   },
 };
