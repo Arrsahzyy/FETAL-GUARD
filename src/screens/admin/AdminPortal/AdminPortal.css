@@ -116,6 +116,7 @@
 .admin-portal__stats,
 .admin-portal__grid,
 .admin-scope-panel,
+.admin-devices-panel,
 .admin-table-panel {
   max-width: 1180px;
   margin-right: auto;
@@ -689,6 +690,12 @@
 }
 
 /* ── Devices panel ─────────────────────────────────────────────────────────── */
+
+/* Matches the 18px gap the scope/table panels keep between each other. The
+   1180px cap + auto side-margins are shared with those panels above. */
+.admin-devices-panel {
+  margin-bottom: 18px;
+}
 
 /* Two extra status tones alongside the pending/ready/inactive set at line ~525. */
 .admin-status.admin-status--warning {
