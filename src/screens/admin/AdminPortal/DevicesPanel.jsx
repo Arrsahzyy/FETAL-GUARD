@@ -279,46 +279,15 @@ function DevicesPanel({ patients, patientsLoading, organizationId }) {
 
   return (
     <section className="admin-panel admin-devices-panel">
-      <div className="admin-panel__header admin-panel__header--row">
-        <div>
-          <h2>Perangkat</h2>
-          <p>
-            Daftarkan belt, terbitkan claim code dan signing key, tautkan ke pasien, dan atur
-            statusnya. Semua tanpa akses shell.
-          </p>
-        </div>
-        <div className="admin-table-panel__tools">
-          <label className="admin-search">
-            <span>Cari UID / nama</span>
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              placeholder="Cari perangkat..."
-            />
-          </label>
-          <label className="admin-search admin-search--compact">
-            <span>Status</span>
-            <select value={statusFilter} onChange={handleStatusFilterChange}>
-              {STATUS_FILTERS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="admin-table-panel__refresh"
-            onClick={() => loadDevices()}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Memuat...' : 'Muat ulang'}
-          </button>
-        </div>
+      <div className="admin-panel__header">
+        <h2>Perangkat</h2>
+        <p>
+          Daftarkan belt, terbitkan claim code dan signing key, tautkan ke pasien, dan atur
+          statusnya. Semua tanpa akses shell.
+        </p>
       </div>
 
-      <form className="admin-assignment-form" onSubmit={handleRegisterSubmit}>
+      <form className="admin-devices-panel__register" onSubmit={handleRegisterSubmit}>
         <label className="admin-form__field">
           <span>UID perangkat</span>
           <input
@@ -397,6 +366,36 @@ function DevicesPanel({ patients, patientsLoading, organizationId }) {
           {copyState && <p>{copyState}</p>}
         </div>
       )}
+
+      <div className="admin-devices-panel__toolbar">
+        <label className="admin-search">
+          <span>Cari UID / nama</span>
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Cari perangkat..."
+          />
+        </label>
+        <label className="admin-search admin-search--compact">
+          <span>Status</span>
+          <select value={statusFilter} onChange={handleStatusFilterChange}>
+            {STATUS_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="admin-table-panel__refresh"
+          onClick={() => loadDevices()}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Memuat...' : 'Muat ulang'}
+        </button>
+      </div>
 
       {isLoading ? (
         <div className="admin-empty">Memuat daftar perangkat...</div>

@@ -705,6 +705,42 @@
   min-width: min(180px, 100%);
 }
 
+/* Register form: 4 fields + submit. Own grid so it doesn't inherit the
+   3-slots-plus-auto layout of .admin-assignment-form (which is built for 3
+   selects + a button). */
+.admin-devices-panel__register {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px;
+  background: rgba(248, 251, 255, 0.78);
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+}
+
+.admin-devices-panel__register .admin-form__submit {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-width: 190px;
+}
+
+/* Filter bar above the table — full panel width, wraps on narrow screens. */
+.admin-devices-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 620px) {
+  .admin-devices-panel__register {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-devices-panel__subtle {
   margin-top: 3px;
   color: var(--admin-muted);
