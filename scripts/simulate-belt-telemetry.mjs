@@ -106,14 +106,21 @@ if (!email || !password || !deviceUid) {
   process.exit(2);
 }
 
-const request = async (path, { method = 'GET', token, body } = {}) => {
+const request = async (path, { method = 'GET', token, body, form } = {}) => {
+  // `/auth/login` is an OAuth2 password flow: it wants form-encoded
+  // username/password, not JSON. Everything else on the API is JSON.
+  const isForm = form !== undefined;
   const response = await fetch(`${apiBase}${path}`, {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': isForm ? 'application/x-www-form-urlencoded' : 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(isForm
+      ? { body: new URLSearchParams(form).toString() }
+      : body
+        ? { body: JSON.stringify(body) }
+        : {}),
   });
   const text = await response.text();
   let payload = null;
@@ -190,7 +197,7 @@ const main = async () => {
 
   const login = await request('/auth/login', {
     method: 'POST',
-    body: { email, password },
+    form: { username: email, password },
   });
   const token = login.access_token;
   if (!token) throw new Error('Login succeeded but returned no access token');
