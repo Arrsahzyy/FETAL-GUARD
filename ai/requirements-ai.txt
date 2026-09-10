@@ -10,4 +10,7 @@ matplotlib>=3.9
 
 # Choose one deep-learning backend for actual training.
 # The scaffold imports torch lazily, so tests can run without it.
+# CPU-only (no GPU on the dev box): install from the PyTorch CPU index instead --
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# See docs/ai/research-model-training.md for the isolated .venv-ai setup.
 torch>=2.4

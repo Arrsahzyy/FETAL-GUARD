@@ -321,13 +321,32 @@ Ukuran: S = <1 hari, M = 1–3 hari, L = >1 minggu / butuh data eksternal.
 - [x] I7 — `docs/ai/model-cards/TEMPLATE.md` + `ctg_cnn_lstm_adit.md` + `docs/ai/dataset-provenance.md`
 - **Hasil:** satu jalur AI (jalur A), satu lapisan DSP (`services/signal_processing.py`), redundansi hilang. `AI_PIPELINE_MODE` tetap `disabled`. Tidak ada perubahan yang terlihat pengguna.
 
-### Fase 1 — Research (internal)
+### Fase 1 — Research (internal) — SEBAGIAN JALAN 2026-09-10
 
-- [ ] I1, I2, I3 — UC rate estimator, hysteresis, `prepare_window` di worker
-- [ ] Daftarkan model Adit sebagai `AIModelVersion` slot `research`
-- [ ] `AI_PIPELINE_MODE=research` di lingkungan dev; worker jalan, hasil masuk `AIAnalysisResult` (tidak ada UI)
-- [ ] `npm run simulate:belt` → verifikasi job dibuat, worker memproses, hasil tersimpan
-- **Hasil:** pipeline end-to-end terbukti jalan dengan model nyata (walau sintetis).
+Dikerjakan (jalur **model kita `fetal_guard_ai`**, bukan model Adit — lihat catatan):
+
+- [x] Generator data sintetis multimodal — `ai/scripts/make_synthetic_smoke_windows.py`
+  (piezo 4ch + fsr + maternal_ppg, di-z-score sama seperti jalur inferensi,
+  `dataset_kind="synthetic_smoke_test"` → tak bisa naik dari `research`)
+- [x] Latih checkpoint `fetal_guard_ai` — `ai/scripts/train_cnn_lstm.py --allow-synthetic-smoke-test`
+  → `ai/runs/cnn_lstm/smoke-v1/{model.pt,manifest.json}`
+- [x] Smoke worker-loop tanpa DB — `ai/scripts/smoke_research_pipeline.py`
+  (chunk v2 → `prepare_stored_telemetry_window` → `load_model_bundle` → `predict_preprocessed_window`)
+- [x] `backend/scripts/register_hybrid_model.py` — daftarkan run sebagai `AIModelVersion`
+  (`experimental` / `research`), tulis `.env`
+- [x] Prosedur lengkap: `docs/ai/research-model-training.md`
+
+Belum:
+
+- [ ] I1, I2, I3 — UC rate estimator, hysteresis, `prepare_window` dispatch-by-architecture di worker
+- [ ] Verifikasi `npm run local` + worker + `simulate:belt` end-to-end di mesin dev (job → `AIAnalysisResult` tersimpan)
+- [ ] Daftarkan model Adit (butuh `fetch-ctg-adit-reference.ps1` + port DSP turunan)
+
+**Catatan:** kami melatih **model multimodal kita sendiri** dulu (pakai data
+sintetis) alih-alih model Adit, karena (a) modelnya beroperasi pada sinyal
+mentah = visi roadmap M6, (b) scaffold trainingnya sudah lengkap di repo,
+(c) tidak perlu fetch/port DSP Adit. Model Adit tetap baseline pembanding di
+Fase 2. Hasil sintetis ini **bukan klinis** — hanya membuktikan pipa jalan.
 
 ### Fase 2 — Validasi (paralel, butuh Adit + data)
 
