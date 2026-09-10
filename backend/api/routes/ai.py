@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user
@@ -10,17 +9,13 @@ from core.authorization import (
     Principal,
     get_current_staff_principal,
     require_permission,
-    resolve_staff_principal,
     scoped_patient_or_404,
-    scoped_patient_query,
 )
 from core.config import settings
 from core.realtime import enqueue_realtime_event
 from db.database import get_db
 from models.ai_analysis import AIAnalysisResult, AIAnalysisReview
 from models.patient import Patient
-from models.sensor_data import SensorDataChunk
-from models.session import MonitoringSession
 from models.user import User
 from schemas.ai import (
     AIAnalysisResultPage,
@@ -28,8 +23,6 @@ from schemas.ai import (
     AIAnalysisReviewRequest,
     AIAnalysisReviewResponse,
     AIPatientAvailabilityResponse,
-    AIPredictRequest,
-    AIPredictResponse,
 )
 
 router = APIRouter()
@@ -106,100 +99,6 @@ def build_analysis_page(
         total=total,
         limit=limit,
         offset=offset,
-    )
-
-
-def get_accessible_sensor_chunk(
-    db: Session,
-    chunk_id: str,
-    current_user: User,
-    organization_id: str | None = None,
-) -> SensorDataChunk:
-    if current_user.role in {"clinician", "admin"}:
-        principal = resolve_staff_principal(db, current_user, organization_id)
-        require_permission(principal, "patients:read:assigned", "patients:read:facility")
-        authorized_patients = scoped_patient_query(db, principal).with_entities(Patient.id).subquery()
-        chunk = (
-            db.query(SensorDataChunk)
-            .join(MonitoringSession, SensorDataChunk.session_id == MonitoringSession.id)
-            .filter(
-                SensorDataChunk.id == chunk_id,
-                MonitoringSession.patient_id.in_(select(authorized_patients.c.id)),
-            )
-            .first()
-        )
-    elif current_user.role == "patient":
-        chunk = (
-            db.query(SensorDataChunk)
-            .join(MonitoringSession, SensorDataChunk.session_id == MonitoringSession.id)
-            .join(Patient, Patient.id == MonitoringSession.patient_id)
-            .filter(
-                SensorDataChunk.id == chunk_id,
-                Patient.user_id == current_user.id,
-            )
-            .first()
-        )
-    else:
-        chunk = None
-
-    if chunk is not None:
-        return chunk
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Sensor data chunk not found",
-    )
-
-
-@router.post("/predict", response_model=AIPredictResponse)
-def predict_screening(
-    request: AIPredictRequest,
-    organization_id: str | None = Header(default=None, alias="X-Organization-ID"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    chunk = get_accessible_sensor_chunk(
-        db,
-        request.sensor_data_chunk_id,
-        current_user,
-        organization_id,
-    )
-
-    if settings.AI_PIPELINE_MODE == "disabled":
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "AI inference is not available. Signal processing, model validation, "
-                "and clinical review must be completed before this endpoint is enabled."
-            ),
-        )
-
-    try:
-        from services.ctg_cnn_lstm_adapter import predict_from_payload
-
-        prediction = predict_from_payload(chunk.payload)
-    except Exception as exc:  # pragma: no cover - route intentionally fails closed on missing model payload.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "AI inference is not available. Signal processing, model validation, "
-                "and clinical review must be completed before this endpoint is enabled."
-            ),
-        ) from exc
-
-    overall_confidence = prediction["overall"]["confidence"]
-    risk_score = 0.0 if prediction["overall"]["status"] == "Normal" else min(1.0, max(0.55, overall_confidence))
-    classification = "Dalam Batas Normal" if prediction["overall"]["status"] == "Normal" else "Perlu Observasi"
-    return AIPredictResponse(
-        sensor_data_chunk_id=chunk.id,
-        fhr=prediction["fhr"],
-        mhr=prediction["mhr"],
-        uc=prediction["uc"],
-        overall=prediction["overall"],
-        risk_score=risk_score,
-        classification=classification,
-        message="Prediksi CTG CNN-LSTM dari window sensor yang tersedia.",
-        is_stub=False,
     )
 
 
