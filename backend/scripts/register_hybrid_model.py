@@ -79,7 +79,7 @@ def main() -> None:
             preprocessing_version=manifest.preprocessing_version,
             input_schema_version=manifest.input_schema_version,
             artifact_sha256=manifest.artifact_sha256,
-            manifest_uri=f"file://{manifest_path.as_posix()}",
+            manifest_uri=manifest_path.as_uri(),
             validation_status=manifest.validation_status.value,
             deployment_slot=args.slot,
             is_active=True,

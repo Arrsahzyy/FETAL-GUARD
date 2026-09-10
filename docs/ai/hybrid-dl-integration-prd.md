@@ -332,14 +332,19 @@ Dikerjakan (jalur **model kita `fetal_guard_ai`**, bukan model Adit — lihat ca
   → `ai/runs/cnn_lstm/smoke-v1/{model.pt,manifest.json}`
 - [x] Smoke worker-loop tanpa DB — `ai/scripts/smoke_research_pipeline.py`
   (chunk v2 → `prepare_stored_telemetry_window` → `load_model_bundle` → `predict_preprocessed_window`)
+- [x] **E2E terverifikasi** — `backend/tests/test_ai_hybrid_pipeline_smoke.py`: ingestion HTTP
+  → `enqueue_ready_window` (job dibuat) → `run_ai_inference_worker.run_once` → `AIAnalysisResult`
+  (`visibility=shadow`). Hermetik (sqlite in-memory), skip di CI (torch tak ada). **PASS.**
 - [x] `backend/scripts/register_hybrid_model.py` — daftarkan run sebagai `AIModelVersion`
-  (`experimental` / `research`), tulis `.env`
+  (`experimental` / `research`), tulis `.env`. (Bug diperbaiki: `manifest_uri` pakai
+  `Path.as_uri()` → `file:///` yang bisa di-load worker di Windows, bukan `file://E:/…`.)
 - [x] Prosedur lengkap: `docs/ai/research-model-training.md`
 
 Belum:
 
 - [ ] I1, I2, I3 — UC rate estimator, hysteresis, `prepare_window` dispatch-by-architecture di worker
-- [ ] Verifikasi `npm run local` + worker + `simulate:belt` end-to-end di mesin dev (job → `AIAnalysisResult` tersimpan)
+- [ ] Latih lebih lama / data lebih besar supaya head measurement tidak selalu digate
+  (checkpoint smoke saat ini benar-benar digate ke `insufficient_signal` — safety layer bekerja)
 - [ ] Daftarkan model Adit (butuh `fetch-ctg-adit-reference.ps1` + port DSP turunan)
 
 **Catatan:** kami melatih **model multimodal kita sendiri** dulu (pakai data

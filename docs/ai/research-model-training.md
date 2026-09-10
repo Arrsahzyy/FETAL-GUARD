@@ -46,7 +46,20 @@ cd ai
 manifest carries `dataset_kind="synthetic_smoke_test"` — it can never be promoted
 past `research`. Output: `ai/runs/cnn_lstm/smoke-v1/{model.pt, manifest.json, training_summary.json}`.
 
-## 3. Smoke-test the worker's inner loop (no DB)
+## 3. Verify end to end
+
+Hermetic (in-memory sqlite, no servers), requires torch + the trained checkpoint:
+
+```powershell
+cd backend
+venv\Scripts\python -m pytest tests\test_ai_hybrid_pipeline_smoke.py -q
+```
+
+Streams telemetry → `enqueue_ready_window` creates a job → `run_ai_inference_worker.run_once`
+processes it → an `AIAnalysisResult` lands with `visibility=shadow`. Skips
+automatically where torch or the checkpoint is absent (so it is a no-op in CI).
+
+### Worker inner loop only (no DB)
 
 ```powershell
 .venv-ai\Scripts\python ai\scripts\smoke_research_pipeline.py `
@@ -63,6 +76,15 @@ Builds synthetic telemetry v2 chunks → `prepare_stored_telemetry_window` →
 cd backend
 venv\Scripts\python scripts\register_hybrid_model.py --manifest ..\ai\runs\cnn_lstm\smoke-v1\manifest.json
 # writes backend/.env: AI_PIPELINE_MODE=research, AI_ACTIVE_MODEL_VERSION_ID=<id>
+```
+
+The inference worker imports both backend deps and torch, so its environment
+needs both (dev only — `backend/requirements.txt` and prod stay torch-free):
+
+```powershell
+cd backend
+venv\Scripts\python -m pip install "numpy>=1.24"
+venv\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
 Then, in three terminals:

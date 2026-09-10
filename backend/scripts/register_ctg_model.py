@@ -94,7 +94,7 @@ def main() -> None:
             preprocessing_version="adit-derived-vitals-15x3",
             input_schema_version=2,
             artifact_sha256=sha,
-            manifest_uri=f"file://{checkpoint.as_posix()}",
+            manifest_uri=checkpoint.as_uri(),
             # Synthetic-only training, no real-CTG validation -> experimental / research.
             validation_status="experimental",
             deployment_slot="research",
