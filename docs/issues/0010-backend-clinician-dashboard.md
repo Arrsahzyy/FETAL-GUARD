@@ -1,5 +1,10 @@
 # Issue: [API] Dashboard Nakes dan AI Stub
 
+> **Historis.** Bagian AI stub (`POST /ai/predict`, `backend/services/ai_stub.py`)
+> dihapus 2026-09-10 (Fase 0 konsolidasi AI). Inferensi AI sekarang lewat
+> pipeline job/worker/gate — lihat `docs/ai/hybrid-dl-integration-prd.md`.
+> Bagian dashboard nakes tetap berlaku.
+
 ## Roadmap Stage
 - Tahap 2: Akuisisi & Dashboard Dasar
 - Tahap 4: Model AI Awal (Stub)

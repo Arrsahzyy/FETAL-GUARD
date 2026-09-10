@@ -1,18 +1,45 @@
 # PRD — Integrasi Hybrid Deep Learning ke Pengolahan & Monitoring Data FETAL-GUARD
 
-**Status:** Draft untuk keputusan tim
-**Tanggal:** 2026-09-04
+**Status:** Draft untuk keputusan tim — **Fase 0 selesai 2026-09-10**
+**Tanggal:** 2026-09-04 (rev. 2026-09-10)
 **Penulis:** review & rancangan oleh Claude (Sonnet 5), atas permintaan pemilik repo
-**Input:** repo model `https://github.com/Adityakknn/ctg_cnn_lstm_adit` (Adit), kondisi kode AI di repo FETAL-GUARD per commit `69a3939`
-**Baca bersama:** `FETAL_GUARD_ROADMAP.md` §9 (Milestone 6), `AGENTS.md` §8, `docs/ops/*`
+**Input:** repo model `https://github.com/Adityakknn/ctg_cnn_lstm_adit` (Adit) @ `25e60611` (2026-09-01), kondisi kode AI di repo FETAL-GUARD per commit `69a3939`
+**Baca bersama:** `FETAL_GUARD_ROADMAP.md` §9 (Milestone 6), `AGENTS.md` §8, `docs/ai/model-cards/`, `docs/ai/dataset-provenance.md`, `docs/ops/*`
+
+---
+
+## Status per 2026-09-10 — Fase 0 (konsolidasi) SELESAI
+
+Yang berubah (branch `chore/ai-fase-0-consolidation`, `AI_PIPELINE_MODE` tetap `disabled`):
+
+- **Jalur B dihapus.** `POST /ai/predict`, skema `AIPredict*`,
+  `backend/services/ctg_cnn_lstm_adapter.py`, dan `backend/services/ai_stub.py`
+  (dead `classify_screening_stub()` acak) dihapus. Endpoint inferensi tak-tergate
+  hilang. `torch.load(weights_only=False)` tidak lagi ada di jalur backend.
+- **`ctg_cnn_lstm_merged/` dihapus** dari repo (versi stale, split level-window
+  yang bocor). Model Adit sekarang **tidak di-vendor** — diambil sesuai kebutuhan
+  ke `ai/vendor/` (gitignored) lewat `scripts/fetch-ctg-adit-reference.ps1` yang
+  berpin di commit `25e60611`. Ini menggantikan rencana I6 awal (lihat §3.4).
+- **`register_ctg_model.py` diperbaiki:** `validation_status="experimental"`
+  (bukan `analytical_validated`), wajib `--model-card`, checkpoint dari
+  `ai/vendor/`.
+- **Dokumentasi jujur ditambahkan:** `docs/ai/model-cards/TEMPLATE.md`,
+  `docs/ai/model-cards/ctg_cnn_lstm_adit.md` (angka 5-fold CV asli, disclosure
+  data sintetis), `docs/ai/dataset-provenance.md`.
+- **Jalur A tidak disentuh** — tetap satu-satunya jalur inferensi. Belum ada
+  checkpoint `fetal_guard_ai`.
+
+Riset ulang model Adit per 2026-09-10: repo Adit tidak berubah sejak review
+(commit terakhir `25e60611`, 2026-09-01). `external_validation.py` masih belum
+pernah dijalankan terhadap data nyata. Verdict tidak berubah: **`research` saja.**
 
 ---
 
 ## 0. TL;DR — keputusan yang diminta
 
 1. **Model Adit layak dipakai?** Ya sebagai **artefak riset & template metodologi**, **tidak** sebagai mesin hybrid-DL produksi apa adanya. Metodologinya bagus dan jujur; datanya 100% sintetis; keunggulannya atas baseline sederhana (Random Forest) marginal; pendekatan pemodelannya berbeda dari paket `ai/src/fetal_guard_ai` milik kita.
-2. **Masalah utama sekarang bukan "model belum diintegrasikan" — tapi ada 3 badan kode AI yang tumpang tindih di repo** (paket `fetal_guard_ai` kita, model Adit yang sudah di-vendor di `ctg_cnn_lstm_merged/`, dan adapter `ctg_cnn_lstm_adapter.py`), plus lapisan signal-processing baru (`services/signal_processing.py`) yang menduplikasi lapisan DSP Adit. Ini persis sumber redundansi yang dikhawatirkan.
-3. **Rekomendasi:** satukan menjadi **satu pipeline** (paket `fetal_guard_ai` + worker terisolasi + gate artefak `AIModelVersion`). Jadikan model Adit sebagai **baseline pembanding** dan **resep training** untuk melatih model kita sendiri di atas kontrak telemetri kita. Hapus jalur ganda.
+2. **Masalah utama sekarang bukan "model belum diintegrasikan" — tapi ada 3 badan kode AI yang tumpang tindih di repo.** ✅ **Diselesaikan Fase 0 (2026-09-10):** jalur B (`/ai/predict` + adapter) dan `ctg_cnn_lstm_merged/` dihapus. Tersisa satu jalur (paket `fetal_guard_ai` + worker + gate). Lihat "Status per 2026-09-10" di atas.
+3. **Rekomendasi:** satukan menjadi **satu pipeline** (paket `fetal_guard_ai` + worker terisolasi + gate artefak `AIModelVersion`). Jadikan model Adit sebagai **baseline pembanding** dan **resep training** untuk melatih model kita sendiri di atas kontrak telemetri kita. Hapus jalur ganda. ✅ Fase 0.
 4. **AI tetap `disabled` untuk pasien/nakes** sampai ada validasi terhadap data CTG nyata (JNU-CTG / CTU-UHB / fPCG PhysioNet — lihat §4b). Model Adit saat ini hanya memenuhi syarat slot `research`.
 
 ---
@@ -84,7 +111,7 @@ Poin yang benar dan jarang dilakukan mahasiswa:
 | T4 | Input model butuh `uc_per_10min` (hitungan kontraksi) | Pipeline kita hanya meng-*klasifikasi* kontraksi (none/mild/regular/strong), **tidak menghitung**. Perlu estimator baru. |
 | T5 | Butuh **15 bacaan berurutan** [FHR,MHR,UC] rentang ~3,75 mnt | `SessionSensorSummary` kita hanya simpan derivasi **terakhir**. Tidak ada deret waktu nilai turunan yang dipersistensi. |
 | T6 | Lapisan `app/signal_processing/` + `app/services/sensor_pipeline.py` (bandpass + peak + SQI + `SensorSelector` hysteresis + `UterineBaseline`) | **Duplikasi** `backend/services/signal_processing.py` + `vitals_derivation.py` kita (autocorrelation + envelope). Dua implementasi DSP untuk pekerjaan yang sama. |
-| T7 | `ctg_cnn_lstm_merged/` (model Adit yang sudah di-vendor di repo kita) **lebih lama** dari GitHub Adit — belum ada `README_RESULTS.md`, `cross_validate.py`, `baseline.py`, checkpoint & dataset berbeda | Vendor stale. |
+| T7 | ~~`ctg_cnn_lstm_merged/` lebih lama dari GitHub Adit~~ → **dihapus Fase 0.** Model Adit kini di-fetch di commit berpin, bukan di-copy. | Diselesaikan. |
 
 ### 1.6 Verdict
 
@@ -107,12 +134,17 @@ Repo FETAL-GUARD **sudah** punya infrastruktur AI yang cukup matang. Masalahnya 
 - `backend/run_ai_publication_worker.py` — worker promosi hasil yang sudah di-review nakes
 - **Input:** window telemetri v2 mentah. **Output:** screening 3-kelas + measurement + quality. **Belum ada checkpoint terlatih** (butuh data).
 
-### 2.2 Jalur B — adapter model Adit
+### 2.2 Jalur B — adapter model Adit ~~(dihapus Fase 0, 2026-09-10)~~
 
-- `ctg_cnn_lstm_merged/` — model Adit di-vendor (versi lama)
-- `backend/services/ctg_cnn_lstm_adapter.py` — `predict_from_payload()`: coerce payload → window `(15,3)` → `from app.ai.inference import CTGPredictor`
-- `backend/api/routes/ai.py:/predict` — endpoint langsung, panggil adapter, **melewati** worker & job lifecycle & artefak gate jalur A
-- `backend/scripts/register_ctg_model.py` — daftarkan checkpoint Adit sebagai `AIModelVersion`, **set `validation_status="analytical_validated"`** (❌ salah — datanya sintetis), `deployment_slot="research"`
+> **Sudah dihapus.** Bagian ini dipertahankan sebagai catatan sejarah.
+
+- ~~`ctg_cnn_lstm_merged/`~~ — dihapus dari repo. Model Adit di-fetch sesuai
+  kebutuhan ke `ai/vendor/` (gitignored) di commit berpin `25e60611`.
+- ~~`backend/services/ctg_cnn_lstm_adapter.py`~~ — dihapus.
+- ~~`backend/api/routes/ai.py:/predict`~~ — dihapus. Tidak ada lagi endpoint
+  inferensi yang melewati gate jalur A.
+- `backend/scripts/register_ctg_model.py` — diperbaiki: `validation_status="experimental"`,
+  `deployment_slot="research"`, wajib model card. Dipakai di Fase 1.
 - **Input:** deret bpm turunan. **Output:** 4-head klasifikasi ambang.
 
 ### 2.3 Lapisan DSP — dua implementasi
@@ -129,8 +161,8 @@ Repo FETAL-GUARD **sudah** punya infrastruktur AI yang cukup matang. Masalahnya 
 ### 2.4 Kesimpulan peta
 
 - **`enqueue_ready_window` (jalur A) sudah terpasang di ingestion** — jadi begitu `AI_PIPELINE_MODE≠disabled` + ada `AIModelVersion` aktif, job mulai dibuat. Tapi worker jalur A butuh model `fetal_guard_ai` yang **belum ada checkpoint-nya**.
-- **`api/routes/ai.py:/predict` (jalur B) hidup paralel** dan akan pakai model Adit lewat adapter — **melewati** gate keselamatan jalur A.
-- **Lapisan DSP terduplikasi.** Untuk demo lokal, kita punya `vitals_derivation.py`. Untuk model Adit, `sensor_pipeline.py`-nya perlu di-port atau di-panggil.
+- ~~**`api/routes/ai.py:/predict` (jalur B) hidup paralel**~~ — **dihapus Fase 0.** Jalur A kini satu-satunya jalur inferensi.
+- **Lapisan DSP milik Adit tidak lagi di repo** (dihapus bersama `ctg_cnn_lstm_merged/`). Sumber tunggal FHR/MHR/SQI/kontraksi = `backend/services/signal_processing.py` + `vitals_derivation.py`. Yang berguna dari Adit (hysteresis pemilih kanal, `estimate_uc_rate`) di-port ke modul kita di Fase 1 (I1, I2) dari `ai/vendor/` hasil fetch.
 
 ---
 
@@ -184,10 +216,10 @@ ESP32 belt --(telemetri v2, HMAC-signed)--> POST /sessions/{id}/data
 | I1 | Estimator **UC rate** (hitungan kontraksi/10 mnt) dari FSR — port `estimate_uc_rate` + `UterineBaseline` Adit ke `services/signal_processing.py` | backend | S |
 | I2 | Hysteresis pemilih kanal piezo — port `SensorSelector` ke `signal_processing.py` (kurangi flip-flop antar window) | backend | S |
 | I3 | `prepare_window()` di worker: dari `SensorDataChunk` window → deret 15-titik `[FHR,MHR,UC-rate]` (untuk model Adit) **atau** tensor multimodal (untuk model kita) — dispatch by `AIModelVersion.architecture` | backend/worker | M |
-| I4 | Perbaiki `register_ctg_model.py`: `validation_status="experimental"` (bukan `analytical_validated`), `deployment_slot="research"`, tambah `model_card_uri` | backend/scripts | S |
-| I5 | **Hapus jalur B**: `api/routes/ai.py:/predict` diarahkan ke job lifecycle (atau dihapus), `ctg_cnn_lstm_adapter.py` dipindah jadi salah satu loader di worker | backend | M |
-| I6 | Vendor **hanya** model + inference + definisi label + skrip training Adit ke `ai/vendor/ctg_cnn_lstm/` (bukan `app/signal_processing/`, bukan `main.py`, bukan `aiService.js`). Update dari GitHub terbaru. `torch.load(weights_only=True)`. | repo | S |
-| I7 | Model card wajib untuk tiap `AIModelVersion` (`ai/model-cards/*.md`): data training, intended use, batasan, metrik validasi | repo | S |
+| I4 | ✅ **Selesai (Fase 0).** `register_ctg_model.py`: `validation_status="experimental"`, `deployment_slot="research"`, wajib `--model-card`. (Tidak menambah kolom `model_card_uri` — cukup argumen wajib + file di `docs/ai/model-cards/`.) | backend/scripts | S |
+| I5 | ✅ **Selesai (Fase 0).** Jalur B dihapus seluruhnya: `POST /ai/predict`, skema `AIPredict*`, `ctg_cnn_lstm_adapter.py`, `ai_stub.py`. Loader model Adit di worker menyusul di Fase 1 (bagian I3). | backend | M |
+| I6 | ✅ **Selesai (Fase 0), direvisi.** Model Adit **tidak di-vendor** — di-fetch sesuai kebutuhan ke `ai/vendor/` (gitignored) di commit berpin via `scripts/fetch-ctg-adit-reference.ps1`. Alasan: copy in-tree sudah drift 2 minggu sekali (T7). Vendor sungguhan (subset bersih, `weights_only=True`) dilakukan di Fase 1 saat model benar-benar dipakai worker. | repo | S |
+| I7 | ✅ **Selesai (Fase 0).** `docs/ai/model-cards/TEMPLATE.md` + `docs/ai/model-cards/ctg_cnn_lstm_adit.md` (angka CV asli, disclosure sintetis). `register_ctg_model.py` menolak model tanpa card. | repo | S |
 | I8 | Persistensi deret nilai turunan **opsional** — worker sudah bisa derive on-demand dari raw chunk; hanya perlu tabel `session_vitals_series` kalau mau chart tren per-window (bukan per-sesi) | backend | M (defer) |
 | I9 | Validasi tier-2 ke JNU-CTG + CTU-UHB, tier-1 ke IIScFHSDB + SUFHSDB (§4b); selesaikan `external_validation.py` (kolaborasi dengan Adit) | model repo | L |
 | I10 | Latih `fetal_guard_ai` (model multimodal kita) — butuh data window telemetri v2 nyata/semi-nyata + label. Pakai resep Adit (split sesi, CV, baseline). | ai/ | L |
@@ -280,14 +312,14 @@ Ukuran: S = <1 hari, M = 1–3 hari, L = >1 minggu / butuh data eksternal.
 
 ## 7. Rencana bertahap
 
-### Fase 0 — Konsolidasi (sekarang, tanpa mengaktifkan AI)
+### Fase 0 — Konsolidasi ✅ SELESAI 2026-09-10
 
-- [ ] I6 — vendor bersih model Adit dari GitHub terbaru ke `ai/vendor/ctg_cnn_lstm/` (model + inference + label + training, TANPA DSP/`main.py`)
-- [ ] I4 — perbaiki `register_ctg_model.py` (`experimental`, model card wajib)
-- [ ] I5 — hapus/arahkan `api/routes/ai.py:/predict`; `ctg_cnn_lstm_adapter.py` jadi loader di worker
-- [ ] Hapus `ctg_cnn_lstm_merged/` lama dari root repo
-- [ ] I7 — template model card
-- **Hasil:** satu jalur AI, satu lapisan DSP, redundansi hilang. `AI_PIPELINE_MODE` tetap `disabled`.
+- [x] I5 — jalur B dihapus seluruhnya (`/ai/predict`, skema `AIPredict*`, `ctg_cnn_lstm_adapter.py`, `ai_stub.py`, 2 skrip `test_esp32_*.py` root)
+- [x] Hapus `ctg_cnn_lstm_merged/` dari repo
+- [x] I6 (direvisi) — model Adit di-fetch sesuai kebutuhan ke `ai/vendor/` (gitignored) via `scripts/fetch-ctg-adit-reference.ps1` berpin `25e60611`; bukan vendor eager
+- [x] I4 — `register_ctg_model.py` → `validation_status="experimental"`, wajib `--model-card`
+- [x] I7 — `docs/ai/model-cards/TEMPLATE.md` + `ctg_cnn_lstm_adit.md` + `docs/ai/dataset-provenance.md`
+- **Hasil:** satu jalur AI (jalur A), satu lapisan DSP (`services/signal_processing.py`), redundansi hilang. `AI_PIPELINE_MODE` tetap `disabled`. Tidak ada perubahan yang terlihat pengguna.
 
 ### Fase 1 — Research (internal)
 

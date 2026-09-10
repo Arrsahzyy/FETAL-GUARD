@@ -48,7 +48,9 @@
 - `GET /sessions/{id}` — Detail sesi lengkap termasuk FHR summary.
 
 ### 6.4 Stub Inferensi AI
-- `POST /ai/predict` — Menerima window data time-series, mengembalikan prediksi (stub: random normal/waspada/bahaya).
+- ~~`POST /ai/predict`~~ — **Dihapus 2026-09-10 (Fase 0).** Rencana awal "stub random"
+  ini digantikan pipeline job/worker/gate (`services/ai_pipeline.py`,
+  `run_ai_inference_worker.py`). Kontrak terkini: `docs/ai/hybrid-dl-integration-prd.md`.
 
 ### 6.5 Dashboard Nakes
 - `GET /clinician/patients` — Daftar pasien dengan status risiko terkini.
