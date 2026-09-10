@@ -50,3 +50,8 @@ ai/checkpoints/*
 !ai/checkpoints/.gitkeep
 ai/runs/*
 !ai/runs/.gitkeep
+
+# External reference model, fetched on demand at a pinned commit
+# (scripts/fetch-ctg-adit-reference.ps1). Never committed — see
+# docs/ai/model-cards/ctg_cnn_lstm_adit.md for why it stays out of tree.
+ai/vendor/
